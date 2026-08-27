@@ -2,6 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>
+  /* Apply saved/preferred theme immediately to avoid a flash of the wrong theme */
+  (function(){
+    try{
+      var saved = localStorage.getItem('gsms-theme');
+      var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    }catch(e){}
+  })();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GSMS Tools | Gopal Sharma Memorial School Portal</title>
 <meta name="description" content="Official digital portal of Gopal Sharma Memorial School. Teachers, students and administrators sign in here to access school tools and resources.">
@@ -36,6 +46,9 @@
 
 <style>
   :root{
+    color-scheme: light;
+
+    /* ---------- Brand palette (light) ---------- */
     --teal-900:#0d3841;
     --teal-800:#124f59;
     --teal-700:#1b6b78;
@@ -49,11 +62,68 @@
     --ink-900:#1c2626;
     --ink-500:#5f6f70;
     --white:#ffffff;
+
+    /* ---------- Semantic tokens (change with theme) ---------- */
+    --bg-tint-gold: rgba(245,166,35,.10);
+    --bg-tint-teal: rgba(27,107,120,.10);
+    --border-card: rgba(13,56,65,.08);
+    --border-card-hover: rgba(245,166,35,.45);
+
+    /* Decorative flame ribbon */
+    --flame-a-start:#1b6b78;
+    --flame-a-end:#f5a623;
+    --flame-b-start:#227d8b;
+    --flame-b-end:#ffc65c;
+    --flame-opacity:.5;
+
+    /* Theme toggle control */
+    --toggle-bg: rgba(255,255,255,.75);
+    --toggle-border: rgba(13,56,65,.14);
+    --toggle-icon: var(--teal-700);
+    --toggle-shadow: 0 10px 24px -12px rgba(13,56,65,.4);
+
     --r-lg:26px;
     --r-md:18px;
     --shadow-card:0 18px 40px -22px rgba(13,56,65,.35);
     --shadow-card-hover:0 24px 50px -18px rgba(13,56,65,.45);
     --ease:cubic-bezier(.22,1,.36,1);
+  }
+
+  html[data-theme="dark"]{
+    color-scheme: dark;
+
+    --teal-900:#092227;
+    --teal-800:#8fe1ec;
+    --teal-700:#5fd0de;
+    --teal-600:#7fdbe6;
+    --teal-100:#173338;
+    --gold-600:#ffb648;
+    --gold-500:#ffc65c;
+    --gold-400:#ffd685;
+    --gold-100:#2b2110;
+    --cream:#0d1517;
+    --ink-900:#eef3f2;
+    --ink-500:#a4b6b7;
+    --white:#182425;
+
+    --bg-tint-gold: rgba(255,182,72,.07);
+    --bg-tint-teal: rgba(95,208,222,.10);
+    --border-card: rgba(255,255,255,.08);
+    --border-card-hover: rgba(255,198,92,.4);
+
+    --flame-a-start:#2f9aab;
+    --flame-a-end:#ffc65c;
+    --flame-b-start:#3fb2c2;
+    --flame-b-end:#ffd685;
+    --flame-opacity:.3;
+
+    --toggle-bg: rgba(24,36,37,.85);
+    --toggle-border: rgba(255,255,255,.14);
+    --toggle-icon: var(--gold-400);
+    --toggle-shadow: 0 10px 24px -12px rgba(0,0,0,.6);
+
+    --shadow-card:0 18px 40px -22px rgba(0,0,0,.55);
+    --shadow-card-hover:0 24px 50px -18px rgba(0,0,0,.65);
   }
 
   *,*::before,*::after{box-sizing:border-box;}
@@ -63,8 +133,8 @@
     margin:0;
     min-height:100svh;
     background:
-      radial-gradient(1100px 700px at 82% -10%, rgba(245,166,35,.10), transparent 60%),
-      radial-gradient(900px 600px at -10% 110%, rgba(27,107,120,.10), transparent 60%),
+      radial-gradient(1100px 700px at 82% -10%, var(--bg-tint-gold), transparent 60%),
+      radial-gradient(900px 600px at -10% 110%, var(--bg-tint-teal), transparent 60%),
       var(--cream);
     color:var(--ink-900);
     font-family:'Manrope',system-ui,-apple-system,sans-serif;
@@ -73,7 +143,43 @@
     align-items:center;
     overflow-x:hidden;
     position:relative;
+    transition:background-color .35s var(--ease), color .35s var(--ease);
   }
+
+  ::selection{background:var(--gold-400); color:var(--teal-900);}
+
+  /* ---------- Theme toggle ---------- */
+  .theme-toggle{
+    position:fixed;
+    top:18px;
+    right:18px;
+    z-index:50;
+    width:44px;
+    height:44px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--toggle-bg);
+    border:1.5px solid var(--toggle-border);
+    box-shadow:var(--toggle-shadow);
+    cursor:pointer;
+    -webkit-backdrop-filter:blur(8px);
+    backdrop-filter:blur(8px);
+    transition:background-color .3s var(--ease), border-color .3s var(--ease), box-shadow .3s var(--ease), transform .2s var(--ease);
+  }
+  .theme-toggle:hover{transform:translateY(-2px) scale(1.05);}
+  .theme-toggle:active{transform:translateY(0) scale(.96);}
+  .theme-toggle:focus-visible{outline:3px solid var(--gold-500); outline-offset:3px;}
+  .theme-toggle svg{
+    width:20px; height:20px; position:absolute;
+    fill:none; stroke:var(--toggle-icon); stroke-width:2; stroke-linecap:round; stroke-linejoin:round;
+    transition:opacity .3s var(--ease), transform .4s var(--ease), stroke .3s var(--ease);
+  }
+  .theme-toggle .icon-sun{opacity:1; transform:rotate(0deg) scale(1);}
+  .theme-toggle .icon-moon{opacity:0; transform:rotate(-70deg) scale(.5);}
+  html[data-theme="dark"] .theme-toggle .icon-sun{opacity:0; transform:rotate(70deg) scale(.5);}
+  html[data-theme="dark"] .theme-toggle .icon-moon{opacity:1; transform:rotate(0deg) scale(1);}
 
   /* ---------- Ambient flame-ribbon background (echoes the GSMS mark) ---------- */
   .flame-field{
@@ -89,7 +195,8 @@
     right:-8%;
     width:min(62vw,780px);
     height:auto;
-    opacity:.5;
+    opacity:var(--flame-opacity);
+    transition:opacity .35s var(--ease);
   }
   .flame-field .ribbon{
     fill:none;
@@ -131,6 +238,7 @@
     font-size:1.05rem;
     color:var(--teal-800);
     letter-spacing:.2px;
+    transition:color .3s var(--ease);
   }
   .brand-name span{
     display:block;
@@ -168,6 +276,7 @@
     border-radius:999px;
     opacity:0;
     animation:rise .7s var(--ease) .05s forwards;
+    transition:background-color .3s var(--ease), color .3s var(--ease);
   }
 
   h1{
@@ -179,6 +288,7 @@
     color:var(--ink-900);
     opacity:0;
     animation:rise .8s var(--ease) .15s forwards;
+    transition:color .3s var(--ease);
   }
   h1 em{
     font-style:italic;
@@ -186,6 +296,7 @@
     color:var(--teal-700);
     background:linear-gradient(180deg,transparent 62%, var(--gold-100) 62%);
     padding:0 2px;
+    transition:color .3s var(--ease), background .3s var(--ease);
   }
 
   .subtitle{
@@ -195,6 +306,7 @@
     max-width:46ch;
     opacity:0;
     animation:rise .8s var(--ease) .25s forwards;
+    transition:color .3s var(--ease);
   }
 
   /* ---------- Role cards ---------- */
@@ -217,11 +329,11 @@
     text-decoration:none;
     color:inherit;
     background:var(--white);
-    border:1px solid rgba(13,56,65,.08);
+    border:1px solid var(--border-card);
     border-radius:var(--r-lg);
     padding:34px 22px 28px;
     box-shadow:var(--shadow-card);
-    transition:transform .35s var(--ease), box-shadow .35s var(--ease), border-color .35s var(--ease);
+    transition:transform .35s var(--ease), box-shadow .35s var(--ease), border-color .35s var(--ease), background-color .35s var(--ease);
     opacity:0;
     animation:rise .7s var(--ease) forwards;
   }
@@ -233,7 +345,7 @@
   .role-card:focus-visible{
     transform:translateY(-6px);
     box-shadow:var(--shadow-card-hover);
-    border-color:rgba(245,166,35,.45);
+    border-color:var(--border-card-hover);
   }
   .role-card:focus-visible{
     outline:3px solid var(--gold-500);
@@ -268,6 +380,7 @@
     font-size:.86rem;
     color:var(--ink-500);
     line-height:1.5;
+    transition:color .3s var(--ease);
   }
   .role-go{
     margin-top:6px;
@@ -296,9 +409,15 @@
     padding:22px 20px 28px;
     font-size:.78rem;
     color:var(--ink-500);
+    transition:color .3s var(--ease);
   }
-  footer a{color:var(--teal-700); text-decoration:none; font-weight:600;}
+  footer a{color:var(--teal-700); text-decoration:none; font-weight:600; transition:color .3s var(--ease);}
   footer a:hover{text-decoration:underline;}
+
+  @media (max-width:480px){
+    .theme-toggle{width:40px; height:40px; top:14px; right:14px;}
+    .theme-toggle svg{width:18px; height:18px;}
+  }
 
   @media (prefers-reduced-motion: reduce){
     .flame-field .ribbon{animation:none;}
@@ -308,16 +427,26 @@
 </head>
 <body>
 
+<button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+  <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="12" r="4.2"/>
+    <path d="M12 2.5v2.4M12 19.1v2.4M4.5 4.5l1.7 1.7M17.8 17.8l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.5 19.5l1.7-1.7M17.8 6.2l1.7-1.7"/>
+  </svg>
+  <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5Z"/>
+  </svg>
+</button>
+
 <div class="flame-field" aria-hidden="true">
   <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="flameGradA" x1="0" y1="1" x2="0" y2="0">
-        <stop offset="0%" stop-color="#1b6b78"/>
-        <stop offset="100%" stop-color="#f5a623"/>
+        <stop offset="0%" style="stop-color:var(--flame-a-start)"/>
+        <stop offset="100%" style="stop-color:var(--flame-a-end)"/>
       </linearGradient>
       <linearGradient id="flameGradB" x1="0" y1="1" x2="0" y2="0">
-        <stop offset="0%" stop-color="#227d8b"/>
-        <stop offset="100%" stop-color="#ffc65c"/>
+        <stop offset="0%" style="stop-color:var(--flame-b-start)"/>
+        <stop offset="100%" style="stop-color:var(--flame-b-end)"/>
       </linearGradient>
     </defs>
     <path class="ribbon r1" d="M70,360 C30,300 40,220 100,160 C70,220 90,260 120,280"/>
@@ -391,6 +520,14 @@
 
 <script>
   document.getElementById('year').textContent = new Date().getFullYear();
+
+  var themeToggleBtn = document.getElementById('theme-toggle');
+  themeToggleBtn.addEventListener('click', function(){
+    var root = document.documentElement;
+    var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try{ localStorage.setItem('gsms-theme', next); }catch(e){}
+  });
 </script>
 
 </body>
