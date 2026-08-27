@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teacher Sign In | GSMS Tools</title>
+<meta name="description" content="Teacher sign in for the Gopal Sharma Memorial School portal. Sign in securely with a one-time code sent to your email.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/jpeg" href="https://sourabhsuneja.github.io/gsm-logo.jpeg">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- Supabase JS SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+  :root{
+    --teal-900:#0d3841;
+    --teal-800:#124f59;
+    --teal-700:#1b6b78;
+    --teal-600:#227d8b;
+    --teal-100:#e3eef0;
+    --gold-600:#e2941a;
+    --gold-500:#f5a623;
+    --gold-400:#ffc65c;
+    --gold-100:#fdf1dc;
+    --cream:#faf8f3;
+    --ink-900:#1c2626;
+    --ink-500:#5f6f70;
+    --ink-300:#93a0a1;
+    --white:#ffffff;
+    --red-600:#c0392b;
+    --red-100:#fbe9e7;
+    --r-lg:26px;
+    --r-md:14px;
+    --shadow-card:0 18px 44px -22px rgba(13,56,65,.38);
+    --ease:cubic-bezier(.22,1,.36,1);
+  }
+  *,*::before,*::after{box-sizing:border-box;}
+
+  body{
+    margin:0;
+    min-height:100svh;
+    background:
+      radial-gradient(1000px 650px at 85% -10%, rgba(245,166,35,.10), transparent 60%),
+      radial-gradient(900px 600px at -10% 110%, rgba(27,107,120,.10), transparent 60%),
+      var(--cream);
+    color:var(--ink-900);
+    font-family:'Manrope',system-ui,-apple-system,sans-serif;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    position:relative;
+    overflow-x:hidden;
+  }
+
+  .flame-field{position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;}
+  .flame-field svg{position:absolute; top:-8%; right:-12%; width:min(50vw,620px); height:auto; opacity:.4;}
+  .flame-field .ribbon{fill:none; stroke-linecap:round; animation:sway 9s var(--ease) infinite alternate;}
+  .flame-field .r1{stroke:url(#gA); stroke-width:14;}
+  .flame-field .r2{stroke:url(#gB); stroke-width:11; animation-delay:.6s;}
+  .flame-field .r3{stroke:url(#gA); stroke-width:8; animation-delay:1.2s;}
+  @keyframes sway{ 0%{transform:translateY(0) rotate(0);} 100%{transform:translateY(-12px) rotate(1deg);} }
+
+  header.brand{
+    position:relative; z-index:1;
+    width:100%; max-width:1180px;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:clamp(20px,4vw,32px) clamp(20px,6vw,56px) 0;
+  }
+  .brand-id{display:flex; align-items:center; gap:12px;}
+  .brand-id img{width:40px; height:40px; border-radius:11px; object-fit:cover; box-shadow:0 6px 16px -6px rgba(13,56,65,.4);}
+  .brand-id p{margin:0; font-family:'Fraunces',serif; font-weight:600; font-size:.98rem; color:var(--teal-800);}
+  .brand-id p span{display:block; font-family:'Manrope',sans-serif; font-weight:600; font-size:.64rem; letter-spacing:.14em; text-transform:uppercase; color:var(--gold-600); margin-top:1px;}
+  .back-link{
+    font-size:.82rem; font-weight:600; color:var(--teal-700); text-decoration:none;
+    display:flex; align-items:center; gap:6px;
+  }
+  .back-link:hover{text-decoration:underline;}
+  .back-link svg{width:14px; height:14px; stroke:var(--teal-700);}
+
+  main{
+    position:relative; z-index:1;
+    flex:1; width:100%; display:flex; align-items:center; justify-content:center;
+    padding:clamp(28px,7vh,64px) 20px 40px;
+  }
+
+  .auth-card{
+    width:100%; max-width:420px;
+    background:var(--white);
+    border:1px solid rgba(13,56,65,.08);
+    border-radius:var(--r-lg);
+    box-shadow:var(--shadow-card);
+    padding:clamp(30px,5vw,42px) clamp(26px,5vw,38px) 32px;
+    opacity:0; transform:translateY(14px);
+    animation:rise .6s var(--ease) forwards;
+  }
+  @keyframes rise{ to{opacity:1; transform:translateY(0);} }
+
+  .step{display:none;}
+  .step.active{display:block;}
+
+  .eyebrow{
+    margin:0 0 10px; font-size:.68rem; font-weight:700; letter-spacing:.2em; text-transform:uppercase;
+    color:var(--teal-700); background:var(--teal-100); display:inline-block; padding:6px 14px; border-radius:999px;
+  }
+  h1{font-family:'Fraunces',serif; font-weight:600; font-size:1.55rem; margin:0 0 8px; line-height:1.25;}
+  .step p.desc{margin:0 0 24px; font-size:.9rem; color:var(--ink-500); line-height:1.55;}
+  .step p.desc strong{color:var(--ink-900); font-weight:700;}
+
+  label{display:block; font-size:.78rem; font-weight:700; color:var(--ink-900); margin-bottom:7px;}
+  input[type="email"]{
+    width:100%; padding:13px 15px; font-size:.98rem; font-family:inherit;
+    border:1.5px solid #dfe6e6; border-radius:var(--r-md); background:var(--cream);
+    color:var(--ink-900); transition:border-color .25s var(--ease), box-shadow .25s var(--ease);
+  }
+  input[type="email"]:focus{outline:none; border-color:var(--teal-600); box-shadow:0 0 0 4px rgba(34,125,139,.14); background:var(--white);}
+
+  .btn{
+    width:100%; margin-top:18px; padding:13px 18px; border:none; border-radius:var(--r-md);
+    background:var(--teal-700); color:var(--white); font-family:inherit; font-weight:700; font-size:.94rem;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px;
+    transition:background .25s var(--ease), transform .2s var(--ease), box-shadow .25s var(--ease);
+    box-shadow:0 10px 24px -12px rgba(18,79,89,.55);
+  }
+  .btn:hover:not(:disabled){background:var(--teal-800); transform:translateY(-1px);}
+  .btn:active:not(:disabled){transform:translateY(0);}
+  .btn:disabled{background:#b9c6c7; box-shadow:none; cursor:not-allowed;}
+
+  .btn-ghost{
+    background:transparent; color:var(--teal-700); box-shadow:none; border:1.5px solid var(--teal-100);
+  }
+  .btn-ghost:hover:not(:disabled){background:var(--teal-100); transform:none;}
+
+  .spinner{
+    width:16px; height:16px; border-radius:50%;
+    border:2.4px solid rgba(255,255,255,.4); border-top-color:#fff;
+    animation:spin .7s linear infinite; display:none;
+  }
+  .btn.loading .spinner{display:inline-block;}
+  .btn.loading .btn-label{opacity:.85;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .status{
+    display:none; align-items:flex-start; gap:9px; font-size:.83rem; line-height:1.5;
+    padding:11px 13px; border-radius:12px; margin-top:16px;
+  }
+  .status.show{display:flex;}
+  .status svg{width:16px; height:16px; flex-shrink:0; margin-top:1px;}
+  .status.error{background:var(--red-100); color:var(--red-600);}
+  .status.error svg{stroke:var(--red-600);}
+  .status.success{background:var(--teal-100); color:var(--teal-800);}
+  .status.success svg{stroke:var(--teal-800);}
+
+  /* OTP step */
+  .otp-target{font-weight:700; color:var(--ink-900);}
+  .otp-boxes{display:flex; gap:9px; justify-content:space-between; margin-bottom:8px;}
+  .otp-boxes input{
+    width:15.5%; aspect-ratio:1/1; text-align:center; font-size:1.35rem; font-weight:700;
+    font-family:'Fraunces',serif; border:1.5px solid #dfe6e6; border-radius:12px; background:var(--cream);
+    color:var(--ink-900); transition:border-color .2s var(--ease), box-shadow .2s var(--ease), background .2s var(--ease);
+  }
+  .otp-boxes input:focus{outline:none; border-color:var(--teal-600); box-shadow:0 0 0 4px rgba(34,125,139,.14); background:var(--white);}
+  .otp-boxes.shake{animation:shake .4s;}
+  @keyframes shake{
+    10%,90%{transform:translateX(-2px);} 20%,80%{transform:translateX(4px);}
+    30%,50%,70%{transform:translateX(-7px);} 40%,60%{transform:translateX(7px);}
+  }
+  .otp-boxes.expired input{background:#f2f2f0; border-color:#e5e5e2; color:var(--ink-300);}
+
+  .meta-row{display:flex; align-items:center; justify-content:space-between; margin:14px 0 4px; font-size:.8rem;}
+  .timer-pill{
+    display:inline-flex; align-items:center; gap:6px; font-weight:700; color:var(--teal-700);
+    background:var(--teal-100); padding:5px 11px; border-radius:999px; font-variant-numeric:tabular-nums;
+  }
+  .timer-pill svg{width:13px; height:13px; stroke:var(--teal-700);}
+  .timer-pill.expiring{color:var(--red-600); background:var(--red-100);}
+  .timer-pill.expiring svg{stroke:var(--red-600);}
+
+  .resend-btn{
+    background:none; border:none; padding:0; font-family:inherit; font-size:.8rem; font-weight:700;
+    color:var(--gold-600); cursor:pointer;
+  }
+  .resend-btn:disabled{color:var(--ink-300); cursor:not-allowed;}
+  .resend-btn:not(:disabled):hover{text-decoration:underline;}
+
+  .change-email{
+    display:block; text-align:center; margin-top:18px; font-size:.82rem; color:var(--ink-500);
+    background:none; border:none; font-family:inherit; cursor:pointer;
+  }
+  .change-email:hover{color:var(--teal-700);}
+
+  /* Pending / checking steps */
+  .center-step{text-align:center;}
+  .icon-circle{
+    width:56px; height:56px; border-radius:50%; margin:0 auto 18px; display:flex; align-items:center; justify-content:center;
+    background:var(--gold-100);
+  }
+  .icon-circle svg{width:26px; height:26px; stroke:var(--gold-600);}
+  .icon-circle.teal{background:var(--teal-100);}
+  .icon-circle.teal svg{stroke:var(--teal-700);}
+  .big-spinner{
+    width:34px; height:34px; border-radius:50%; margin:0 auto 18px;
+    border:3px solid var(--teal-100); border-top-color:var(--teal-700);
+    animation:spin .8s linear infinite;
+  }
+  .uid-note{
+    margin-top:18px; font-size:.74rem; color:var(--ink-300); word-break:break-all;
+    background:var(--cream); padding:10px 12px; border-radius:10px;
+  }
+
+  footer{position:relative; z-index:1; width:100%; text-align:center; padding:10px 20px 26px; font-size:.76rem; color:var(--ink-500);}
+
+  @media (prefers-reduced-motion: reduce){
+    .flame-field .ribbon{animation:none;}
+    .auth-card{animation:none; opacity:1; transform:none;}
+    .spinner, .big-spinner{animation:none; border-top-color:transparent;}
+  }
+</style>
+</head>
+<body>
+
+<div class="flame-field" aria-hidden="true">
+  <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="gA" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#1b6b78"/><stop offset="100%" stop-color="#f5a623"/></linearGradient>
+      <linearGradient id="gB" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#227d8b"/><stop offset="100%" stop-color="#ffc65c"/></linearGradient>
+    </defs>
+    <path class="ribbon r1" d="M70,360 C30,300 40,220 100,160 C70,220 90,260 120,280"/>
+    <path class="ribbon r2" d="M150,370 C100,300 120,200 190,110 C150,190 175,240 200,260"/>
+    <path class="ribbon r3" d="M230,370 C185,290 210,190 270,90 C235,175 255,230 275,255"/>
+  </svg>
+</div>
+
+<header class="brand">
+  <div class="brand-id">
+    <img src="https://sourabhsuneja.github.io/gsm-logo.jpeg" alt="GSMS crest" width="40" height="40">
+    <p>GSMS Tools<span>Gopal Sharma Memorial School</span></p>
+  </div>
+  <a class="back-link" href="index.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+    Role selection
+  </a>
+</header>
+
+<main>
+  <div class="auth-card">
+
+    <!-- STEP: checking existing session -->
+    <div class="step center-step" id="step-checking">
+      <div class="big-spinner"></div>
+      <h1>Checking your session…</h1>
+      <p class="desc">One moment while we verify who's signing in.</p>
+    </div>
+
+    <!-- STEP 1: email -->
+    <div class="step" id="step-email">
+      <span class="eyebrow">Teacher Portal</span>
+      <h1>Sign in to continue</h1>
+      <p class="desc">Enter your school email. We'll send a 6-digit code — no password needed. New here? Your account will be created automatically.</p>
+
+      <form id="email-form" novalidate>
+        <label for="email-input">Email address</label>
+        <input type="email" id="email-input" name="email" placeholder="yourname@gsms.edu" autocomplete="email" required>
+        <button class="btn" type="submit" id="send-btn">
+          <span class="spinner"></span>
+          <span class="btn-label">Send code</span>
+        </button>
+      </form>
+
+      <div class="status" id="email-status"></div>
+    </div>
+
+    <!-- STEP 2: OTP -->
+    <div class="step" id="step-otp">
+      <span class="eyebrow">Verify it's you</span>
+      <h1>Enter your code</h1>
+      <p class="desc">We sent a 6-digit code to <span class="otp-target" id="otp-target-email"></span>.</p>
+
+      <div class="otp-boxes" id="otp-boxes">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 1">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 2">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 3">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 4">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 5">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 6">
+      </div>
+
+      <div class="meta-row">
+        <span class="timer-pill" id="expiry-pill">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+          <span id="expiry-time">5:00</span>
+        </span>
+        <button class="resend-btn" id="resend-btn" type="button" disabled>Resend in 60s</button>
+      </div>
+
+      <button class="btn" type="button" id="verify-btn" style="margin-top:20px;">
+        <span class="spinner"></span>
+        <span class="btn-label">Verify &amp; continue</span>
+      </button>
+
+      <div class="status" id="otp-status"></div>
+
+      <button class="change-email" id="change-email-btn" type="button">Wrong email? Change it</button>
+    </div>
+
+    <!-- STEP: redirecting -->
+    <div class="step center-step" id="step-redirecting">
+      <div class="icon-circle teal">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+      </div>
+      <h1>You're in!</h1>
+      <p class="desc">Taking you to your dashboard…</p>
+    </div>
+
+    <!-- STEP: pending approval (signed in, but no role row yet) -->
+    <div class="step center-step" id="step-pending">
+      <div class="icon-circle">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+      </div>
+      <h1>Account pending setup</h1>
+      <p class="desc">You're verified and signed in, but your teacher profile hasn't been set up yet. Please ask your school admin to activate your account, then refresh this page.</p>
+      <div class="uid-note" id="pending-uid"></div>
+      <button class="btn btn-ghost" id="signout-btn" type="button" style="margin-top:18px;">Sign out</button>
+    </div>
+
+  </div>
+</main>
+
+<footer>© <span id="year"></span> Gopal Sharma Memorial School</footer>
+
+<script>
+document.getElementById('year').textContent = new Date().getFullYear();
+
+/* =====================================================================
+   SUPABASE CONFIG — replace with your project's values
+===================================================================== */
+const SUPABASE_URL = 'https://ctuqlmdunhdhhholsqco.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_jaogFl0uiNQW_3kkPakSrw_uVTwohtY';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* Where each role lands after a successful sign-in */
+const REDIRECTS = {
+  admin: 'admin-dashboard.html',
+  teacher: 'teacher-dashboard.html',
+  student: 'student-dashboard.html'
+};
+
+const OTP_TTL_SECONDS = 300;     // 5 minutes — must match Supabase Dashboard > Auth > Email OTP expiry
+const RESEND_COOLDOWN_SECONDS = 60;
+
+/* ---------- element refs ---------- */
+const steps = {
+  checking: document.getElementById('step-checking'),
+  email: document.getElementById('step-email'),
+  otp: document.getElementById('step-otp'),
+  redirecting: document.getElementById('step-redirecting'),
+  pending: document.getElementById('step-pending'),
+};
+const emailForm = document.getElementById('email-form');
+const emailInput = document.getElementById('email-input');
+const sendBtn = document.getElementById('send-btn');
+const emailStatus = document.getElementById('email-status');
+
+const otpTargetEmail = document.getElementById('otp-target-email');
+const otpBoxesWrap = document.getElementById('otp-boxes');
+const otpInputs = Array.from(otpBoxesWrap.querySelectorAll('input'));
+const verifyBtn = document.getElementById('verify-btn');
+const otpStatus = document.getElementById('otp-status');
+const resendBtn = document.getElementById('resend-btn');
+const changeEmailBtn = document.getElementById('change-email-btn');
+const expiryPill = document.getElementById('expiry-pill');
+const expiryTime = document.getElementById('expiry-time');
+const signoutBtn = document.getElementById('signout-btn');
+const pendingUid = document.getElementById('pending-uid');
+
+let currentEmail = '';
+let expiryInterval = null;
+let resendInterval = null;
+
+function showStep(name){
+  Object.values(steps).forEach(el => el.classList.remove('active'));
+  steps[name].classList.add('active');
+}
+
+function setStatus(el, type, message){
+  el.className = 'status show ' + type;
+  const icon = type === 'error'
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+  el.innerHTML = icon + '<span>' + message + '</span>';
+}
+function clearStatus(el){ el.className = 'status'; el.innerHTML = ''; }
+
+function setLoading(btn, isLoading){
+  btn.disabled = isLoading;
+  btn.classList.toggle('loading', isLoading);
+}
+
+/* ---------- countdown timers ---------- */
+function startExpiryTimer(){
+  clearInterval(expiryInterval);
+  let remaining = OTP_TTL_SECONDS;
+  expiryPill.classList.remove('expiring');
+  otpBoxesWrap.classList.remove('expired');
+  updateExpiryDisplay(remaining);
+
+  expiryInterval = setInterval(() => {
+    remaining--;
+    updateExpiryDisplay(remaining);
+    if (remaining <= 30) expiryPill.classList.add('expiring');
+    if (remaining <= 0){
+      clearInterval(expiryInterval);
+      otpBoxesWrap.classList.add('expired');
+      otpInputs.forEach(i => i.disabled = true);
+      setStatus(otpStatus, 'error', 'This code has expired. Please request a new one.');
+    }
+  }, 1000);
+}
+function updateExpiryDisplay(seconds){
+  const m = Math.max(0, Math.floor(seconds / 60));
+  const s = Math.max(0, seconds % 60);
+  expiryTime.textContent = m + ':' + String(s).padStart(2, '0');
+}
+
+function startResendCooldown(){
+  clearInterval(resendInterval);
+  let remaining = RESEND_COOLDOWN_SECONDS;
+  resendBtn.disabled = true;
+  resendBtn.textContent = 'Resend in ' + remaining + 's';
+
+  resendInterval = setInterval(() => {
+    remaining--;
+    if (remaining <= 0){
+      clearInterval(resendInterval);
+      resendBtn.disabled = false;
+      resendBtn.textContent = 'Resend code';
+    } else {
+      resendBtn.textContent = 'Resend in ' + remaining + 's';
+    }
+  }, 1000);
+}
+
+/* ---------- OTP box behaviour ---------- */
+otpInputs.forEach((input, idx) => {
+  input.addEventListener('input', () => {
+    input.value = input.value.replace(/[^0-9]/g, '').slice(0, 1);
+    if (input.value && idx < otpInputs.length - 1) otpInputs[idx + 1].focus();
+    if (otpInputs.every(i => i.value)) verifyCode();
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Backspace' && !input.value && idx > 0) otpInputs[idx - 1].focus();
+    if (e.key === 'Enter') verifyCode();
+  });
+  input.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const digits = (e.clipboardData.getData('text').match(/[0-9]/g) || []).slice(0, 6);
+    digits.forEach((d, i) => { if (otpInputs[i]) otpInputs[i].value = d; });
+    const next = otpInputs[Math.min(digits.length, otpInputs.length - 1)];
+    if (next) next.focus();
+    if (digits.length === 6) verifyCode();
+  });
+});
+
+function resetOtpBoxes(){
+  otpInputs.forEach(i => { i.value = ''; i.disabled = false; });
+  otpBoxesWrap.classList.remove('expired', 'shake');
+  otpInputs[0].focus();
+}
+
+/* ---------- core actions ---------- */
+async function sendCode(email, isResend){
+  clearStatus(emailStatus);
+  clearStatus(otpStatus);
+  const btn = isResend ? resendBtn : sendBtn;
+  if (!isResend) setLoading(sendBtn, true);
+
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: true }   // creates the auth user only — no app-table row is touched
+  });
+
+  if (!isResend) setLoading(sendBtn, false);
+
+  if (error){
+    setStatus(isResend ? otpStatus : emailStatus, 'error', error.message || 'Could not send the code. Please try again.');
+    return false;
+  }
+
+  currentEmail = email;
+  otpTargetEmail.textContent = email;
+  showStep('otp');
+  resetOtpBoxes();
+  startExpiryTimer();
+  startResendCooldown();
+  if (isResend) setStatus(otpStatus, 'success', 'A new code has been sent.');
+  return true;
+}
+
+async function verifyCode(){
+  const token = otpInputs.map(i => i.value).join('');
+  if (token.length !== 6) return;
+  clearStatus(otpStatus);
+  setLoading(verifyBtn, true);
+  otpInputs.forEach(i => i.disabled = true);
+
+  const { data, error } = await sb.auth.verifyOtp({
+    email: currentEmail,
+    token,
+    type: 'email'
+  });
+
+  setLoading(verifyBtn, false);
+
+  if (error){
+    otpInputs.forEach(i => i.disabled = false);
+    otpBoxesWrap.classList.add('shake');
+    setTimeout(() => otpBoxesWrap.classList.remove('shake'), 400);
+    setStatus(otpStatus, 'error', 'That code didn\'t work. Check it and try again.');
+    resetOtpBoxes();
+    return;
+  }
+
+  clearInterval(expiryInterval);
+  clearInterval(resendInterval);
+  await routeSignedInUser(data.user);
+}
+
+async function routeSignedInUser(user){
+  showStep('redirecting');
+  const { data: role, error } = await sb.rpc('get_my_role');
+
+  if (!error && role && REDIRECTS[role]){
+    window.location.href = REDIRECTS[role];
+    return;
+  }
+
+  // Authenticated, but not yet added to teachers/students/admins by the admin
+  pendingUid.textContent = 'Account ID: ' + user.id;
+  showStep('pending');
+}
+
+/* ---------- event wiring ---------- */
+emailForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const email = emailInput.value.trim();
+  if (!email) return;
+  sendCode(email, false);
+});
+
+verifyBtn.addEventListener('click', verifyCode);
+
+resendBtn.addEventListener('click', () => {
+  if (resendBtn.disabled) return;
+  sendCode(currentEmail, true);
+});
+
+changeEmailBtn.addEventListener('click', () => {
+  clearInterval(expiryInterval);
+  clearInterval(resendInterval);
+  clearStatus(otpStatus);
+  showStep('email');
+  emailInput.focus();
+});
+
+signoutBtn.addEventListener('click', async () => {
+  await sb.auth.signOut();
+  showStep('email');
+  emailInput.value = '';
+});
+
+/* ---------- on load: already signed in? ---------- */
+(async function init(){
+  showStep('checking');
+  const { data: { session } } = await sb.auth.getSession();
+  if (session && session.user){
+    await routeSignedInUser(session.user);
+  } else {
+    showStep('email');
+  }
+})();
+</script>
+
+</body>
+</html>
