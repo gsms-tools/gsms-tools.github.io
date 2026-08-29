@@ -424,7 +424,7 @@
   .mini-btn.danger svg{ stroke:var(--danger); }
   .plan-field{ margin-bottom:9px; }
   .plan-field:last-child{ margin-bottom:0; }
-  .plan-field-label{ font-size:.68rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--gold-600); margin-bottom:3px; }
+  .plan-field-label{ font-size:.68rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--gold-600); margin-bottom:3px; margin-top:6px; }
   .plan-field-value{ font-size:.86rem; line-height:1.5; color:var(--ink-900); white-space:pre-wrap; }
   .plan-field-value.empty{ color:var(--ink-500); font-style:italic; }
 
@@ -1027,7 +1027,7 @@ function renderBrowseResults(){
     card.className = 'subject-card';
     card.style.animationDelay = (i * 0.05) + 's';
 
-    var teacherName = (p.teachers && p.teachers.name) ? p.teachers.name : 'Unknown teacher';
+    var teacherName = (p.teachers && p.teachers.name) ? p.teachers.name : 'Subject teacher';
 
     function fieldHtml(label, value){
       var v = value ? escapeHtml(value) : '';
