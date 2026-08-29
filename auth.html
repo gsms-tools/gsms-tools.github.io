@@ -752,12 +752,20 @@ async function verifyCode(){
   await routeSignedInUser(data.user);
 }
 
-/* Heuristic: a brand-new account's first sign-in happens within moments of its creation. */
+/* Heuristic: for a brand-new account, the email gets confirmed in the very same
+   verifyOtp() call that creates the session — so email_confirmed_at and
+   last_sign_in_at land within moments of each other. A returning user's
+   email_confirmed_at stays fixed at whenever they first confirmed, while
+   last_sign_in_at updates on every sign-in, so the gap is large. (created_at
+   isn't reliable here since shouldCreateUser:true creates the account at the
+   moment the code is requested, not when it's verified.) */
 function isLikelyFirstSignUp(user){
-  if (!user || !user.created_at || !user.last_sign_in_at) return false;
-  const created = new Date(user.created_at).getTime();
+  if (!user || !user.last_sign_in_at) return false;
+  const confirmedAt = user.email_confirmed_at || user.confirmed_at;
+  if (!confirmedAt) return false;
+  const confirmed = new Date(confirmedAt).getTime();
   const lastSignIn = new Date(user.last_sign_in_at).getTime();
-  return Math.abs(lastSignIn - created) < 10000; // within 10s of account creation
+  return Math.abs(lastSignIn - confirmed) < 10000; // within 10s of each other
 }
 
 async function routeSignedInUser(user){
