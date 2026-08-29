@@ -22,7 +22,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-<!-- Supabase JS SDK -->
+<!-- Supabase JS SDK (@2 resolves to latest 2.x, which includes the experimental passkey API — requires >= 2.105.0) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
@@ -260,6 +260,47 @@
   html[data-theme="dark"] .btn-ghost{color:var(--teal-700);}
   .btn-ghost:hover:not(:disabled){background:var(--teal-100); transform:none;}
 
+  /* ---------- Passkey additions ---------- */
+  .btn svg.btn-icon{width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0;}
+
+  .divider{
+    display:flex; align-items:center; gap:12px; margin:22px 0 0; user-select:none;
+  }
+  .divider::before, .divider::after{
+    content:""; flex:1; height:1px; background:var(--input-border); transition:background-color .3s var(--ease);
+  }
+  .divider span{
+    font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-300);
+    transition:color .3s var(--ease);
+  }
+
+  #passkey-signin-btn{display:none;}
+  #passkey-signin-btn.available{display:flex;}
+
+  .passkey-actions{display:flex; flex-direction:column; gap:10px; margin-top:4px;}
+  .passkey-actions .btn{margin-top:0;}
+
+  /* Pending / checking steps */
+  .center-step{text-align:center;}
+  .icon-circle{
+    width:56px; height:56px; border-radius:50%; margin:0 auto 18px; display:flex; align-items:center; justify-content:center;
+    background:var(--gold-100);
+    transition:background-color .3s var(--ease);
+  }
+  .icon-circle svg{width:26px; height:26px; stroke:var(--gold-600); transition:stroke .3s var(--ease);}
+  .icon-circle.teal{background:var(--teal-100);}
+  .icon-circle.teal svg{stroke:var(--teal-700);}
+  .big-spinner{
+    width:34px; height:34px; border-radius:50%; margin:0 auto 18px;
+    border:3px solid var(--teal-100); border-top-color:var(--teal-700);
+    animation:spin .8s linear infinite;
+  }
+  .uid-note{
+    margin-top:18px; font-size:.74rem; color:var(--ink-300); word-break:break-all;
+    background:var(--cream); padding:10px 12px; border-radius:10px;
+    transition:background-color .3s var(--ease), color .3s var(--ease);
+  }
+
   .spinner{
     width:16px; height:16px; border-radius:50%;
     border:2.4px solid rgba(255,255,255,.4); border-top-color:#fff;
@@ -268,6 +309,7 @@
   html[data-theme="dark"] .spinner{border:2.4px solid rgba(10,21,22,.35); border-top-color:#0a1516;}
   .btn.loading .spinner{display:inline-block;}
   .btn.loading .btn-label{opacity:.85;}
+  .btn.loading .btn-icon{display:none;}
   @keyframes spin{to{transform:rotate(360deg);}}
 
   .status{
@@ -320,27 +362,6 @@
     transition:color .3s var(--ease);
   }
   .change-email:hover{color:var(--teal-700);}
-
-  /* Pending / checking steps */
-  .center-step{text-align:center;}
-  .icon-circle{
-    width:56px; height:56px; border-radius:50%; margin:0 auto 18px; display:flex; align-items:center; justify-content:center;
-    background:var(--gold-100);
-    transition:background-color .3s var(--ease);
-  }
-  .icon-circle svg{width:26px; height:26px; stroke:var(--gold-600); transition:stroke .3s var(--ease);}
-  .icon-circle.teal{background:var(--teal-100);}
-  .icon-circle.teal svg{stroke:var(--teal-700);}
-  .big-spinner{
-    width:34px; height:34px; border-radius:50%; margin:0 auto 18px;
-    border:3px solid var(--teal-100); border-top-color:var(--teal-700);
-    animation:spin .8s linear infinite;
-  }
-  .uid-note{
-    margin-top:18px; font-size:.74rem; color:var(--ink-300); word-break:break-all;
-    background:var(--cream); padding:10px 12px; border-radius:10px;
-    transition:background-color .3s var(--ease), color .3s var(--ease);
-  }
 
   footer{position:relative; z-index:1; width:100%; text-align:center; padding:10px 20px 26px; font-size:.76rem; color:var(--ink-500); transition:color .3s var(--ease);}
 
@@ -417,6 +438,14 @@
       </form>
 
       <div class="status" id="email-status"></div>
+
+      <div class="divider"><span>or</span></div>
+
+      <button class="btn btn-ghost" type="button" id="passkey-signin-btn">
+        <span class="spinner"></span>
+        <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 0v9m0-5h3m-3 3h2"/><path d="M15.5 8.5 21 3m-4.2 4.2L19.2 9.6"/></svg>
+        <span class="btn-label">Sign in with a passkey</span>
+      </button>
     </div>
 
     <!-- STEP 2: OTP -->
@@ -450,6 +479,25 @@
       <div class="status" id="otp-status"></div>
 
       <button class="change-email" id="change-email-btn" type="button">Wrong email? Change it</button>
+    </div>
+
+    <!-- STEP: offer to add a passkey (shown right after a first-time sign-up) -->
+    <div class="step center-step" id="step-add-passkey">
+      <div class="icon-circle teal">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 0v9m0-5h3m-3 3h2"/><path d="M15.5 8.5 21 3m-4.2 4.2L19.2 9.6"/></svg>
+      </div>
+      <h1>Sign in faster next time</h1>
+      <p class="desc">Add a passkey now and you'll be able to sign in with your device's fingerprint, face, or screen lock — no code required.</p>
+
+      <div class="passkey-actions">
+        <button class="btn" type="button" id="add-passkey-btn">
+          <span class="spinner"></span>
+          <span class="btn-label">Add a passkey</span>
+        </button>
+        <button class="btn btn-ghost" type="button" id="skip-passkey-btn">Skip for now</button>
+      </div>
+
+      <div class="status" id="add-passkey-status"></div>
     </div>
 
     <!-- STEP: redirecting -->
@@ -494,7 +542,12 @@ themeToggleBtn.addEventListener('click', function(){
 const SUPABASE_URL = 'https://ctuqlmdunhdhhholsqco.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_jaogFl0uiNQW_3kkPakSrw_uVTwohtY';
 const { createClient } = supabase;
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    // Passkeys are an experimental Supabase Auth feature — must be explicitly opted in.
+    experimental: { passkey: true }
+  }
+});
 
 /* Where each role lands after a successful sign-in */
 const REDIRECTS = {
@@ -511,6 +564,7 @@ const steps = {
   checking: document.getElementById('step-checking'),
   email: document.getElementById('step-email'),
   otp: document.getElementById('step-otp'),
+  addPasskey: document.getElementById('step-add-passkey'),
   redirecting: document.getElementById('step-redirecting'),
   pending: document.getElementById('step-pending'),
 };
@@ -531,9 +585,15 @@ const expiryTime = document.getElementById('expiry-time');
 const signoutBtn = document.getElementById('signout-btn');
 const pendingUid = document.getElementById('pending-uid');
 
+const passkeySigninBtn = document.getElementById('passkey-signin-btn');
+const addPasskeyBtn = document.getElementById('add-passkey-btn');
+const skipPasskeyBtn = document.getElementById('skip-passkey-btn');
+const addPasskeyStatus = document.getElementById('add-passkey-status');
+
 let currentEmail = '';
 let expiryInterval = null;
 let resendInterval = null;
+let pendingRouteUser = null; // holds the user object while step-add-passkey is shown
 
 function showStep(name){
   Object.values(steps).forEach(el => el.classList.remove('active'));
@@ -680,7 +740,24 @@ async function verifyCode(){
 
   clearInterval(expiryInterval);
   clearInterval(resendInterval);
+
+  // Offer to add a passkey right after a first-time sign-up, if this device/browser supports it.
+  if (webauthnSupported && isLikelyFirstSignUp(data.user)){
+    pendingRouteUser = data.user;
+    clearStatus(addPasskeyStatus);
+    showStep('addPasskey');
+    return;
+  }
+
   await routeSignedInUser(data.user);
+}
+
+/* Heuristic: a brand-new account's first sign-in happens within moments of its creation. */
+function isLikelyFirstSignUp(user){
+  if (!user || !user.created_at || !user.last_sign_in_at) return false;
+  const created = new Date(user.created_at).getTime();
+  const lastSignIn = new Date(user.last_sign_in_at).getTime();
+  return Math.abs(lastSignIn - created) < 10000; // within 10s of account creation
 }
 
 async function routeSignedInUser(user){
@@ -696,6 +773,50 @@ async function routeSignedInUser(user){
   pendingUid.textContent = 'Account ID: ' + user.id;
   showStep('pending');
 }
+
+/* ---------- passkeys ---------- */
+const webauthnSupported = typeof window.PublicKeyCredential !== 'undefined';
+
+if (webauthnSupported){
+  passkeySigninBtn.classList.add('available');
+}
+
+passkeySigninBtn.addEventListener('click', async () => {
+  clearStatus(emailStatus);
+  setLoading(passkeySigninBtn, true);
+
+  const { data, error } = await sb.auth.signInWithPasskey();
+
+  setLoading(passkeySigninBtn, false);
+
+  if (error){
+    setStatus(emailStatus, 'error', error.message || 'Passkey sign-in didn\'t work. Please sign in with your email instead.');
+    return;
+  }
+
+  await routeSignedInUser(data.user);
+});
+
+addPasskeyBtn.addEventListener('click', async () => {
+  clearStatus(addPasskeyStatus);
+  setLoading(addPasskeyBtn, true);
+
+  const { data, error } = await sb.auth.registerPasskey();
+
+  setLoading(addPasskeyBtn, false);
+
+  if (error){
+    setStatus(addPasskeyStatus, 'error', error.message || 'Could not add a passkey on this device. You can try again later.');
+    return;
+  }
+
+  setStatus(addPasskeyStatus, 'success', 'Passkey added! You can use it to sign in next time.');
+  setTimeout(() => routeSignedInUser(pendingRouteUser), 1100);
+});
+
+skipPasskeyBtn.addEventListener('click', () => {
+  routeSignedInUser(pendingRouteUser);
+});
 
 /* ---------- event wiring ---------- */
 emailForm.addEventListener('submit', (e) => {
