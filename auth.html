@@ -498,9 +498,9 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* Where each role lands after a successful sign-in */
 const REDIRECTS = {
-  admin: 'admin-dashboard.html',
-  teacher: 'teacher-dashboard.html',
-  student: 'student-dashboard.html'
+  admin: 'https://gsms-tools.github.io/admin/',
+  teacher: 'https://gsms-tools.github.io/teachers/',
+  student: 'https://gsms-tools.github.io/students/'
 };
 
 const OTP_TTL_SECONDS = 300;     // 5 minutes — must match Supabase Dashboard > Auth > Email OTP expiry
