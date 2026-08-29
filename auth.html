@@ -741,31 +741,19 @@ async function verifyCode(){
   clearInterval(expiryInterval);
   clearInterval(resendInterval);
 
-  // Offer to add a passkey right after a first-time sign-up, if this device/browser supports it.
-  if (webauthnSupported && isLikelyFirstSignUp(data.user)){
-    pendingRouteUser = data.user;
-    clearStatus(addPasskeyStatus);
-    showStep('addPasskey');
-    return;
+  // Offer to add a passkey if this device/browser supports it and the user doesn't have one yet
+  // (covers both a first-time sign-up and a returning user who never set one up).
+  if (webauthnSupported){
+    const { data: passkeys } = await sb.auth.passkey.list();
+    if (!passkeys || passkeys.length === 0){
+      pendingRouteUser = data.user;
+      clearStatus(addPasskeyStatus);
+      showStep('addPasskey');
+      return;
+    }
   }
 
   await routeSignedInUser(data.user);
-}
-
-/* Heuristic: for a brand-new account, the email gets confirmed in the very same
-   verifyOtp() call that creates the session — so email_confirmed_at and
-   last_sign_in_at land within moments of each other. A returning user's
-   email_confirmed_at stays fixed at whenever they first confirmed, while
-   last_sign_in_at updates on every sign-in, so the gap is large. (created_at
-   isn't reliable here since shouldCreateUser:true creates the account at the
-   moment the code is requested, not when it's verified.) */
-function isLikelyFirstSignUp(user){
-  if (!user || !user.last_sign_in_at) return false;
-  const confirmedAt = user.email_confirmed_at || user.confirmed_at;
-  if (!confirmedAt) return false;
-  const confirmed = new Date(confirmedAt).getTime();
-  const lastSignIn = new Date(user.last_sign_in_at).getTime();
-  return Math.abs(lastSignIn - confirmed) < 10000; // within 10s of each other
 }
 
 async function routeSignedInUser(user){
