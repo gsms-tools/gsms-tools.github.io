@@ -626,6 +626,8 @@
       return !tool.adminOnly || adminResult.data === true;
       }));
 
+      document.querySelector('.header-sub').textContent = adminResult.data === true ? 'Admin Dashboard' : 'Teacher Dashboard';
+      
       showApp(teacherResult.data.name);
     }catch(err){
       console.error('Auth check failed:', err);
