@@ -1345,11 +1345,15 @@ function redirectToAuth(){ window.location.href = AUTH_REDIRECT; }
     state.myAssignments = myAssignRes.data || [];
 
     // Load full combo list (needed for admins to add/edit anything,
-    // and to build the full class list for browsing)
-    var allAssignRes = await supabaseClient
-      .from('class_subject_assignments')
-      .select('class, subject');
-    state.allCombos = allAssignRes.data || [];
+    // and to build the full class list for browsing).
+    // Admins have access to every class/subject combination that
+    // exists, so pull from class_subjects (the canonical class ->
+    // subject mapping) instead of class_subject_assignments (which
+    // only reflects what's been assigned to a specific teacher).
+    var allCombosRes = state.isAdmin
+      ? await supabaseClient.from('class_subjects').select('class, subject')
+      : await supabaseClient.from('class_subject_assignments').select('class, subject');
+    state.allCombos = allCombosRes.data || [];
 
     // Merge in classes from class_teachers too, so browsing covers
     // classes that may not yet have a subject assignment
