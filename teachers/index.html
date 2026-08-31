@@ -551,8 +551,6 @@
     grid.style.display = list.length === 0 ? 'none' : 'grid';
   }
 
-  renderTiles(TOOLS);
-
   document.getElementById('search').addEventListener('input', function(e){
     var q = e.target.value.trim().toLowerCase();
     var filtered = TOOLS.filter(function(t){ return t.name.toLowerCase().indexOf(q) !== -1; });
@@ -612,9 +610,21 @@
         .maybeSingle();
 
       if(teacherResult.error || !teacherResult.data){
+          redirectToAuth();
+          return;
+      }
+
+      var adminResult = await supabaseClient.rpc('is_admin');
+
+      if(adminResult.error){
+        console.error('Admin check failed:', adminResult.error);
         redirectToAuth();
         return;
       }
+
+      renderTiles(TOOLS.filter(function(tool){
+      return !tool.adminOnly || adminResult.data === true;
+      }));
 
       showApp(teacherResult.data.name);
     }catch(err){
