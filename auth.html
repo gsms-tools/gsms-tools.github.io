@@ -481,7 +481,7 @@
       <button class="change-email" id="change-email-btn" type="button">Wrong email? Change it</button>
     </div>
 
-    <!-- STEP: offer to add a passkey (shown right after a first-time sign-up) -->
+    <!-- STEP: offer to add a passkey (shown after every successful OTP sign-in) -->
     <div class="step center-step" id="step-add-passkey">
       <div class="icon-circle teal">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 0v9m0-5h3m-3 3h2"/><path d="M15.5 8.5 21 3m-4.2 4.2L19.2 9.6"/></svg>
@@ -741,16 +741,13 @@ async function verifyCode(){
   clearInterval(expiryInterval);
   clearInterval(resendInterval);
 
-  // Offer to add a passkey if this device/browser supports it and the user doesn't have one yet
-  // (covers both a first-time sign-up and a returning user who never set one up).
+  // Offer to add a passkey on every successful OTP sign-in (regardless of whether
+  // the user already has one registered), as long as this device/browser supports it.
   if (webauthnSupported){
-    const { data: passkeys } = await sb.auth.passkey.list();
-    if (!passkeys || passkeys.length === 0){
-      pendingRouteUser = data.user;
-      clearStatus(addPasskeyStatus);
-      showStep('addPasskey');
-      return;
-    }
+    pendingRouteUser = data.user;
+    clearStatus(addPasskeyStatus);
+    showStep('addPasskey');
+    return;
   }
 
   await routeSignedInUser(data.user);
