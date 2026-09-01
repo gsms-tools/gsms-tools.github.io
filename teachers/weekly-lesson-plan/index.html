@@ -1252,8 +1252,9 @@ function drawSubjectBlock(doc, p, x, y, width, gold, teal, ink, inkLight){
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(gold[0]-30 < 0 ? 0 : gold[0]-30, gold[1], gold[2] - 40 < 0 ? 0 : gold[2]-40);
+    y += 4;
     doc.text(f[0].toUpperCase(), x, y);
-    y += 12;
+    y += 16;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(ink[0], ink[1], ink[2]);
