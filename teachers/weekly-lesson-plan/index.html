@@ -1247,6 +1247,7 @@ function drawSubjectBlock(doc, p, x, y, width, gold, teal, ink, inkLight){
   doc.setDrawColor(gold[0], gold[1], gold[2]);
   doc.setLineWidth(1.4);
   doc.line(x, y - 8, x + width, y - 8);
+  y += 6;
 
   subjectFieldsList(p).forEach(function(f){
     doc.setFont('helvetica', 'bold');
