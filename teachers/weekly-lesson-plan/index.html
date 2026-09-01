@@ -1175,10 +1175,11 @@ function buildAndSharePdf(logoDataUrl){
   doc.text(formatRange(lastBrowseResults.weekStart, lastBrowseResults.weekEnd), pageW - margin, 56, { align: 'right' });
 
   y = 106;
-  doc.setTextColor(inkLight[0], inkLight[1], inkLight[2]);
-  doc.setFontSize(8.5);
-  doc.text('Generated ' + new Date().toLocaleString(), margin, y);
-  y += 18;
+  // Hide the generated line temporarily
+  //doc.setTextColor(inkLight[0], inkLight[1], inkLight[2]);
+  //doc.setFontSize(8.5);
+  //doc.text('Generated ' + new Date().toLocaleString(), margin, y);
+  //y += 18;
 
   lastBrowseResults.plans.forEach(function(p){
     var estimatedHeight = estimateSubjectBlockHeight(doc, p, pageW - margin*2);
@@ -1241,7 +1242,9 @@ function drawSubjectBlock(doc, p, x, y, width, gold, teal, ink, inkLight){
   doc.setFontSize(8.5);
   doc.setTextColor(inkLight[0], inkLight[1], inkLight[2]);
   var teacherName = (p.teachers && p.teachers.name) ? p.teachers.name : '';
-  doc.text(teacherName, x + width, y + 14, { align: 'right' });
+  // hide teacher name temporarily
+  teacherName = '';
+  // doc.text(teacherName, x + width, y + 14, { align: 'right' });
 
   y += 28;
   doc.setDrawColor(gold[0], gold[1], gold[2]);
