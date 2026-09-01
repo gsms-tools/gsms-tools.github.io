@@ -1243,7 +1243,7 @@ function drawSubjectBlock(doc, p, x, y, width, gold, teal, ink, inkLight){
   var teacherName = (p.teachers && p.teachers.name) ? p.teachers.name : '';
   doc.text(teacherName, x + width, y + 14, { align: 'right' });
 
-  y += 24;
+  y += 28;
   doc.setDrawColor(gold[0], gold[1], gold[2]);
   doc.setLineWidth(1.4);
   doc.line(x, y - 8, x + width, y - 8);
@@ -1252,7 +1252,6 @@ function drawSubjectBlock(doc, p, x, y, width, gold, teal, ink, inkLight){
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(gold[0]-30 < 0 ? 0 : gold[0]-30, gold[1], gold[2] - 40 < 0 ? 0 : gold[2]-40);
-    y += 4;
     doc.text(f[0].toUpperCase(), x, y);
     y += 16;
     doc.setFont('helvetica', 'normal');
