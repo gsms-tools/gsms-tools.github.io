@@ -802,7 +802,7 @@ var editSubjectSel = document.getElementById('edit-subject');
 
 function initDefaultWeek(startEl, endEl, noteEl){
   var mon = mondayOfCurrentWeek();
-  var sun = addDays(mon, 6);
+  var sun = addDays(mon, 5);
   startEl.value = toISODate(mon);
   endEl.value = toISODate(sun);
   noteEl.textContent = formatRange(startEl.value, endEl.value);
@@ -811,7 +811,7 @@ function initDefaultWeek(startEl, endEl, noteEl){
 editWeekStart.addEventListener('change', function(){
   if(editWeekStart.value){
     var s = parseISODate(editWeekStart.value);
-    editWeekEnd.value = toISODate(addDays(s, 6));
+    editWeekEnd.value = toISODate(addDays(s, 5));
   }
   editWeekRangeNote.textContent = formatRange(editWeekStart.value, editWeekEnd.value);
   maybeLoadEditEntry();
@@ -962,7 +962,7 @@ var lastBrowseResults = { class: '', weekStart: '', weekEnd: '', plans: [] };
 browseWeekStart.addEventListener('change', function(){
   if(browseWeekStart.value){
     var s = parseISODate(browseWeekStart.value);
-    browseWeekEnd.value = toISODate(addDays(s, 6));
+    browseWeekEnd.value = toISODate(addDays(s, 5));
   }
   browseWeekRangeNote.textContent = formatRange(browseWeekStart.value, browseWeekEnd.value);
 });
