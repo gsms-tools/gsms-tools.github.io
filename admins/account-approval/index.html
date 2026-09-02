@@ -451,6 +451,28 @@
   .conditional-fields{ display:none; flex-direction:column; }
   .conditional-fields.show{ display:flex; }
 
+  /* ---------- Student picker (search + selected card) ---------- */
+  .student-results{
+    margin-top:10px; display:flex; flex-direction:column; gap:6px;
+    max-height:220px; overflow-y:auto;
+  }
+  .student-result-item{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 12px; border:1.5px solid var(--border-card); border-radius:var(--r-sm);
+    background:var(--white); cursor:pointer;
+    transition:border-color .2s var(--ease), transform .2s var(--ease);
+  }
+  .student-result-item:hover{ border-color:var(--border-card-hover); transform:translateY(-1px); }
+  .student-result-name{ font-weight:700; font-size:.88rem; color:var(--ink-900); margin:0; }
+  .student-result-meta{ font-size:.74rem; color:var(--ink-500); margin:2px 0 0; }
+  .student-result-empty{ font-size:.82rem; color:var(--ink-500); padding:10px 4px; margin:0; }
+  .selected-student-card{
+    background:var(--bg-tint-teal); border-radius:var(--r-sm); padding:12px 14px;
+    display:flex; flex-direction:column; gap:2px;
+  }
+  .selected-student-card .name{ font-family:'Fraunces',serif; font-weight:600; font-size:.98rem; color:var(--teal-700); }
+  .selected-student-card .meta{ font-size:.8rem; color:var(--ink-500); }
+
   /* ---------- Toast ---------- */
   #toast-wrap{
     position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 20px);
@@ -569,42 +591,24 @@
       </div>
     </div>
 
-    <div class="field">
+    <div class="field" id="name-field">
       <label for="f-name">Full name</label>
       <input type="text" id="f-name" placeholder="e.g. Meera Kapoor">
       <p class="field-hint" id="name-hint">Used as the teacher's display name.</p>
     </div>
 
     <div class="conditional-fields" id="student-fields">
-      <div class="row2">
-        <div class="field">
-          <label for="f-roll">Roll number</label>
-          <input type="number" id="f-roll" min="1" max="999999" placeholder="e.g. 24">
-        </div>
-        <div class="field">
-          <label for="f-class">Class</label>
-          <input type="text" id="f-class" placeholder="e.g. 10-B">
-        </div>
+      <div class="field" id="student-search-field">
+        <label for="f-student-search">Find student record</label>
+        <input type="text" id="f-student-search" placeholder="Search by name, class or roll no…" autocomplete="off">
+        <p class="field-hint">Only unlinked records from the school's master list are shown.</p>
+        <div class="student-results" id="student-results"></div>
       </div>
-      <div class="row2">
-        <div class="field">
-          <label for="f-gender">Gender</label>
-          <select id="f-gender">
-            <option value="">Select…</option>
-            <option value="M">Male</option>
-            <option value="F">Female</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="f-house">House</label>
-          <select id="f-house">
-            <option value="">Select…</option>
-            <option value="Aristocrat">Aristocrat</option>
-            <option value="Diplomat">Diplomat</option>
-            <option value="Republic">Republic</option>
-            <option value="Democrat">Democrat</option>
-          </select>
-        </div>
+
+      <div class="field" id="student-selected-field" style="display:none;">
+        <label>Selected student</label>
+        <div class="selected-student-card" id="selected-student-card"></div>
+        <button type="button" class="btn btn-ghost btn-block" id="student-change-btn" style="margin-top:10px;">Change selection</button>
       </div>
     </div>
 
@@ -659,8 +663,10 @@ var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KE
 var state = {
   user: null,
   pending: [],
-  activeRow: null,   // the pending row currently open in the approve sheet
-  selectedRole: 'teacher'
+  activeRow: null,       // the pending row currently open in the approve sheet
+  selectedRole: 'teacher',
+  selectedMaster: null,  // students_master row chosen for the student flow
+  studentSearchTimer: null
 };
 
 /* =========================================================
@@ -788,8 +794,13 @@ function loadPending(){
 var sheetApprove = document.getElementById('sheet-approve');
 var roleToggle = document.getElementById('role-toggle');
 var studentFields = document.getElementById('student-fields');
+var nameField = document.getElementById('name-field');
 var nameHint = document.getElementById('name-hint');
 var approveError = document.getElementById('approve-error');
+var studentSearchInput = document.getElementById('f-student-search');
+var studentResultsEl = document.getElementById('student-results');
+var studentSearchFieldEl = document.getElementById('student-search-field');
+var studentSelectedFieldEl = document.getElementById('student-selected-field');
 
 function openApproveSheet(row){
   state.activeRow = row;
@@ -800,10 +811,7 @@ function openApproveSheet(row){
   document.getElementById('approve-created').textContent = new Date(row.created_at).toLocaleString();
 
   document.getElementById('f-name').value = '';
-  document.getElementById('f-roll').value = '';
-  document.getElementById('f-class').value = '';
-  document.getElementById('f-gender').value = '';
-  document.getElementById('f-house').value = '';
+  resetStudentPicker();
   approveError.classList.remove('show');
   approveError.textContent = '';
 
@@ -821,8 +829,10 @@ function setRole(role){
     btn.classList.toggle('active', btn.getAttribute('data-role') === role);
   });
   studentFields.classList.toggle('show', role === 'student');
+  nameField.style.display = role === 'student' ? 'none' : '';
 
   if(role === 'student'){
+    resetStudentPicker();
     nameHint.textContent = "Used as the student's display name.";
   }else if(role === 'admin'){
     nameHint.textContent = 'Used as a display name for admin records.';
@@ -839,6 +849,71 @@ sheetApprove.addEventListener('click', function(e){
   if(e.target === sheetApprove){ sheetApprove.classList.remove('show'); state.activeRow = null; }
 });
 
+/* ---------- Student picker: search + select ---------- */
+function resetStudentPicker(){
+  state.selectedMaster = null;
+  studentSearchInput.value = '';
+  studentResultsEl.innerHTML = '';
+  studentSearchFieldEl.style.display = '';
+  studentSelectedFieldEl.style.display = 'none';
+}
+
+studentSearchInput.addEventListener('input', function(){
+  var term = studentSearchInput.value.trim();
+  clearTimeout(state.studentSearchTimer);
+  state.studentSearchTimer = setTimeout(function(){ runStudentSearch(term); }, 300);
+});
+
+function runStudentSearch(term){
+  if(term.length === 0){
+    studentResultsEl.innerHTML = '';
+    return;
+  }
+  supabaseClient.rpc('search_students_master', { p_search: term, p_limit: 20 }).then(function(res){
+    if(res.error){
+      studentResultsEl.innerHTML = '<p class="student-result-empty">Search failed: ' + escapeHtml(res.error.message) + '</p>';
+      return;
+    }
+    renderStudentResults(res.data || []);
+  });
+}
+
+function studentMetaLine(r){
+  var bits = ['Class ' + (r.class || '—')];
+  if(r.roll_no !== null && r.roll_no !== undefined) bits.push('Roll ' + r.roll_no);
+  if(r.sr_no !== null && r.sr_no !== undefined) bits.push('Sr# ' + r.sr_no);
+  return bits.map(escapeHtml).join(' &bull; ');
+}
+
+function renderStudentResults(rows){
+  if(rows.length === 0){
+    studentResultsEl.innerHTML = '<p class="student-result-empty">No matching unlinked student records found.</p>';
+    return;
+  }
+  studentResultsEl.innerHTML = '';
+  rows.forEach(function(r){
+    var item = document.createElement('div');
+    item.className = 'student-result-item';
+    item.innerHTML =
+      '<div><p class="student-result-name">' + escapeHtml(r.name) + '</p>' +
+      '<p class="student-result-meta">' + studentMetaLine(r) + '</p></div>';
+    item.addEventListener('click', function(){ pickStudent(r); });
+    studentResultsEl.appendChild(item);
+  });
+}
+
+function pickStudent(r){
+  state.selectedMaster = r;
+  studentSearchFieldEl.style.display = 'none';
+  studentSelectedFieldEl.style.display = '';
+  document.getElementById('selected-student-card').innerHTML =
+    '<span class="name">' + escapeHtml(r.name) + '</span>' +
+    '<span class="meta">' + studentMetaLine(r) + '</span>';
+}
+
+document.getElementById('student-change-btn').addEventListener('click', function(){ resetStudentPicker(); });
+
+/* ---------- Confirm activation ---------- */
 document.getElementById('approve-confirm').addEventListener('click', function(){
   var row = state.activeRow;
   if(!row) return;
@@ -846,35 +921,23 @@ document.getElementById('approve-confirm').addEventListener('click', function(){
   var role = state.selectedRole;
   var name = document.getElementById('f-name').value.trim();
 
-  if(!name){
-    showApproveError('Please enter a name.');
-    return;
-  }
-
   var payload = {
     p_user_id: row.id,
     p_role: role,
     p_name: name,
-    p_roll_number: null,
-    p_class: null,
-    p_gender: null,
-    p_house: null
+    p_master_token: null
   };
 
   if(role === 'student'){
-    var rollVal = document.getElementById('f-roll').value;
-    var classVal = document.getElementById('f-class').value.trim();
-    var genderVal = document.getElementById('f-gender').value;
-    var houseVal = document.getElementById('f-house').value;
-
-    if(!rollVal || !classVal || !genderVal || !houseVal){
-      showApproveError('Roll number, class, gender and house are all required for students.');
+    if(!state.selectedMaster){
+      showApproveError('Please search for and select a student record.');
       return;
     }
-    payload.p_roll_number = parseInt(rollVal, 10);
-    payload.p_class = classVal;
-    payload.p_gender = genderVal;
-    payload.p_house = houseVal;
+    payload.p_name = state.selectedMaster.name;
+    payload.p_master_token = state.selectedMaster.token;
+  }else if(!name){
+    showApproveError('Please enter a name.');
+    return;
   }
 
   var btn = document.getElementById('approve-confirm');
