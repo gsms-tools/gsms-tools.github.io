@@ -679,7 +679,8 @@ var state = {
   myAssignments: [],   // [{class,subject}] for this teacher
   allCombos: [],        // [{class,subject}] across everyone (used for admin dropdowns)
   allClasses: [],        // sorted unique class list
-  editingExists: false
+  editingExists: false,
+  subjectOrder: {}
 };
 
 /* =========================================================
@@ -833,6 +834,14 @@ function subjectsForClass(combos, cls){
   var set = {};
   combos.forEach(function(c){ if(c.class === cls) set[c.subject] = true; });
   return Object.keys(set).sort();
+}
+function sortPlansByDisplayOrder(plans){
+  return plans.slice().sort(function(a, b){
+    var oa = state.subjectOrder[a.subject] != null ? state.subjectOrder[a.subject] : 1;
+    var ob = state.subjectOrder[b.subject] != null ? state.subjectOrder[b.subject] : 1;
+    if(oa !== ob) return oa - ob;
+    return a.subject.localeCompare(b.subject); // tie-break alphabetically
+  });
 }
 
 function populateEditClassDropdown(){
@@ -991,7 +1000,7 @@ document.getElementById('btn-load-week').addEventListener('click', function(){
     .then(function(res){
       btn.disabled = false; btn.textContent = "View this week's plan";
       if(res.error){ toast('Could not load plans: ' + res.error.message, true); return; }
-      lastBrowseResults = { class: cls, weekStart: ws, weekEnd: we, plans: res.data || [] };
+      lastBrowseResults = { class: cls, weekStart: ws, weekEnd: we, plans: sortPlansByDisplayOrder(res.data || []) };
       renderBrowseResults();
     });
 });
@@ -1368,6 +1377,10 @@ function redirectToAuth(){ window.location.href = AUTH_REDIRECT; }
     state.allCombos.forEach(function(c){ classSet[c.class] = true; });
     (classTeacherRes.data || []).forEach(function(c){ classSet[c.class] = true; });
     state.allClasses = Object.keys(classSet).sort();
+
+    // Load subject display order for sorting compiled plans
+    var subjectsRes = await supabaseClient.from('subjects').select('name, display_order');
+    (subjectsRes.data || []).forEach(function(s){ state.subjectOrder[s.name] = s.display_order; });
 
     populateEditClassDropdown();
     populateBrowseClassDropdown();
