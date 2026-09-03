@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>
+  /* Apply saved/preferred theme immediately to avoid a flash of the wrong theme */
+  (function(){
+    try{
+      var saved = localStorage.getItem('gsms-theme');
+      var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    }catch(e){}
+  })();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Certificate Maker | GSMS Tools</title>
+<meta name="description" content="Generate school-branded certificates for students and staff, GSMS Tools.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="https://gsms-tools.github.io/gsms-logo.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<style>
+  :root{
+    color-scheme: light;
+
+    /* ---------- Brand palette (light) ---------- */
+    --teal-900:#0d3841;
+    --teal-800:#124f59;
+    --teal-700:#1b6b78;
+    --teal-600:#227d8b;
+    --teal-100:#e3eef0;
+    --gold-600:#e2941a;
+    --gold-500:#f5a623;
+    --gold-400:#ffc65c;
+    --gold-100:#fdf1dc;
+    --cream:#faf8f3;
+    --ink-900:#1c2626;
+    --ink-500:#5f6f70;
+    --white:#ffffff;
+
+    --bg-tint-gold: rgba(245,166,35,.10);
+    --bg-tint-teal: rgba(27,107,120,.10);
+    --border-card: rgba(13,56,65,.08);
+    --border-card-hover: rgba(245,166,35,.45);
+
+    --toggle-bg: rgba(255,255,255,.75);
+    --toggle-border: rgba(13,56,65,.14);
+    --toggle-icon: var(--teal-700);
+    --toggle-shadow: 0 10px 24px -12px rgba(13,56,65,.4);
+
+    --header-bg: rgba(250,248,243,.85);
+    --header-border: rgba(13,56,65,.08);
+
+    --danger:#c9432f;
+    --danger-bg: rgba(201,67,47,.1);
+    --success:#2f8f5b;
+
+    --r-lg:26px;
+    --r-md:18px;
+    --r-sm:14px;
+    --shadow-card:0 18px 40px -22px rgba(13,56,65,.35);
+    --shadow-card-hover:0 24px 50px -18px rgba(13,56,65,.45);
+    --ease:cubic-bezier(.22,1,.36,1);
+  }
+
+  html[data-theme="dark"]{
+    color-scheme: dark;
+
+    --teal-900:#092227;
+    --teal-800:#8fe1ec;
+    --teal-700:#5fd0de;
+    --teal-600:#7fdbe6;
+    --teal-100:#173338;
+    --gold-600:#ffb648;
+    --gold-500:#ffc65c;
+    --gold-400:#ffd685;
+    --gold-100:#2b2110;
+    --cream:#0d1517;
+    --ink-900:#eef3f2;
+    --ink-500:#a4b6b7;
+    --white:#182425;
+
+    --bg-tint-gold: rgba(255,182,72,.07);
+    --bg-tint-teal: rgba(95,208,222,.10);
+    --border-card: rgba(255,255,255,.08);
+    --border-card-hover: rgba(255,198,92,.4);
+
+    --toggle-bg: rgba(24,36,37,.85);
+    --toggle-border: rgba(255,255,255,.14);
+    --toggle-icon: var(--gold-400);
+    --toggle-shadow: 0 10px 24px -12px rgba(0,0,0,.6);
+
+    --header-bg: rgba(9,34,39,.85);
+    --header-border: rgba(255,255,255,.08);
+
+    --danger:#ff6b57;
+    --danger-bg: rgba(255,107,87,.12);
+    --success:#57d492;
+
+    --shadow-card:0 18px 40px -22px rgba(0,0,0,.55);
+    --shadow-card-hover:0 24px 50px -18px rgba(0,0,0,.65);
+  }
+
+  *,*::before,*::after{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+
+  body{
+    margin:0;
+    min-height:100svh;
+    background:
+      radial-gradient(1100px 700px at 82% -10%, var(--bg-tint-gold), transparent 60%),
+      radial-gradient(900px 600px at -10% 110%, var(--bg-tint-teal), transparent 60%),
+      var(--cream);
+    color:var(--ink-900);
+    font-family:'Manrope',system-ui,-apple-system,sans-serif;
+    overflow-x:hidden;
+    position:relative;
+    transition:background-color .35s var(--ease), color .35s var(--ease);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection{background:var(--gold-400); color:var(--teal-900);}
+  a{color:inherit;}
+  button{font-family:inherit;}
+
+  /* ---------- Loading gate ---------- */
+  #gate{
+    position:fixed; inset:0; z-index:200;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--cream);
+    transition:opacity .35s var(--ease), visibility .35s var(--ease);
+  }
+  #gate.hidden{opacity:0; visibility:hidden; pointer-events:none;}
+  .spinner{
+    width:40px; height:40px; border-radius:50%;
+    border:3px solid var(--border-card);
+    border-top-color:var(--gold-500);
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  #app{ display:none; min-height:100svh; flex-direction:column; }
+  #app.ready{ display:flex; }
+
+  /* ---------- App header ---------- */
+  .app-header{
+    position:sticky;
+    top:0;
+    z-index:40;
+    background:var(--header-bg);
+    border-bottom:1px solid var(--header-border);
+    -webkit-backdrop-filter:blur(14px);
+    backdrop-filter:blur(14px);
+    padding:calc(env(safe-area-inset-top) + 14px) 18px 14px;
+    transition:background-color .35s var(--ease), border-color .35s var(--ease);
+  }
+  .app-header-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    max-width:1100px;
+    margin:0 auto 14px;
+  }
+  .header-brand{ display:flex; align-items:center; gap:10px; min-width:0; }
+  .back-btn{
+    width:38px; height:38px; flex-shrink:0;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--toggle-bg);
+    border:1.5px solid var(--toggle-border);
+    cursor:pointer;
+    transition:transform .2s var(--ease), background-color .3s var(--ease), border-color .3s var(--ease);
+  }
+  .back-btn:hover{ transform:translateX(-2px); }
+  .back-btn:active{ transform:scale(.95); }
+  .back-btn svg{ width:18px; height:18px; stroke:var(--toggle-icon); fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+  .header-text{ min-width:0; }
+  .header-greeting{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:1.02rem;
+    color:var(--ink-900);
+    margin:0;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    transition:color .3s var(--ease);
+  }
+  .header-sub{
+    margin:1px 0 0;
+    font-size:.72rem;
+    font-weight:600;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--gold-600);
+  }
+  .header-sub.admin-badge{ color:var(--teal-700); }
+
+  .header-actions{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
+
+  .icon-btn{
+    width:40px; height:40px;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--toggle-bg);
+    border:1.5px solid var(--toggle-border);
+    box-shadow:var(--toggle-shadow);
+    cursor:pointer;
+    -webkit-backdrop-filter:blur(8px);
+    backdrop-filter:blur(8px);
+    transition:background-color .3s var(--ease), border-color .3s var(--ease), transform .2s var(--ease);
+    position:relative;
+    flex-shrink:0;
+  }
+  .icon-btn:hover{ transform:translateY(-2px) scale(1.05); }
+  .icon-btn:active{ transform:translateY(0) scale(.96); }
+  .icon-btn:focus-visible{ outline:3px solid var(--gold-500); outline-offset:3px; }
+  .icon-btn svg{
+    width:19px; height:19px;
+    fill:none; stroke:var(--toggle-icon); stroke-width:2; stroke-linecap:round; stroke-linejoin:round;
+    position:absolute;
+    transition:opacity .3s var(--ease), transform .4s var(--ease);
+  }
+  .icon-sun{opacity:1; transform:rotate(0deg) scale(1);}
+  .icon-moon{opacity:0; transform:rotate(-70deg) scale(.5);}
+  html[data-theme="dark"] .icon-sun{opacity:0; transform:rotate(70deg) scale(.5);}
+  html[data-theme="dark"] .icon-moon{opacity:1; transform:rotate(0deg) scale(1);}
+
+  /* ---------- Tabs ---------- */
+  .tabs{
+    max-width:1100px;
+    margin:0 auto;
+    display:flex;
+    gap:6px;
+    background:var(--white);
+    border:1.5px solid var(--border-card);
+    border-radius:999px;
+    padding:5px;
+  }
+  .tab-btn{
+    flex:1;
+    border:none;
+    background:transparent;
+    color:var(--ink-500);
+    font-weight:700;
+    font-size:.86rem;
+    padding:10px 8px;
+    border-radius:999px;
+    cursor:pointer;
+    transition:background-color .25s var(--ease), color .25s var(--ease);
+  }
+  .tab-btn.active{
+    background:linear-gradient(150deg,var(--teal-700),var(--teal-900));
+    color:var(--white);
+    box-shadow:0 10px 22px -12px rgba(13,56,65,.5);
+  }
+  html[data-theme="dark"] .tab-btn.active{ color:var(--teal-900); }
+
+  /* ---------- Main ---------- */
+  main.dash{
+    flex:1;
+    width:100%;
+    max-width:1100px;
+    margin:0 auto;
+    padding:20px 18px calc(env(safe-area-inset-bottom) + 48px);
+  }
+
+  .panel{ display:none; flex-direction:column; gap:16px; }
+  .panel.active{ display:flex; }
+
+  .card{
+    background:var(--white);
+    border:1px solid var(--border-card);
+    border-radius:var(--r-md);
+    padding:18px;
+    box-shadow:var(--shadow-card);
+    transition:border-color .3s var(--ease), background-color .3s var(--ease);
+  }
+  .card-title{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:1rem;
+    margin:0 0 14px;
+    color:var(--ink-900);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .chip{
+    font-size:.72rem;
+    font-weight:700;
+    letter-spacing:.02em;
+    color:var(--teal-700);
+    background:var(--bg-tint-teal);
+    padding:5px 11px;
+    border-radius:999px;
+    white-space:nowrap;
+  }
+
+  .field{ margin-bottom:14px; }
+  .field:last-child{ margin-bottom:0; }
+  .field label{
+    display:block;
+    font-size:.76rem;
+    font-weight:700;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--ink-500);
+    margin-bottom:7px;
+  }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .row3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+  @media (max-width:640px){ .row2, .row3{ grid-template-columns:1fr; } }
+
+  input[type="text"], input[type="date"], select, textarea{
+    width:100%;
+    padding:12px 14px;
+    border-radius:var(--r-sm);
+    border:1.5px solid var(--border-card);
+    background:var(--cream);
+    color:var(--ink-900);
+    font-family:'Manrope',sans-serif;
+    font-size:.92rem;
+    font-weight:500;
+    outline:none;
+    transition:border-color .25s var(--ease), box-shadow .25s var(--ease), background-color .3s var(--ease), color .3s var(--ease);
+  }
+  input[type="text"]:focus, input[type="date"]:focus, select:focus, textarea:focus{
+    border-color:var(--border-card-hover);
+    box-shadow:0 0 0 4px var(--bg-tint-gold);
+  }
+  textarea{ resize:vertical; min-height:64px; line-height:1.5; }
+  select{ appearance:none; -webkit-appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235f6f70' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat:no-repeat; background-position:right 12px center; background-size:16px;
+    padding-right:36px;
+  }
+  select:disabled, input:disabled{ opacity:.55; cursor:not-allowed; }
+  .field-hint{ font-size:.72rem; color:var(--ink-500); margin-top:6px; }
+
+  .btn{
+    padding:13px 18px;
+    border-radius:14px;
+    border:none;
+    font-family:'Manrope',sans-serif;
+    font-weight:700;
+    font-size:.88rem;
+    cursor:pointer;
+    transition:transform .2s var(--ease), opacity .2s var(--ease), box-shadow .2s var(--ease);
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn:active{ transform:scale(.97); }
+  .btn:disabled{ opacity:.45; cursor:not-allowed; transform:none; }
+  .btn-primary{ background:linear-gradient(150deg,var(--gold-500),var(--gold-600)); color:var(--teal-900); box-shadow:0 14px 26px -14px rgba(226,148,26,.55); }
+  .btn-ghost{ background:var(--cream); color:var(--ink-900); border:1.5px solid var(--border-card); }
+  .btn-danger{ background:var(--danger-bg); color:var(--danger); border:1.5px solid transparent; }
+  .btn-teal{ background:linear-gradient(150deg,var(--teal-700),var(--teal-900)); color:var(--white); }
+  html[data-theme="dark"] .btn-teal{ color:var(--teal-900); }
+  .btn-block{ width:100%; }
+  .btn-row{ display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+  .btn-row .btn{ flex:1; min-width:140px; }
+  .btn svg{ width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+
+  .placeholder-note{
+    display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px;
+    padding:36px 16px; color:var(--ink-500);
+  }
+  .placeholder-note svg{ width:36px; height:36px; stroke:var(--ink-500); fill:none; stroke-width:1.6; }
+  .placeholder-note p{ margin:0; font-size:.88rem; }
+
+  /* ---------- Template gallery ---------- */
+  .tpl-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+    gap:12px;
+  }
+  .tpl-option{
+    border:2px solid var(--border-card);
+    border-radius:var(--r-sm);
+    padding:8px;
+    cursor:pointer;
+    background:var(--cream);
+    transition:border-color .25s var(--ease), transform .2s var(--ease), box-shadow .25s var(--ease);
+    text-align:left;
+  }
+  .tpl-option:hover{ transform:translateY(-2px); box-shadow:var(--shadow-card); }
+  .tpl-option.selected{ border-color:var(--gold-500); box-shadow:0 0 0 4px var(--bg-tint-gold); }
+  .tpl-thumb{
+    aspect-ratio:1.41/1;
+    border-radius:8px;
+    overflow:hidden;
+    position:relative;
+    margin-bottom:8px;
+  }
+  .tpl-thumb-inner{ width:100%; height:100%; }
+  .tpl-name{ font-size:.78rem; font-weight:700; color:var(--ink-900); }
+
+  /* ---------- Color swatches ---------- */
+  .swatch-row{ display:flex; gap:10px; flex-wrap:wrap; }
+  .swatch{
+    width:36px; height:36px; border-radius:50%;
+    border:2.5px solid transparent;
+    cursor:pointer;
+    box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.1);
+    transition:transform .2s var(--ease), border-color .2s var(--ease);
+  }
+  .swatch:hover{ transform:scale(1.08); }
+  .swatch.selected{ border-color:var(--ink-900); }
+  html[data-theme="dark"] .swatch.selected{ border-color:var(--white); }
+
+  /* ---------- Orientation / size toggle ---------- */
+  .seg{
+    display:flex; gap:6px; background:var(--cream); border:1.5px solid var(--border-card); border-radius:12px; padding:4px;
+  }
+  .seg button{
+    flex:1; border:none; background:transparent; padding:9px 8px; border-radius:9px;
+    font-weight:700; font-size:.8rem; color:var(--ink-500); cursor:pointer;
+    transition:background-color .2s var(--ease), color .2s var(--ease);
+  }
+  .seg button.active{ background:var(--white); color:var(--teal-700); box-shadow:0 4px 10px -4px rgba(13,56,65,.25); }
+
+  .toggle-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .switch{ position:relative; width:44px; height:26px; flex-shrink:0; }
+  .switch input{ opacity:0; width:0; height:0; }
+  .switch-track{
+    position:absolute; inset:0; background:var(--border-card); border-radius:999px; cursor:pointer;
+    transition:background-color .25s var(--ease);
+  }
+  .switch-track::before{
+    content:''; position:absolute; width:20px; height:20px; left:3px; top:3px; border-radius:50%;
+    background:var(--white); box-shadow:0 2px 6px rgba(0,0,0,.25); transition:transform .25s var(--ease);
+  }
+  .switch input:checked + .switch-track{ background:var(--teal-700); }
+  .switch input:checked + .switch-track::before{ transform:translateX(18px); }
+
+  /* ---------- Preview ---------- */
+  .preview-wrap{ position:sticky; top:190px; }
+  .stage-scroll{ width:100%; overflow-x:auto; padding-bottom:6px; }
+  .stage-frame{
+    container-type:inline-size;
+    width:100%;
+    min-width:520px;
+    background:var(--white);
+    position:relative;
+    border-radius:6px;
+    overflow:hidden;
+    box-shadow:var(--shadow-card);
+  }
+
+  .builder-grid{ display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start; }
+  @media (max-width:900px){ .builder-grid{ grid-template-columns:1fr; } .preview-wrap{ position:static; } }
+
+  /* ---------- Certificate stage internals (cqw/cqh based, scale-agnostic) ---------- */
+  .stage{ width:100%; height:100%; position:relative; font-family:'Manrope',sans-serif; }
+  .stage .crest{ width:9cqw; height:9cqw; object-fit:contain; }
+  .stage .school-name{ font-family:'Fraunces',serif; font-weight:600; letter-spacing:.02em; }
+  .stage .cert-eyebrow{ font-weight:700; letter-spacing:.18em; }
+  .stage .cert-title{ font-family:'Fraunces',serif; font-weight:600; }
+  .stage .cert-lede{ }
+  .stage .cert-name{ font-family:'Fraunces',serif; font-style:italic; }
+  .stage .cert-body{ line-height:1.55; }
+  .stage .cert-meta{ }
+  .stage .sig-line{ border-top:1.4px solid currentColor; }
+  .stage .sig-block{ text-align:center; }
+  .stage .sig-name{ font-weight:700; }
+  .stage .sig-title{ }
+
+  /* Classic template */
+  .stage.tpl-classic{ background:var(--cream); color:#2a2016; padding:4.6cqw; }
+  .stage.tpl-classic .frame-outer{ position:absolute; inset:2.4cqw; border:.55cqw solid var(--accent); }
+  .stage.tpl-classic .frame-inner{ position:absolute; inset:3.4cqw; border:.14cqw solid var(--accent); }
+  .stage.tpl-classic .content{ position:relative; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:8cqw 9cqw; gap:1.1cqh; }
+  .stage.tpl-classic .crest{ margin-bottom:.6cqh; }
+  .stage.tpl-classic .school-name{ font-size:2.2cqw; color:#0d3841; }
+  .stage.tpl-classic .cert-eyebrow{ font-size:1.05cqw; color:var(--accent); text-transform:uppercase; margin-top:.6cqh; }
+  .stage.tpl-classic .cert-title{ font-size:4.6cqw; color:#0d3841; margin-top:.2cqh; }
+  .stage.tpl-classic .cert-lede{ font-size:1.15cqw; color:#5f6f70; margin-top:1cqh; }
+  .stage.tpl-classic .cert-name{ font-size:3.6cqw; color:var(--accent); margin-top:.6cqh; border-bottom:.12cqw solid var(--accent); padding-bottom:.6cqh; }
+  .stage.tpl-classic .cert-body{ font-size:1.15cqw; color:#3a2f22; max-width:66cqw; margin-top:1.3cqh; }
+  .stage.tpl-classic .cert-meta{ font-size:1cqw; color:#5f6f70; margin-top:.8cqh; }
+  .stage.tpl-classic .sig-row{ display:flex; gap:6cqw; margin-top:3.4cqh; }
+  .stage.tpl-classic .sig-line{ width:16cqw; margin:0 auto .8cqh; }
+  .stage.tpl-classic .sig-name{ font-size:1.15cqw; color:#0d3841; }
+  .stage.tpl-classic .sig-title{ font-size:.92cqw; color:#5f6f70; }
+  .stage.tpl-classic .seal{ position:absolute; bottom:3cqw; right:5cqw; width:9cqw; height:9cqw; opacity:.92; }
+
+  /* Teal template */
+  .stage.tpl-teal{ background:#0d3841; color:#faf8f3; padding:0; }
+  .stage.tpl-teal .frame-outer{ position:absolute; inset:2.6cqw; border:.16cqw solid var(--accent); }
+  .stage.tpl-teal .frame-corner{ position:absolute; width:4cqw; height:4cqw; border-color:var(--accent); }
+  .stage.tpl-teal .content{ position:relative; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:8cqw 9cqw; gap:1.1cqh; }
+  .stage.tpl-teal .school-name{ font-size:2cqw; color:var(--accent); letter-spacing:.05em; }
+  .stage.tpl-teal .cert-eyebrow{ font-size:1cqw; color:#bcd6d9; text-transform:uppercase; margin-top:1cqh; }
+  .stage.tpl-teal .cert-title{ font-size:4.4cqw; color:#faf8f3; margin-top:.2cqh; }
+  .stage.tpl-teal .cert-lede{ font-size:1.1cqw; color:#a8c3c6; margin-top:1cqh; }
+  .stage.tpl-teal .cert-name{ font-size:3.4cqw; color:var(--accent); margin-top:.6cqh; }
+  .stage.tpl-teal .cert-body{ font-size:1.1cqw; color:#d9e8e9; max-width:64cqw; margin-top:1.3cqh; }
+  .stage.tpl-teal .cert-meta{ font-size:.95cqw; color:#a8c3c6; margin-top:.8cqh; }
+  .stage.tpl-teal .sig-row{ display:flex; gap:6cqw; margin-top:3.2cqh; }
+  .stage.tpl-teal .sig-line{ width:16cqw; margin:0 auto .8cqh; border-color:#5b8991; }
+  .stage.tpl-teal .sig-name{ font-size:1.1cqw; color:#faf8f3; }
+  .stage.tpl-teal .sig-title{ font-size:.9cqw; color:#a8c3c6; }
+
+  /* Minimal template */
+  .stage.tpl-minimal{ background:#faf8f3; color:#1c2626; padding:0; }
+  .stage.tpl-minimal .bar{ position:absolute; left:0; top:0; bottom:0; width:1.6cqw; background:#0d3841; }
+  .stage.tpl-minimal .rule{ position:absolute; left:6cqw; right:6cqw; height:.14cqw; background:var(--accent); }
+  .stage.tpl-minimal .rule.top{ top:6cqw; }
+  .stage.tpl-minimal .rule.bottom{ bottom:6cqw; }
+  .stage.tpl-minimal .content{ position:relative; height:100%; display:flex; flex-direction:column; justify-content:center; padding:8cqw 8cqw 8cqw 9.5cqw; gap:1cqh; text-align:left; }
+  .stage.tpl-minimal .top-row{ display:flex; align-items:center; justify-content:space-between; }
+  .stage.tpl-minimal .school-name{ font-size:1.5cqw; color:#0d3841; }
+  .stage.tpl-minimal .cert-eyebrow{ font-size:.95cqw; color:var(--accent); text-transform:uppercase; margin-top:2cqh; }
+  .stage.tpl-minimal .cert-title{ font-size:3.6cqw; color:#0d3841; margin-top:.2cqh; }
+  .stage.tpl-minimal .cert-lede{ font-size:1.05cqw; color:#5f6f70; margin-top:.8cqh; }
+  .stage.tpl-minimal .cert-name{ font-size:3cqw; color:#1c2626; margin-top:.4cqh; }
+  .stage.tpl-minimal .cert-body{ font-size:1.05cqw; color:#3a4344; max-width:60cqw; margin-top:1cqh; }
+  .stage.tpl-minimal .cert-meta{ font-size:.9cqw; color:#5f6f70; margin-top:.6cqh; }
+  .stage.tpl-minimal .sig-row{ display:flex; gap:5cqw; margin-top:2.6cqh; }
+  .stage.tpl-minimal .sig-block{ text-align:left; }
+  .stage.tpl-minimal .sig-line{ width:14cqw; margin:0 0 .7cqh; }
+  .stage.tpl-minimal .sig-name{ font-size:1.05cqw; color:#0d3841; }
+  .stage.tpl-minimal .sig-title{ font-size:.85cqw; color:#5f6f70; }
+
+  /* Banner template */
+  .stage.tpl-banner{ background:#faf8f3; color:#1c2626; padding:0; }
+  .stage.tpl-banner .banner{ position:absolute; top:0; left:0; right:0; height:15cqh; background:#0d3841; clip-path:polygon(0 0,100% 0,100% 78%,0 100%); display:flex; align-items:center; justify-content:center; gap:1.2cqw; }
+  .stage.tpl-banner .banner .cert-eyebrow{ color:var(--accent); font-size:1.6cqw; letter-spacing:.14em; text-transform:uppercase; }
+  .stage.tpl-banner .content{ position:relative; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; text-align:center; padding:2cqh 9cqw 7cqw; gap:.9cqh; }
+  .stage.tpl-banner .school-name{ font-size:1.4cqw; color:#5f6f70; letter-spacing:.05em; }
+  .stage.tpl-banner .cert-title{ font-size:4.2cqw; color:#0d3841; margin-top:1cqh; }
+  .stage.tpl-banner .cert-lede{ font-size:1.05cqw; color:#5f6f70; margin-top:.6cqh; }
+  .stage.tpl-banner .cert-name{ font-size:3.2cqw; color:var(--accent); margin-top:.4cqh; }
+  .stage.tpl-banner .cert-body{ font-size:1.05cqw; color:#3a4344; max-width:62cqw; margin-top:1cqh; }
+  .stage.tpl-banner .cert-meta{ font-size:.9cqw; color:#5f6f70; margin-top:.6cqh; }
+  .stage.tpl-banner .sig-row{ display:flex; gap:5cqw; margin-top:2.4cqh; }
+  .stage.tpl-banner .sig-line{ width:14cqw; margin:0 auto .7cqh; }
+  .stage.tpl-banner .sig-name{ font-size:1.05cqw; color:#0d3841; }
+  .stage.tpl-banner .sig-title{ font-size:.85cqw; color:#5f6f70; }
+
+  /* Ribbon template */
+  .stage.tpl-ribbon{ background:#faf8f3; color:#2a2016; padding:0; }
+  .stage.tpl-ribbon .frame-outer{ position:absolute; inset:2.2cqw; border:.3cqw double var(--accent); }
+  .stage.tpl-ribbon .content{ position:relative; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:7cqw 9cqw 11cqw; gap:1cqh; }
+  .stage.tpl-ribbon .school-name{ font-size:2cqw; color:#0d3841; }
+  .stage.tpl-ribbon .cert-eyebrow{ font-size:1cqw; color:var(--accent); text-transform:uppercase; margin-top:.6cqh; }
+  .stage.tpl-ribbon .cert-title{ font-size:4.2cqw; color:#0d3841; margin-top:.2cqh; }
+  .stage.tpl-ribbon .cert-lede{ font-size:1.1cqw; color:#5f6f70; margin-top:.8cqh; }
+  .stage.tpl-ribbon .cert-name{ font-size:3.4cqw; color:var(--accent); margin-top:.5cqh; }
+  .stage.tpl-ribbon .cert-body{ font-size:1.1cqw; color:#3a2f22; max-width:64cqw; margin-top:1.1cqh; }
+  .stage.tpl-ribbon .cert-meta{ font-size:.92cqw; color:#5f6f70; margin-top:.6cqh; }
+  .stage.tpl-ribbon .sig-row{ display:flex; gap:6cqw; margin-top:2.2cqh; }
+  .stage.tpl-ribbon .sig-line{ width:15cqw; margin:0 auto .7cqh; }
+  .stage.tpl-ribbon .sig-name{ font-size:1.1cqw; color:#0d3841; }
+  .stage.tpl-ribbon .sig-title{ font-size:.9cqw; color:#5f6f70; }
+  .stage.tpl-ribbon .ribbon-medal{ position:absolute; bottom:2.4cqw; left:50%; transform:translateX(-50%); width:11cqw; }
+
+  /* ---------- History list ---------- */
+  .hist-card{
+    background:var(--white); border:1px solid var(--border-card); border-radius:var(--r-md);
+    padding:14px 16px; box-shadow:var(--shadow-card); display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  }
+  .hist-main{ min-width:0; }
+  .hist-title{ font-family:'Fraunces',serif; font-weight:600; font-size:.98rem; color:var(--teal-700); margin:0; }
+  .hist-meta{ font-size:.76rem; color:var(--ink-500); margin-top:3px; }
+  .hist-actions{ display:flex; gap:6px; flex-shrink:0; }
+  .mini-btn{
+    width:34px; height:34px; border-radius:10px; border:1.5px solid var(--border-card);
+    background:var(--cream); display:flex; align-items:center; justify-content:center; cursor:pointer;
+    transition:transform .2s var(--ease), border-color .2s var(--ease);
+  }
+  .mini-btn:hover{ transform:translateY(-1px); border-color:var(--border-card-hover); }
+  .mini-btn svg{ width:15px; height:15px; stroke:var(--ink-500); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .mini-btn.danger svg{ stroke:var(--danger); }
+
+  /* ---------- Sheet (bottom modal) ---------- */
+  .sheet-backdrop{
+    position:fixed; inset:0; z-index:100;
+    background:rgba(9,34,39,.4);
+    opacity:0; visibility:hidden;
+    transition:opacity .25s var(--ease), visibility .25s var(--ease);
+  }
+  .sheet-backdrop.show{ opacity:1; visibility:visible; }
+  .sheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:101;
+    background:var(--cream);
+    border-radius:22px 22px 0 0;
+    padding:22px 20px calc(env(safe-area-inset-bottom) + 20px);
+    max-width:960px; margin:0 auto;
+    box-shadow:0 -20px 50px -20px rgba(0,0,0,.35);
+    transform:translateY(100%);
+    transition:transform .3s var(--ease);
+  }
+  .sheet-backdrop.show .sheet{ transform:translateY(0); }
+  .sheet-handle{ width:38px; height:4px; border-radius:99px; background:var(--border-card); margin:0 auto 18px; }
+  .sheet h3{ font-family:'Fraunces',serif; margin:0 0 6px; font-size:1.1rem; }
+  .sheet p{ margin:0 0 20px; color:var(--ink-500); font-size:.88rem; }
+  .sheet-actions{ display:flex; gap:10px; }
+  .sheet-actions .btn{ flex:1; }
+
+  /* ---------- Toast ---------- */
+  #toast-wrap{
+    position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 20px);
+    z-index:150; display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:none;
+  }
+  .toast{
+    background:var(--teal-900); color:var(--white); font-size:.84rem; font-weight:600;
+    padding:12px 18px; border-radius:999px; box-shadow:0 14px 30px -12px rgba(0,0,0,.4);
+    opacity:0; transform:translateY(10px); transition:opacity .3s var(--ease), transform .3s var(--ease); max-width:88vw;
+  }
+  html[data-theme="dark"] .toast{ color:var(--teal-900); background:var(--gold-400); }
+  .toast.show{ opacity:1; transform:translateY(0); }
+  .toast.error{ background:var(--danger); color:var(--white); }
+</style>
+</head>
+<body>
+
+<div id="gate"><div class="spinner" role="status" aria-label="Loading"></div></div>
+
+<div id="app">
+
+  <header class="app-header">
+    <div class="app-header-top">
+      <div class="header-brand">
+        <button class="back-btn" id="back-btn" type="button" aria-label="Back to dashboard" title="Back to dashboard">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 19l-7-7 7-7"/></svg>
+        </button>
+        <div class="header-text">
+          <p class="header-greeting">Certificate Maker</p>
+          <p class="header-sub" id="role-badge">Design &bull; Personalise &bull; Print</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4.2"/>
+            <path d="M12 2.5v2.4M12 19.1v2.4M4.5 4.5l1.7 1.7M17.8 17.8l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.5 19.5l1.7-1.7M17.8 6.2l1.7-1.7"/>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5Z"/>
+          </svg>
+        </button>
+        <button class="icon-btn" id="signout-btn" type="button" aria-label="Sign out" title="Sign out">
+          <svg viewBox="0 0 24 24" aria-hidden="true" style="opacity:1; position:static;">
+            <path d="M15 17l5-5-5-5M20 12H9M12 19H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" id="tab-create-btn" type="button">Create</button>
+      <button class="tab-btn" id="tab-history-btn" type="button">History</button>
+    </div>
+  </header>
+
+  <main class="dash">
+
+    <!-- ============ PANEL: CREATE ============ -->
+    <section class="panel active" id="panel-create">
+
+      <div class="builder-grid">
+
+        <!-- LEFT: controls -->
+        <div style="display:flex; flex-direction:column; gap:16px;">
+
+          <div class="card">
+            <p class="card-title">Choose a template</p>
+            <div class="tpl-grid" id="tpl-grid"></div>
+          </div>
+
+          <div class="card">
+            <p class="card-title">Certificate details</p>
+
+            <div class="field">
+              <label for="f-type">Certificate type</label>
+              <select id="f-type"></select>
+            </div>
+
+            <div class="field" id="f-customtitle-wrap" style="display:none;">
+              <label for="f-customtitle">Custom title</label>
+              <input type="text" id="f-customtitle" placeholder="e.g. Certificate of Courage">
+            </div>
+
+            <div class="row2">
+              <div class="field">
+                <label for="f-recipient-kind">Awarded to</label>
+                <select id="f-recipient-kind">
+                  <option value="student">Student</option>
+                  <option value="staff">Staff member</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="f-recipient-class" id="f-recipient-class-label">Class / section</label>
+                <input type="text" id="f-recipient-class" placeholder="e.g. Class 8-B">
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="f-name">Recipient's full name</label>
+              <input type="text" id="f-name" placeholder="e.g. Ananya Sharma">
+            </div>
+
+            <div class="field">
+              <label for="f-body">Awarded for</label>
+              <textarea id="f-body" rows="2" placeholder="e.g. outstanding performance in the Annual Science Exhibition 2026"></textarea>
+            </div>
+
+            <div class="row2">
+              <div class="field">
+                <label for="f-occasion">Occasion / event (optional)</label>
+                <input type="text" id="f-occasion" placeholder="e.g. Annual Day 2026">
+              </div>
+              <div class="field">
+                <label for="f-date">Date issued</label>
+                <input type="date" id="f-date">
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <p class="card-title">Signatures</p>
+            <div class="row2">
+              <div class="field">
+                <label for="f-sig1-name">Signatory 1 — name</label>
+                <input type="text" id="f-sig1-name" placeholder="e.g. Rekha Malhotra">
+              </div>
+              <div class="field">
+                <label for="f-sig1-title">Signatory 1 — title</label>
+                <input type="text" id="f-sig1-title" placeholder="e.g. Principal" value="Principal">
+              </div>
+            </div>
+            <div class="toggle-row field">
+              <label style="margin:0;">Add a second signatory</label>
+              <label class="switch">
+                <input type="checkbox" id="f-sig2-enable">
+                <span class="switch-track"></span>
+              </label>
+            </div>
+            <div id="sig2-wrap" style="display:none;">
+              <div class="row2">
+                <div class="field">
+                  <label for="f-sig2-name">Signatory 2 — name</label>
+                  <input type="text" id="f-sig2-name" placeholder="e.g. Vikram Nair">
+                </div>
+                <div class="field">
+                  <label for="f-sig2-title">Signatory 2 — title</label>
+                  <input type="text" id="f-sig2-title" placeholder="e.g. Class Teacher">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <p class="card-title">Appearance &amp; layout</p>
+            <div class="field">
+              <label>Accent colour</label>
+              <div class="swatch-row" id="swatch-row"></div>
+            </div>
+            <div class="row2">
+              <div class="field">
+                <label>Orientation</label>
+                <div class="seg" id="seg-orientation">
+                  <button type="button" data-val="landscape" class="active">Landscape</button>
+                  <button type="button" data-val="portrait">Portrait</button>
+                </div>
+              </div>
+              <div class="field">
+                <label>Page size</label>
+                <div class="seg" id="seg-pagesize">
+                  <button type="button" data-val="a4" class="active">A4</button>
+                  <button type="button" data-val="letter">Letter</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- RIGHT: live preview -->
+        <div class="preview-wrap">
+          <div class="card">
+            <p class="card-title">Preview <span class="chip" id="preview-chip">A4 &bull; Landscape</span></p>
+            <div class="stage-scroll">
+              <div class="stage-frame" id="stage-frame"></div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-teal" id="btn-print" type="button">
+                <svg viewBox="0 0 24 24"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                Print
+              </button>
+              <button class="btn btn-primary" id="btn-download-pdf" type="button">
+                <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+                Download PDF
+              </button>
+              <button class="btn btn-ghost" id="btn-download-png" type="button">
+                <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                Download Image
+              </button>
+              <button class="btn btn-ghost" id="btn-save-history" type="button">
+                <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+                Save to history
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============ PANEL: HISTORY ============ -->
+    <section class="panel" id="panel-history">
+      <div class="card">
+        <p class="card-title">Previously generated certificates</p>
+        <p class="field-hint" style="margin-bottom:12px;">Reopen a saved certificate to reprint or download it again, or pick up editing from where you left off.</p>
+        <div id="history-list" style="display:flex; flex-direction:column; gap:10px;"></div>
+      </div>
+      <div class="placeholder-note" id="history-placeholder">
+        <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
+        <p>Certificates you save will appear here for quick reprinting.</p>
+      </div>
+    </section>
+
+  </main>
+
+</div>
+
+<!-- Sign-out confirmation sheet -->
+<div class="sheet-backdrop" id="sheet-signout">
+  <div class="sheet" role="dialog" aria-label="Sign out confirmation">
+    <div class="sheet-handle"></div>
+    <h3>Sign out?</h3>
+    <p>You'll need to sign in again to access your dashboard.</p>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="cancel-signout">Cancel</button>
+      <button class="btn btn-danger" id="confirm-signout">Sign out</button>
+    </div>
+  </div>
+</div>
+
+<!-- Generic confirm sheet (delete) -->
+<div class="sheet-backdrop" id="sheet-confirm">
+  <div class="sheet" role="dialog" aria-label="Confirm action">
+    <div class="sheet-handle"></div>
+    <h3 id="confirm-title">Are you sure?</h3>
+    <p id="confirm-message">This action cannot be undone.</p>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="confirm-cancel">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-wrap"></div>
+
+<script>
+/* =========================================================
+   SUPABASE SETUP
+
+   Access control: this page is for teachers only. On load we
+   verify the signed-in user has a row in `teachers` (same check
+   used across GSMS Tools) and redirect to auth.html otherwise.
+   `is_admin()` RPC is used only to badge admins and let them see
+   every teacher's saved certificates in History.
+
+   Expected table (create once in Supabase, with RLS restricting
+   rows to `teacher_id = auth.uid()` for select/insert/delete,
+   plus a bypass for is_admin() on select):
+
+   create table public.certificates (
+     id uuid primary key default gen_random_uuid(),
+     teacher_id uuid references public.teachers(id) not null,
+     template text not null,
+     cert_type text not null,
+     custom_title text,
+     recipient_kind text,
+     recipient_class text,
+     recipient_name text not null,
+     body_text text,
+     occasion text,
+     date_issued date,
+     sig1_name text, sig1_title text,
+     sig2_name text, sig2_title text,
+     accent text, orientation text, page_size text,
+     created_at timestamptz not null default now()
+   );
+========================================================= */
+var SUPABASE_URL = 'https://ctuqlmdunhdhhholsqco.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_jaogFl0uiNQW_3kkPakSrw_uVTwohtY';
+var AUTH_REDIRECT = 'https://gsms-tools.github.io/auth.html';
+var DASHBOARD_URL = 'index.html';
+var LOGO_URL = 'https://gsms-tools.github.io/gsms-logo.png';
+var SCHOOL_NAME = 'Gopal Sharma Memorial School';
+
+var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+var state = {
+  user: null,
+  teacherName: '',
+  isAdmin: false,
+  history: []
+};
+
+/* =========================================================
+   THEME TOGGLE
+========================================================= */
+document.getElementById('theme-toggle').addEventListener('click', function(){
+  var root = document.documentElement;
+  var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  root.setAttribute('data-theme', next);
+  try{ localStorage.setItem('gsms-theme', next); }catch(e){}
+});
+
+/* =========================================================
+   TOAST
+========================================================= */
+function toast(msg, isError){
+  var wrap = document.getElementById('toast-wrap');
+  var el = document.createElement('div');
+  el.className = 'toast' + (isError ? ' error' : '');
+  el.textContent = msg;
+  wrap.appendChild(el);
+  requestAnimationFrame(function(){ el.classList.add('show'); });
+  setTimeout(function(){
+    el.classList.remove('show');
+    setTimeout(function(){ el.remove(); }, 300);
+  }, 2800);
+}
+
+/* =========================================================
+   SHEETS
+========================================================= */
+var sheetSignout = document.getElementById('sheet-signout');
+document.getElementById('signout-btn').addEventListener('click', function(){ sheetSignout.classList.add('show'); });
+document.getElementById('cancel-signout').addEventListener('click', function(){ sheetSignout.classList.remove('show'); });
+sheetSignout.addEventListener('click', function(e){ if(e.target === sheetSignout){ sheetSignout.classList.remove('show'); } });
+document.getElementById('confirm-signout').addEventListener('click', function(){
+  supabaseClient.auth.signOut().then(function(){ window.location.href = AUTH_REDIRECT; });
+});
+
+var sheetConfirm = document.getElementById('sheet-confirm');
+var confirmCallback = null;
+function askConfirm(title, message, onConfirm){
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-message').textContent = message;
+  confirmCallback = onConfirm;
+  sheetConfirm.classList.add('show');
+}
+document.getElementById('confirm-cancel').addEventListener('click', function(){ sheetConfirm.classList.remove('show'); confirmCallback = null; });
+sheetConfirm.addEventListener('click', function(e){ if(e.target === sheetConfirm){ sheetConfirm.classList.remove('show'); confirmCallback = null; } });
+document.getElementById('confirm-ok').addEventListener('click', function(){
+  var cb = confirmCallback;
+  sheetConfirm.classList.remove('show');
+  confirmCallback = null;
+  if(cb) cb();
+});
+
+/* =========================================================
+   BACK BUTTON + TABS
+========================================================= */
+document.getElementById('back-btn').addEventListener('click', function(){ window.location.href = DASHBOARD_URL; });
+
+var tabCreateBtn = document.getElementById('tab-create-btn');
+var tabHistoryBtn = document.getElementById('tab-history-btn');
+var panelCreate = document.getElementById('panel-create');
+var panelHistory = document.getElementById('panel-history');
+tabCreateBtn.addEventListener('click', function(){ setTab('create'); });
+tabHistoryBtn.addEventListener('click', function(){ setTab('history'); loadHistory(); });
+function setTab(which){
+  var isCreate = which === 'create';
+  tabCreateBtn.classList.toggle('active', isCreate);
+  tabHistoryBtn.classList.toggle('active', !isCreate);
+  panelCreate.classList.toggle('active', isCreate);
+  panelHistory.classList.toggle('active', !isCreate);
+}
+
+/* =========================================================
+   CERTIFICATE TYPES, TEMPLATES, PALETTE, PAGE SIZES
+========================================================= */
+var CERT_TYPES = [
+  { id:'achievement', title:'Certificate of Achievement', lede:'This certificate is proudly presented to', defaultBody:'in recognition of outstanding achievement and dedication throughout the academic year' },
+  { id:'excellence',  title:'Certificate of Excellence',  lede:'This certificate is proudly presented to', defaultBody:'in recognition of consistent excellence and commitment to academic growth' },
+  { id:'participation', title:'Certificate of Participation', lede:'This certificate is proudly presented to', defaultBody:'for enthusiastic participation and valuable contribution to the event' },
+  { id:'appreciation', title:'Certificate of Appreciation', lede:'This certificate is presented with gratitude to', defaultBody:'in appreciation of dedicated service and generous contribution to the school community' },
+  { id:'completion', title:'Certificate of Completion', lede:'This certificate is proudly presented to', defaultBody:'for successfully completing the course requirements with diligence and commitment' },
+  { id:'attendance', title:'Certificate of Perfect Attendance', lede:'This certificate is proudly presented to', defaultBody:'for maintaining perfect attendance throughout the academic term' },
+  { id:'sports', title:'Certificate of Sportsmanship', lede:'This certificate is proudly presented to', defaultBody:'for outstanding sportsmanship and performance in the school sports meet' },
+  { id:'custom', title:'Custom certificate', lede:'This certificate is proudly presented to', defaultBody:'' }
+];
+
+var TEMPLATES = [
+  { id:'classic', name:'Classic Gold' },
+  { id:'teal', name:'Teal Elegance' },
+  { id:'minimal', name:'Modern Minimal' },
+  { id:'banner', name:'Achievement Banner' },
+  { id:'ribbon', name:'Ribbon & Seal' }
+];
+
+var ACCENTS = [
+  { id:'gold', hex:'#e2941a', name:'Gold' },
+  { id:'teal', hex:'#1b6b78', name:'Teal' },
+  { id:'emerald', hex:'#2f8f5b', name:'Emerald' },
+  { id:'burgundy', hex:'#8a2e3b', name:'Burgundy' }
+];
+
+var PAGE_SIZES_MM = {
+  a4: { w:297, h:210 },
+  letter: { w:279.4, h:215.9 }
+};
+
+var draft = {
+  template:'classic',
+  certType:'achievement',
+  customTitle:'',
+  recipientKind:'student',
+  recipientClass:'',
+  recipientName:'',
+  body:'',
+  occasion:'',
+  dateIssued:'',
+  sig1Name:'', sig1Title:'Principal',
+  sig2Enabled:false,
+  sig2Name:'', sig2Title:'',
+  accent:'gold',
+  orientation:'landscape',
+  pageSize:'a4'
+};
+
+/* ---------- Corner / seal graphics (inline SVG, drawn generically) ---------- */
+function svgLaurel(){
+  return '<svg viewBox="0 0 100 100" style="width:100%;height:100%" preserveAspectRatio="xMidYMid meet">' +
+    '<g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">' +
+    '<path d="M50 92 C 30 78, 18 55, 22 30"/>' +
+    '<path d="M22 34 C 15 32, 10 28, 8 20"/><path d="M25 44 C 17 43, 12 39, 10 31"/>' +
+    '<path d="M29 55 C 21 55, 15 52, 13 44"/><path d="M35 65 C 27 66, 21 64, 18 57"/>' +
+    '<path d="M42 74 C 35 76, 29 75, 25 69"/>' +
+    '<path d="M50 92 C 70 78, 82 55, 78 30"/>' +
+    '<path d="M78 34 C 85 32, 90 28, 92 20"/><path d="M75 44 C 83 43, 88 39, 90 31"/>' +
+    '<path d="M71 55 C 79 55, 85 52, 87 44"/><path d="M65 65 C 73 66, 79 64, 82 57"/>' +
+    '<path d="M58 74 C 65 76, 71 75, 75 69"/>' +
+    '</g></svg>';
+}
+function svgSeal(accentHex){
+  return '<svg viewBox="0 0 100 100" style="width:100%;height:100%">' +
+    '<g>' +
+    '<path d="M50 62 L34 92 L42 82 L50 90 L58 82 L66 92 Z" fill="' + accentHex + '" opacity="0.85"/>' +
+    '<circle cx="50" cy="42" r="26" fill="' + accentHex + '"/>' +
+    '<circle cx="50" cy="42" r="26" fill="none" stroke="#faf8f3" stroke-width="2" stroke-dasharray="4 3"/>' +
+    '<circle cx="50" cy="42" r="17" fill="none" stroke="#faf8f3" stroke-width="1.4"/>' +
+    '<text x="50" y="46" text-anchor="middle" font-size="15" fill="#faf8f3" font-family="Fraunces, serif">&#9733;</text>' +
+    '</g></svg>';
+}
+function svgRibbonMedal(accentHex){
+  return '<svg viewBox="0 0 100 60" style="width:100%;display:block">' +
+    '<path d="M30 0 L42 26 L30 26 Z" fill="' + accentHex + '" opacity=".85"/>' +
+    '<path d="M70 0 L58 26 L70 26 Z" fill="#0d3841" opacity=".85"/>' +
+    '<circle cx="50" cy="26" r="22" fill="' + accentHex + '"/>' +
+    '<circle cx="50" cy="26" r="22" fill="none" stroke="#faf8f3" stroke-width="2" stroke-dasharray="3 3"/>' +
+    '<circle cx="50" cy="26" r="14" fill="none" stroke="#faf8f3" stroke-width="1.3"/>' +
+    '</svg>';
+}
+
+/* ---------- Certificate markup builder (shared by preview + export) ---------- */
+function currentCertData(){
+  var type = CERT_TYPES.find(function(t){ return t.id === draft.certType; }) || CERT_TYPES[0];
+  var title = draft.certType === 'custom' ? (draft.customTitle || 'Certificate') : type.title;
+  var lede = type.lede;
+  var body = draft.body || type.defaultBody;
+  return {
+    title: title, lede: lede, body: body,
+    recipientName: draft.recipientName || 'Recipient Name',
+    recipientKind: draft.recipientKind,
+    recipientClass: draft.recipientClass,
+    occasion: draft.occasion,
+    dateIssued: draft.dateIssued,
+    sig1Name: draft.sig1Name, sig1Title: draft.sig1Title,
+    sig2Enabled: draft.sig2Enabled, sig2Name: draft.sig2Name, sig2Title: draft.sig2Title,
+    accent: (ACCENTS.find(function(a){ return a.id === draft.accent; }) || ACCENTS[0]).hex,
+    template: draft.template
+  };
+}
+
+function escapeHtml(str){
+  var div = document.createElement('div');
+  div.textContent = str == null ? '' : str;
+  return div.innerHTML;
+}
+function formatDateLong(iso){
+  if(!iso) return '';
+  var parts = iso.split('-');
+  var d = new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10));
+  return d.toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' });
+}
+function metaLine(d){
+  var bits = [];
+  if(d.recipientKind === 'student' && d.recipientClass) bits.push('Class ' + escapeHtml(d.recipientClass));
+  if(d.recipientKind === 'staff' && d.recipientClass) bits.push(escapeHtml(d.recipientClass));
+  if(d.occasion) bits.push(escapeHtml(d.occasion));
+  if(d.dateIssued) bits.push(formatDateLong(d.dateIssued));
+  return bits.join(' &nbsp;&bull;&nbsp; ');
+}
+function sigRowHtml(d, alignLeft){
+  var s1 = '<div class="sig-block"><div class="sig-line"></div>' +
+    '<div class="sig-name">' + (escapeHtml(d.sig1Name) || '&nbsp;') + '</div>' +
+    '<div class="sig-title">' + escapeHtml(d.sig1Title) + '</div></div>';
+  if(!d.sig2Enabled) return '<div class="sig-row">' + s1 + '</div>';
+  var s2 = '<div class="sig-block"><div class="sig-line"></div>' +
+    '<div class="sig-name">' + (escapeHtml(d.sig2Name) || '&nbsp;') + '</div>' +
+    '<div class="sig-title">' + escapeHtml(d.sig2Title) + '</div></div>';
+  return '<div class="sig-row">' + s1 + s2 + '</div>';
+}
+
+function renderCertificateHTML(d){
+  var tpl = d.template;
+  var accent = d.accent;
+  var bodyHtml = d.body ? escapeHtml(d.body) : '';
+  var meta = metaLine(d);
+
+  if(tpl === 'classic'){
+    return '<div class="stage tpl-classic" style="--accent:' + accent + '">' +
+      '<div class="frame-outer"></div><div class="frame-inner"></div>' +
+      '<div class="content">' +
+        '<img class="crest" src="' + LOGO_URL + '" alt="">' +
+        '<div class="school-name">' + escapeHtml(SCHOOL_NAME) + '</div>' +
+        '<div class="cert-eyebrow">' + escapeHtml(d.lede) + '</div>' +
+        '<div class="cert-title">' + escapeHtml(d.title) + '</div>' +
+        '<div class="cert-name">' + escapeHtml(d.recipientName) + '</div>' +
+        (bodyHtml ? '<div class="cert-body">' + bodyHtml + '</div>' : '') +
+        (meta ? '<div class="cert-meta">' + meta + '</div>' : '') +
+        sigRowHtml(d) +
+      '</div>' +
+      '<div class="seal" style="color:' + accent + '">' + svgSeal(accent) + '</div>' +
+    '</div>';
+  }
+
+  if(tpl === 'teal'){
+    return '<div class="stage tpl-teal" style="--accent:' + accent + '">' +
+      '<div class="frame-outer"></div>' +
+      '<div class="content">' +
+        '<img class="crest" src="' + LOGO_URL + '" alt="" style="filter:brightness(0) invert(1); opacity:.92;">' +
+        '<div class="school-name">' + escapeHtml(SCHOOL_NAME) + '</div>' +
+        '<div class="cert-eyebrow">' + escapeHtml(d.lede) + '</div>' +
+        '<div class="cert-title">' + escapeHtml(d.title) + '</div>' +
+        '<div class="cert-name">' + escapeHtml(d.recipientName) + '</div>' +
+        (bodyHtml ? '<div class="cert-body">' + bodyHtml + '</div>' : '') +
+        (meta ? '<div class="cert-meta">' + meta + '</div>' : '') +
+        sigRowHtml(d) +
+      '</div>' +
+    '</div>';
+  }
+
+  if(tpl === 'minimal'){
+    return '<div class="stage tpl-minimal" style="--accent:' + accent + '">' +
+      '<div class="bar"></div><div class="rule top"></div><div class="rule bottom"></div>' +
+      '<div class="content">' +
+        '<div class="top-row"><div class="school-name">' + escapeHtml(SCHOOL_NAME) + '</div>' +
+        '<img class="crest" src="' + LOGO_URL + '" alt="" style="width:6cqw;height:6cqw;"></div>' +
+        '<div class="cert-eyebrow">' + escapeHtml(d.lede) + '</div>' +
+        '<div class="cert-title">' + escapeHtml(d.title) + '</div>' +
+        '<div class="cert-name">' + escapeHtml(d.recipientName) + '</div>' +
+        (bodyHtml ? '<div class="cert-body">' + bodyHtml + '</div>' : '') +
+        (meta ? '<div class="cert-meta">' + meta + '</div>' : '') +
+        sigRowHtml(d) +
+      '</div>' +
+    '</div>';
+  }
+
+  if(tpl === 'banner'){
+    return '<div class="stage tpl-banner" style="--accent:' + accent + '">' +
+      '<div class="banner"><div class="cert-eyebrow">' + escapeHtml(d.title) + '</div></div>' +
+      '<div class="content">' +
+        '<div class="school-name">' + escapeHtml(SCHOOL_NAME) + ' &bull; ' + escapeHtml(d.lede) + '</div>' +
+        '<div class="cert-title" style="font-size:2.6cqw;">' + escapeHtml(d.title.replace(/^Certificate of /i,'')) + '</div>' +
+        '<div class="cert-name">' + escapeHtml(d.recipientName) + '</div>' +
+        (bodyHtml ? '<div class="cert-body">' + bodyHtml + '</div>' : '') +
+        (meta ? '<div class="cert-meta">' + meta + '</div>' : '') +
+        sigRowHtml(d) +
+      '</div>' +
+    '</div>';
+  }
+
+  /* ribbon */
+  return '<div class="stage tpl-ribbon" style="--accent:' + accent + '">' +
+    '<div class="frame-outer"></div>' +
+    '<div class="content">' +
+      '<img class="crest" src="' + LOGO_URL + '" alt="">' +
+      '<div class="school-name">' + escapeHtml(SCHOOL_NAME) + '</div>' +
+      '<div class="cert-eyebrow">' + escapeHtml(d.lede) + '</div>' +
+      '<div class="cert-title">' + escapeHtml(d.title) + '</div>' +
+      '<div class="cert-name">' + escapeHtml(d.recipientName) + '</div>' +
+      (bodyHtml ? '<div class="cert-body">' + bodyHtml + '</div>' : '') +
+      (meta ? '<div class="cert-meta">' + meta + '</div>' : '') +
+      sigRowHtml(d) +
+    '</div>' +
+    '<div class="ribbon-medal" style="color:' + accent + '">' + svgRibbonMedal(accent) + '</div>' +
+  '</div>';
+}
+
+/* =========================================================
+   BUILD CONTROLS
+========================================================= */
+function buildTypeSelect(){
+  var sel = document.getElementById('f-type');
+  sel.innerHTML = CERT_TYPES.map(function(t){ return '<option value="'+t.id+'">'+escapeHtml(t.title)+'</option>'; }).join('');
+  sel.value = draft.certType;
+}
+function buildTemplateGrid(){
+  var grid = document.getElementById('tpl-grid');
+  grid.innerHTML = '';
+  TEMPLATES.forEach(function(t){
+    var opt = document.createElement('button');
+    opt.type = 'button';
+    opt.className = 'tpl-option' + (draft.template === t.id ? ' selected' : '');
+    opt.innerHTML = '<div class="tpl-thumb"><div class="tpl-thumb-inner">' + thumbMarkup(t.id) + '</div></div>' +
+      '<div class="tpl-name">' + t.name + '</div>';
+    opt.addEventListener('click', function(){
+      draft.template = t.id;
+      buildTemplateGrid();
+      renderPreview();
+    });
+    grid.appendChild(opt);
+  });
+}
+function thumbMarkup(tplId){
+  var d = currentCertData();
+  var mini = Object.assign({}, d, { template: tplId, recipientName: 'Jane Doe', body:'', title: (CERT_TYPES.find(function(t){return t.id===draft.certType;})||CERT_TYPES[0]).title });
+  return '<div style="width:100%;height:100%;container-type:inline-size;">' + renderCertificateHTML(mini) + '</div>';
+}
+function buildSwatches(){
+  var row = document.getElementById('swatch-row');
+  row.innerHTML = '';
+  ACCENTS.forEach(function(a){
+    var sw = document.createElement('button');
+    sw.type = 'button';
+    sw.className = 'swatch' + (draft.accent === a.id ? ' selected' : '');
+    sw.style.background = a.hex;
+    sw.title = a.name;
+    sw.setAttribute('aria-label', a.name);
+    sw.addEventListener('click', function(){ draft.accent = a.id; buildSwatches(); renderPreview(); });
+    row.appendChild(sw);
+  });
+}
+
+document.getElementById('f-type').addEventListener('change', function(e){
+  draft.certType = e.target.value;
+  document.getElementById('f-customtitle-wrap').style.display = draft.certType === 'custom' ? 'block' : 'none';
+  var type = CERT_TYPES.find(function(t){ return t.id === draft.certType; });
+  if(type && !draft.body) document.getElementById('f-body').placeholder = type.defaultBody;
+  renderPreview();
+});
+document.getElementById('f-customtitle').addEventListener('input', function(e){ draft.customTitle = e.target.value; renderPreview(); });
+document.getElementById('f-recipient-kind').addEventListener('change', function(e){
+  draft.recipientKind = e.target.value;
+  document.getElementById('f-recipient-class-label').textContent = draft.recipientKind === 'student' ? 'Class / section' : 'Department / role';
+  document.getElementById('f-recipient-class').placeholder = draft.recipientKind === 'student' ? 'e.g. Class 8-B' : 'e.g. Mathematics Department';
+  renderPreview();
+});
+document.getElementById('f-recipient-class').addEventListener('input', function(e){ draft.recipientClass = e.target.value; renderPreview(); });
+document.getElementById('f-name').addEventListener('input', function(e){ draft.recipientName = e.target.value; renderPreview(); });
+document.getElementById('f-body').addEventListener('input', function(e){ draft.body = e.target.value; renderPreview(); });
+document.getElementById('f-occasion').addEventListener('input', function(e){ draft.occasion = e.target.value; renderPreview(); });
+document.getElementById('f-date').addEventListener('change', function(e){ draft.dateIssued = e.target.value; renderPreview(); });
+document.getElementById('f-sig1-name').addEventListener('input', function(e){ draft.sig1Name = e.target.value; renderPreview(); });
+document.getElementById('f-sig1-title').addEventListener('input', function(e){ draft.sig1Title = e.target.value; renderPreview(); });
+document.getElementById('f-sig2-enable').addEventListener('change', function(e){
+  draft.sig2Enabled = e.target.checked;
+  document.getElementById('sig2-wrap').style.display = draft.sig2Enabled ? 'block' : 'none';
+  renderPreview();
+});
+document.getElementById('f-sig2-name').addEventListener('input', function(e){ draft.sig2Name = e.target.value; renderPreview(); });
+document.getElementById('f-sig2-title').addEventListener('input', function(e){ draft.sig2Title = e.target.value; renderPreview(); });
+
+document.querySelectorAll('#seg-orientation button').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    draft.orientation = btn.getAttribute('data-val');
+    document.querySelectorAll('#seg-orientation button').forEach(function(b){ b.classList.toggle('active', b === btn); });
+    updateStageAspect();
+    renderPreview();
+  });
+});
+document.querySelectorAll('#seg-pagesize button').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    draft.pageSize = btn.getAttribute('data-val');
+    document.querySelectorAll('#seg-pagesize button').forEach(function(b){ b.classList.toggle('active', b === btn); });
+    updateStageAspect();
+    renderPreview();
+  });
+});
+
+function updateStageAspect(){
+  var size = PAGE_SIZES_MM[draft.pageSize];
+  var w = size.w, h = size.h;
+  if(draft.orientation === 'portrait'){ var t = w; w = h; h = t; }
+  var frame = document.getElementById('stage-frame');
+  frame.style.aspectRatio = w + ' / ' + h;
+  document.getElementById('preview-chip').textContent =
+    (draft.pageSize === 'a4' ? 'A4' : 'US Letter') + ' \u2022 ' + (draft.orientation === 'landscape' ? 'Landscape' : 'Portrait');
+}
+
+function renderPreview(){
+  var frame = document.getElementById('stage-frame');
+  frame.innerHTML = renderCertificateHTML(currentCertData());
+}
+
+/* =========================================================
+   EXPORT (print / PDF / PNG) via off-screen high-res render
+========================================================= */
+function buildExportNode(pxWidth){
+  var size = PAGE_SIZES_MM[draft.pageSize];
+  var w = size.w, h = size.h;
+  if(draft.orientation === 'portrait'){ var t = w; w = h; h = t; }
+  var pxHeight = Math.round(pxWidth * (h / w));
+
+  var wrap = document.createElement('div');
+  wrap.style.position = 'fixed';
+  wrap.style.left = '-99999px';
+  wrap.style.top = '0';
+  wrap.style.width = pxWidth + 'px';
+  wrap.style.height = pxHeight + 'px';
+  wrap.style.containerType = 'inline-size';
+  wrap.style.background = '#ffffff';
+  wrap.innerHTML = renderCertificateHTML(currentCertData());
+  document.body.appendChild(wrap);
+  return { node: wrap, pxWidth: pxWidth, pxHeight: pxHeight, mmWidth: w, mmHeight: h };
+}
+
+function withRenderedCanvas(callback){
+  if(!draft.recipientName){ toast('Enter the recipient\'s name first.', true); return; }
+  var built = buildExportNode(2400);
+  // allow the logo image + fonts to paint before capture
+  setTimeout(function(){
+    html2canvas(built.node, { scale:1, backgroundColor:'#ffffff', useCORS:true }).then(function(canvas){
+      document.body.removeChild(built.node);
+      callback(canvas, built);
+    }).catch(function(err){
+      document.body.removeChild(built.node);
+      console.error(err);
+      toast('Could not render the certificate.', true);
+    });
+  }, 250);
+}
+
+document.getElementById('btn-download-png').addEventListener('click', function(){
+  var btn = this; btn.disabled = true;
+  withRenderedCanvas(function(canvas, built){
+    btn.disabled = false;
+    var url = canvas.toDataURL('image/png');
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = certFileBaseName() + '.png';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    toast('Image downloaded.');
+  });
+});
+
+document.getElementById('btn-download-pdf').addEventListener('click', function(){
+  var btn = this; btn.disabled = true;
+  withRenderedCanvas(function(canvas, built){
+    btn.disabled = false;
+    var jsPDF = window.jspdf.jsPDF;
+    var doc = new jsPDF({ unit:'mm', format:[built.mmWidth, built.mmHeight], orientation: draft.orientation === 'landscape' ? 'landscape' : 'portrait' });
+    var img = canvas.toDataURL('image/jpeg', 0.95);
+    doc.addImage(img, 'JPEG', 0, 0, built.mmWidth, built.mmHeight);
+    doc.save(certFileBaseName() + '.pdf');
+    toast('PDF downloaded.');
+  });
+});
+
+document.getElementById('btn-print').addEventListener('click', function(){
+  var btn = this; btn.disabled = true;
+  withRenderedCanvas(function(canvas, built){
+    btn.disabled = false;
+    var img = canvas.toDataURL('image/jpeg', 0.98);
+    var win = window.open('', '_blank');
+    if(!win){ toast('Please allow pop-ups to print.', true); return; }
+    var pageCss = '@page{ size: ' + built.mmWidth + 'mm ' + built.mmHeight + 'mm; margin:0; }';
+    win.document.write(
+      '<!DOCTYPE html><html><head><title>Print certificate</title><style>' +
+      pageCss +
+      'html,body{margin:0;padding:0;} img{width:100%;height:100%;display:block;object-fit:contain;}' +
+      '</style></head><body><img src="' + img + '"></body></html>'
+    );
+    win.document.close();
+    win.onload = function(){ setTimeout(function(){ win.focus(); win.print(); }, 200); };
+  });
+});
+
+function certFileBaseName(){
+  var d = currentCertData();
+  var name = (d.recipientName || 'certificate').replace(/[^a-z0-9]+/gi,'-').replace(/(^-|-$)/g,'');
+  return 'GSMS-' + name;
+}
+
+/* =========================================================
+   SAVE TO HISTORY (Supabase)
+========================================================= */
+document.getElementById('btn-save-history').addEventListener('click', function(){
+  if(!draft.recipientName){ toast('Enter the recipient\'s name first.', true); return; }
+  var btn = this; btn.disabled = true; var original = btn.innerHTML; btn.textContent = 'Saving\u2026';
+
+  var payload = {
+    teacher_id: state.user.id,
+    template: draft.template,
+    cert_type: draft.certType,
+    custom_title: draft.certType === 'custom' ? draft.customTitle : null,
+    recipient_kind: draft.recipientKind,
+    recipient_class: draft.recipientClass,
+    recipient_name: draft.recipientName,
+    body_text: draft.body,
+    occasion: draft.occasion,
+    date_issued: draft.dateIssued || null,
+    sig1_name: draft.sig1Name, sig1_title: draft.sig1Title,
+    sig2_name: draft.sig2Enabled ? draft.sig2Name : null,
+    sig2_title: draft.sig2Enabled ? draft.sig2Title : null,
+    accent: draft.accent, orientation: draft.orientation, page_size: draft.pageSize
+  };
+
+  supabaseClient.from('certificates').insert(payload).select().then(function(res){
+    btn.disabled = false; btn.innerHTML = original;
+    if(res.error){ toast('Save failed: ' + res.error.message, true); return; }
+    toast('Certificate saved to history.');
+  });
+});
+
+/* =========================================================
+   HISTORY PANEL
+========================================================= */
+function loadHistory(){
+  var q = supabaseClient.from('certificates').select('*, teachers(name)').order('created_at', { ascending:false });
+  if(!state.isAdmin) q = q.eq('teacher_id', state.user.id);
+  q.then(function(res){
+    if(res.error){ toast('Could not load history: ' + res.error.message, true); return; }
+    state.history = res.data || [];
+    renderHistory();
+  });
+}
+function renderHistory(){
+  var list = document.getElementById('history-list');
+  var placeholder = document.getElementById('history-placeholder');
+  list.innerHTML = '';
+  if(state.history.length === 0){
+    placeholder.style.display = 'flex';
+    return;
+  }
+  placeholder.style.display = 'none';
+  state.history.forEach(function(row){
+    var typeInfo = CERT_TYPES.find(function(t){ return t.id === row.cert_type; });
+    var title = row.cert_type === 'custom' ? (row.custom_title || 'Custom certificate') : (typeInfo ? typeInfo.title : 'Certificate');
+    var card = document.createElement('div');
+    card.className = 'hist-card';
+    var teacherName = (row.teachers && row.teachers.name) ? row.teachers.name : '';
+    card.innerHTML =
+      '<div class="hist-main"><p class="hist-title">' + escapeHtml(row.recipient_name) + ' \u2014 ' + escapeHtml(title) + '</p>' +
+      '<p class="hist-meta">' + (teacherName ? escapeHtml(teacherName) + ' \u2022 ' : '') + new Date(row.created_at).toLocaleDateString() + '</p></div>' +
+      '<div class="hist-actions">' +
+        '<button class="mini-btn" data-action="reopen" title="Reopen in editor"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>' +
+        '<button class="mini-btn danger" data-action="delete" title="Delete"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>' +
+      '</div>';
+    card.querySelector('[data-action="reopen"]').addEventListener('click', function(){ reopenFromHistory(row); });
+    card.querySelector('[data-action="delete"]').addEventListener('click', function(){
+      askConfirm('Delete this certificate?', 'This will remove it from history. This cannot be undone.', function(){
+        supabaseClient.from('certificates').delete().eq('id', row.id).then(function(res){
+          if(res.error){ toast('Delete failed: ' + res.error.message, true); return; }
+          toast('Certificate removed.');
+          state.history = state.history.filter(function(r){ return r.id !== row.id; });
+          renderHistory();
+        });
+      });
+    });
+    list.appendChild(card);
+  });
+}
+function reopenFromHistory(row){
+  draft.template = row.template || 'classic';
+  draft.certType = row.cert_type || 'achievement';
+  draft.customTitle = row.custom_title || '';
+  draft.recipientKind = row.recipient_kind || 'student';
+  draft.recipientClass = row.recipient_class || '';
+  draft.recipientName = row.recipient_name || '';
+  draft.body = row.body_text || '';
+  draft.occasion = row.occasion || '';
+  draft.dateIssued = row.date_issued || '';
+  draft.sig1Name = row.sig1_name || '';
+  draft.sig1Title = row.sig1_title || 'Principal';
+  draft.sig2Enabled = !!row.sig2_name;
+  draft.sig2Name = row.sig2_name || '';
+  draft.sig2Title = row.sig2_title || '';
+  draft.accent = row.accent || 'gold';
+  draft.orientation = row.orientation || 'landscape';
+  draft.pageSize = row.page_size || 'a4';
+  syncFormFromDraft();
+  setTab('create');
+  toast('Loaded into the editor \u2014 make changes and save again if needed.');
+}
+function syncFormFromDraft(){
+  document.getElementById('f-type').value = draft.certType;
+  document.getElementById('f-customtitle-wrap').style.display = draft.certType === 'custom' ? 'block' : 'none';
+  document.getElementById('f-customtitle').value = draft.customTitle;
+  document.getElementById('f-recipient-kind').value = draft.recipientKind;
+  document.getElementById('f-recipient-class-label').textContent = draft.recipientKind === 'student' ? 'Class / section' : 'Department / role';
+  document.getElementById('f-recipient-class').value = draft.recipientClass;
+  document.getElementById('f-name').value = draft.recipientName;
+  document.getElementById('f-body').value = draft.body;
+  document.getElementById('f-occasion').value = draft.occasion;
+  document.getElementById('f-date').value = draft.dateIssued;
+  document.getElementById('f-sig1-name').value = draft.sig1Name;
+  document.getElementById('f-sig1-title').value = draft.sig1Title;
+  document.getElementById('f-sig2-enable').checked = draft.sig2Enabled;
+  document.getElementById('sig2-wrap').style.display = draft.sig2Enabled ? 'block' : 'none';
+  document.getElementById('f-sig2-name').value = draft.sig2Name;
+  document.getElementById('f-sig2-title').value = draft.sig2Title;
+  document.querySelectorAll('#seg-orientation button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-val') === draft.orientation); });
+  document.querySelectorAll('#seg-pagesize button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-val') === draft.pageSize); });
+  buildTemplateGrid();
+  buildSwatches();
+  updateStageAspect();
+  renderPreview();
+}
+
+/* =========================================================
+   AUTH + BOOTSTRAP  (teachers only, via Supabase JS + RPC)
+========================================================= */
+function showApp(){
+  document.getElementById('gate').classList.add('hidden');
+  document.getElementById('app').classList.add('ready');
+}
+function redirectToAuth(){ window.location.href = AUTH_REDIRECT; }
+
+(async function initAuth(){
+  try{
+    var sessionResult = await supabaseClient.auth.getSession();
+    var session = sessionResult && sessionResult.data ? sessionResult.data.session : null;
+    if(!session || !session.user){ redirectToAuth(); return; }
+
+    var userId = session.user.id;
+
+    // Only teachers (a row in `teachers`) may use this tool.
+    var teacherResult = await supabaseClient
+      .from('teachers')
+      .select('id, name, email')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if(teacherResult.error || !teacherResult.data){ redirectToAuth(); return; }
+
+    state.user = { id: userId };
+    state.teacherName = teacherResult.data.name;
+
+    var adminResult = await supabaseClient.rpc('is_admin');
+    state.isAdmin = !!(adminResult && adminResult.data === true);
+
+    var badge = document.getElementById('role-badge');
+    if(state.isAdmin){
+      badge.textContent = 'Admin access \u2014 all certificates';
+      badge.classList.add('admin-badge');
+    }else{
+      badge.textContent = state.teacherName.split(' ')[0] + ' \u2022 Design & Print';
+    }
+
+    // Defaults
+    draft.dateIssued = (function(){ var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })();
+    draft.sig1Name = state.teacherName || '';
+    document.getElementById('f-date').value = draft.dateIssued;
+    document.getElementById('f-sig1-name').value = draft.sig1Name;
+
+    buildTypeSelect();
+    buildTemplateGrid();
+    buildSwatches();
+    updateStageAspect();
+    renderPreview();
+
+    showApp();
+  }catch(err){
+    console.error('Auth/bootstrap failed:', err);
+    redirectToAuth();
+  }
+})();
+</script>
+
+</body>
+</html>
