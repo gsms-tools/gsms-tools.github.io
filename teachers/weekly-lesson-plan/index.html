@@ -618,6 +618,10 @@
             <svg viewBox="0 0 24 24" width="16" height="16" style="stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;"><path d="M4 12v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v14"/></svg>
             Share PDF
           </button>
+          <button class="btn btn-ghost" id="btn-download-pdf" type="button">
+            <svg viewBox="0 0 24 24" width="16" height="16" style="stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+            Download PDF
+          </button>
         </div>
         <div id="browse-results" style="display:flex;flex-direction:column;gap:12px;margin-top:12px;"></div>
       </div>
@@ -1136,7 +1140,8 @@ document.getElementById('btn-share-pdf').addEventListener('click', function(){
 
   loadImageAsDataURL('https://gsms-tools.github.io/gsms-logo.png').then(function(logoDataUrl){
     try{
-      buildAndSharePdf(logoDataUrl);
+      var result = buildPdf(logoDataUrl);
+      shareOrDownloadBlob(result.blob, result.fileName);
     }catch(e){
       console.error(e);
       toast('Could not generate PDF.', true);
@@ -1147,7 +1152,32 @@ document.getElementById('btn-share-pdf').addEventListener('click', function(){
   });
 });
 
-function buildAndSharePdf(logoDataUrl){
+document.getElementById('btn-download-pdf').addEventListener('click', function(){
+  if(!lastBrowseResults.plans || lastBrowseResults.plans.length === 0){
+    toast('Load a week with at least one plan first.', true);
+    return;
+  }
+  var btn = document.getElementById('btn-download-pdf');
+  btn.disabled = true;
+  var originalHtml = btn.innerHTML;
+  btn.textContent = 'Preparing PDF…';
+
+  loadImageAsDataURL('https://gsms-tools.github.io/gsms-logo.png').then(function(logoDataUrl){
+    try{
+      var result = buildPdf(logoDataUrl);
+      downloadBlob(result.blob, result.fileName);
+      toast('PDF downloaded.');
+    }catch(e){
+      console.error(e);
+      toast('Could not generate PDF.', true);
+    }finally{
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+    }
+  });
+});
+
+function buildPdf(logoDataUrl){
   var jsPDF = window.jspdf.jsPDF;
   var doc = new jsPDF({ unit: 'pt', format: 'a4' });
   var pageW = doc.internal.pageSize.getWidth();
@@ -1213,9 +1243,9 @@ function buildAndSharePdf(logoDataUrl){
     doc.text('Page ' + i + ' of ' + pageCount, pageW - margin, pageH - 20, { align: 'right' });
   }
 
-  var fileName = 'Lesson-Plan_' + lastBrowseResults.class.replace(/[^a-z0-9]/gi,'') + '_' + lastBrowseResults.weekStart + '.pdf';
+  var fileName = 'Weekly-Lesson-Plan_Class_' + lastBrowseResults.class.replace(/[^a-z0-9]/gi,'') + '_' + lastBrowseResults.weekStart + '.pdf';
   var blob = doc.output('blob');
-  shareOrDownloadBlob(blob, fileName);
+  return { blob: blob, fileName: fileName };
 }
 
 function subjectFieldsList(p){
