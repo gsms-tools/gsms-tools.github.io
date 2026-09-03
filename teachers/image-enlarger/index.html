@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>
+  /* Apply saved/preferred theme immediately to avoid a flash of the wrong theme */
+  (function(){
+    try{
+      var saved = localStorage.getItem('gsms-theme');
+      var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    }catch(e){}
+  })();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Image Enlarger | GSMS Tools</title>
+<meta name="description" content="Split and enlarge an image into printable poster sheets for Gopal Sharma Memorial School.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="https://gsms-tools.github.io/gsms-logo.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    color-scheme: light;
+
+    /* ---------- Brand palette (light) ---------- */
+    --teal-900:#0d3841;
+    --teal-800:#124f59;
+    --teal-700:#1b6b78;
+    --teal-600:#227d8b;
+    --teal-100:#e3eef0;
+    --gold-600:#e2941a;
+    --gold-500:#f5a623;
+    --gold-400:#ffc65c;
+    --gold-100:#fdf1dc;
+    --cream:#faf8f3;
+    --ink-900:#1c2626;
+    --ink-500:#5f6f70;
+    --white:#ffffff;
+
+    --bg-tint-gold: rgba(245,166,35,.10);
+    --bg-tint-teal: rgba(27,107,120,.10);
+    --border-card: rgba(13,56,65,.08);
+    --border-card-hover: rgba(245,166,35,.45);
+
+    --toggle-bg: rgba(255,255,255,.75);
+    --toggle-border: rgba(13,56,65,.14);
+    --toggle-icon: var(--teal-700);
+    --toggle-shadow: 0 10px 24px -12px rgba(13,56,65,.4);
+
+    --header-bg: rgba(250,248,243,.85);
+    --header-border: rgba(13,56,65,.08);
+
+    --danger:#c9432f;
+    --danger-bg: rgba(201,67,47,.1);
+    --success:#2f8f5b;
+    --success-bg: rgba(47,143,91,.1);
+
+    --r-lg:26px;
+    --r-md:18px;
+    --r-sm:14px;
+    --shadow-card:0 18px 40px -22px rgba(13,56,65,.35);
+    --shadow-card-hover:0 24px 50px -18px rgba(13,56,65,.45);
+    --ease:cubic-bezier(.22,1,.36,1);
+  }
+
+  html[data-theme="dark"]{
+    color-scheme: dark;
+
+    --teal-900:#092227;
+    --teal-800:#8fe1ec;
+    --teal-700:#5fd0de;
+    --teal-600:#7fdbe6;
+    --teal-100:#173338;
+    --gold-600:#ffb648;
+    --gold-500:#ffc65c;
+    --gold-400:#ffd685;
+    --gold-100:#2b2110;
+    --cream:#0d1517;
+    --ink-900:#eef3f2;
+    --ink-500:#a4b6b7;
+    --white:#182425;
+
+    --bg-tint-gold: rgba(255,182,72,.07);
+    --bg-tint-teal: rgba(95,208,222,.10);
+    --border-card: rgba(255,255,255,.08);
+    --border-card-hover: rgba(255,198,92,.4);
+
+    --toggle-bg: rgba(24,36,37,.85);
+    --toggle-border: rgba(255,255,255,.14);
+    --toggle-icon: var(--gold-400);
+    --toggle-shadow: 0 10px 24px -12px rgba(0,0,0,.6);
+
+    --header-bg: rgba(9,34,39,.85);
+    --header-border: rgba(255,255,255,.08);
+
+    --danger:#ff6b57;
+    --danger-bg: rgba(255,107,87,.12);
+    --success:#57d492;
+    --success-bg: rgba(87,212,146,.12);
+
+    --shadow-card:0 18px 40px -22px rgba(0,0,0,.55);
+    --shadow-card-hover:0 24px 50px -18px rgba(0,0,0,.65);
+  }
+
+  *,*::before,*::after{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+
+  body{
+    margin:0;
+    min-height:100svh;
+    background:
+      radial-gradient(1100px 700px at 82% -10%, var(--bg-tint-gold), transparent 60%),
+      radial-gradient(900px 600px at -10% 110%, var(--bg-tint-teal), transparent 60%),
+      var(--cream);
+    color:var(--ink-900);
+    font-family:'Manrope',system-ui,-apple-system,sans-serif;
+    overflow-x:hidden;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+    transition:background-color .35s var(--ease), color .35s var(--ease);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mono{font-family:'JetBrains Mono',monospace;}
+  ::selection{background:var(--gold-400); color:var(--teal-900);}
+  a{color:inherit;}
+  button, input, select{font-family:inherit; color:inherit;}
+  button{cursor:pointer;}
+  :focus-visible{outline:3px solid var(--gold-500); outline-offset:2px;}
+
+  /* ---------- App header ---------- */
+  .app-header{
+    position:sticky;
+    top:0;
+    z-index:40;
+    background:var(--header-bg);
+    border-bottom:1px solid var(--header-border);
+    -webkit-backdrop-filter:blur(14px);
+    backdrop-filter:blur(14px);
+    padding:calc(env(safe-area-inset-top) + 14px) 18px 14px;
+    transition:background-color .35s var(--ease), border-color .35s var(--ease);
+  }
+  .app-header-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    max-width:1240px;
+    margin:0 auto;
+  }
+  .header-brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-width:0;
+  }
+  .back-btn{
+    width:38px; height:38px; flex-shrink:0;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--toggle-bg);
+    border:1.5px solid var(--toggle-border);
+    cursor:pointer;
+    transition:transform .2s var(--ease), background-color .3s var(--ease), border-color .3s var(--ease);
+  }
+  .back-btn:hover{ transform:translateX(-2px); }
+  .back-btn:active{ transform:scale(.95); }
+  .back-btn svg{ width:18px; height:18px; stroke:var(--toggle-icon); fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+  .header-text{ min-width:0; }
+  .header-greeting{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:1.02rem;
+    color:var(--ink-900);
+    margin:0;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    transition:color .3s var(--ease);
+  }
+  .header-sub{
+    margin:1px 0 0;
+    font-size:.72rem;
+    font-weight:600;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--teal-700);
+  }
+  .header-actions{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-shrink:0;
+  }
+  .icon-btn{
+    width:40px; height:40px;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--toggle-bg);
+    border:1.5px solid var(--toggle-border);
+    box-shadow:var(--toggle-shadow);
+    cursor:pointer;
+    -webkit-backdrop-filter:blur(8px);
+    backdrop-filter:blur(8px);
+    transition:background-color .3s var(--ease), border-color .3s var(--ease), transform .2s var(--ease);
+    position:relative;
+    flex-shrink:0;
+  }
+  .icon-btn:hover{ transform:translateY(-2px) scale(1.05); }
+  .icon-btn:active{ transform:translateY(0) scale(.96); }
+  .icon-btn svg{
+    width:19px; height:19px;
+    fill:none; stroke:var(--toggle-icon); stroke-width:2; stroke-linecap:round; stroke-linejoin:round;
+    position:absolute;
+    transition:opacity .3s var(--ease), transform .4s var(--ease);
+  }
+  .icon-sun{opacity:1; transform:rotate(0deg) scale(1);}
+  .icon-moon{opacity:0; transform:rotate(-70deg) scale(.5);}
+  html[data-theme="dark"] .icon-sun{opacity:0; transform:rotate(70deg) scale(.5);}
+  html[data-theme="dark"] .icon-moon{opacity:1; transform:rotate(0deg) scale(1);}
+
+  /* ---------- layout ---------- */
+  main.layout{
+    display:grid;
+    grid-template-columns: 372px 1fr;
+    gap:20px;
+    max-width:1240px;
+    margin:0 auto;
+    padding:20px 18px calc(env(safe-area-inset-bottom) + 48px);
+    align-items:start;
+  }
+  @media (max-width: 960px){
+    main.layout{grid-template-columns:1fr; padding:16px 14px calc(env(safe-area-inset-bottom) + 40px);}
+  }
+
+  aside.controls{
+    display:flex; flex-direction:column; gap:14px;
+  }
+
+  .step{
+    background:var(--white);
+    border:1px solid var(--border-card);
+    border-radius:var(--r-md);
+    box-shadow:var(--shadow-card);
+    padding:18px;
+    transition:border-color .3s var(--ease), background-color .3s var(--ease), opacity .2s var(--ease);
+  }
+  .step[data-disabled="true"]{opacity:.45; pointer-events:none;}
+  .step-head{display:flex; align-items:center; gap:10px; margin-bottom:14px;}
+  .step-num{
+    font-family:'Fraunces',serif; font-size:13px; font-weight:600;
+    width:24px;height:24px;border-radius:50%;
+    background:linear-gradient(150deg,var(--teal-700),var(--teal-900)); color:#fff;
+    display:flex; align-items:center; justify-content:center; flex:none;
+  }
+  .step-title{font-family:'Fraunces',serif; font-size:1.02rem; font-weight:600;}
+  .field{margin-bottom:14px;}
+  .field:last-child{margin-bottom:0;}
+  .field label.field-label{
+    display:block; font-size:.76rem; font-weight:700; text-transform:uppercase;
+    letter-spacing:.04em; color:var(--ink-500); margin-bottom:7px;
+  }
+  .hint{font-size:.78rem; color:var(--ink-500); margin-top:6px; line-height:1.5;}
+
+  select, .num-input{
+    width:100%; padding:11px 13px; border-radius:var(--r-sm);
+    border:1.5px solid var(--border-card); background:var(--cream); color:var(--ink-900);
+    font-family:'Manrope',sans-serif; font-size:.9rem; font-weight:500; outline:none;
+    transition:border-color .25s var(--ease), box-shadow .25s var(--ease), background-color .3s var(--ease), color .3s var(--ease);
+  }
+  select:focus, .num-input:focus{
+    border-color:var(--border-card-hover);
+    box-shadow:0 0 0 4px var(--bg-tint-gold);
+  }
+  .row{display:flex; gap:10px;}
+  .row > *{flex:1;}
+
+  .seg{
+    display:flex; border:1.5px solid var(--border-card); border-radius:var(--r-sm); overflow:hidden;
+  }
+  .seg button{
+    flex:1; border:none; background:var(--cream); padding:9px 6px; font-size:.82rem; font-weight:600;
+    border-right:1.5px solid var(--border-card); color:var(--ink-500);
+    transition:background-color .2s var(--ease), color .2s var(--ease);
+  }
+  .seg button:last-child{border-right:none;}
+  .seg button.active{background:linear-gradient(150deg,var(--teal-700),var(--teal-900)); color:#fff;}
+
+  .grid-presets{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;}
+  .grid-presets button{
+    border:1.5px solid var(--border-card); background:var(--cream); border-radius:999px;
+    padding:7px 13px; font-size:.8rem; font-family:'JetBrains Mono',monospace; font-weight:600;
+    color:var(--ink-900);
+    transition:background-color .2s var(--ease), border-color .2s var(--ease), color .2s var(--ease);
+  }
+  .grid-presets button.active{background:linear-gradient(150deg,var(--gold-500),var(--gold-600)); border-color:transparent; color:var(--teal-900);}
+
+  input[type="range"]{
+    width:100%; accent-color:var(--gold-500); height:20px;
+  }
+  .range-readout{
+    display:flex; justify-content:space-between; font-size:.76rem; color:var(--ink-500); margin-top:3px;
+    font-family:'JetBrains Mono',monospace;
+  }
+
+  .radio-cards{display:flex; flex-direction:column; gap:9px;}
+  .radio-card{
+    display:flex; gap:10px; align-items:flex-start; border:1.5px solid var(--border-card);
+    border-radius:var(--r-sm); padding:12px; cursor:pointer;
+    transition:border-color .2s var(--ease), background-color .2s var(--ease);
+  }
+  .radio-card.active{border-color:var(--border-card-hover); background:var(--bg-tint-gold);}
+  .radio-card input{margin-top:3px; accent-color:var(--gold-500);}
+  .radio-card .rc-title{font-size:.88rem; font-weight:700; color:var(--ink-900);}
+  .radio-card .rc-desc{font-size:.78rem; color:var(--ink-500);}
+
+  /* upload dropzone */
+  .dropzone{
+    border:1.5px dashed var(--border-card-hover); border-radius:var(--r-md);
+    padding:38px 16px; text-align:center; cursor:pointer; background:var(--cream);
+    transition:border-color .15s var(--ease), background .15s var(--ease);
+  }
+  .dropzone.drag{border-color:var(--gold-500); background:var(--bg-tint-gold);}
+  .dropzone svg{width:34px;height:34px; margin-bottom:10px; color:var(--ink-500); stroke:var(--teal-700);}
+  .dropzone .dz-title{font-family:'Fraunces',serif; font-size:.95rem; font-weight:600; margin-bottom:4px; color:var(--ink-900);}
+  .dropzone .dz-sub{font-size:.78rem; color:var(--ink-500);}
+  #fileInput{display:none;}
+
+  .file-chip{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    border:1.5px solid var(--border-card); border-radius:var(--r-sm); padding:11px 13px; font-size:.82rem;
+    background:var(--cream);
+  }
+  .file-chip .fc-name{font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink-900);}
+  .file-chip .fc-meta{color:var(--ink-500); font-family:'JetBrains Mono',monospace; font-size:.7rem;}
+  .file-chip button{background:none; border:none; color:var(--ink-500); font-size:16px; line-height:1;}
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    border-radius:14px; padding:13px 18px; font-size:.88rem; font-weight:700;
+    border:none; width:100%; font-family:'Manrope',sans-serif;
+    transition:transform .2s var(--ease), opacity .2s var(--ease), box-shadow .2s var(--ease);
+  }
+  .btn:active{ transform:scale(.97); }
+  .btn-primary{ background:linear-gradient(150deg,var(--gold-500),var(--gold-600)); color:var(--teal-900); box-shadow:0 14px 26px -14px rgba(226,148,26,.55); }
+  .btn-secondary{ background:linear-gradient(150deg,var(--teal-700),var(--teal-900)); color:#fff; box-shadow:0 14px 26px -14px rgba(13,56,65,.55); }
+  .btn-ghost{ background:var(--cream); color:var(--ink-900); border:1.5px solid var(--border-card); }
+  .btn-sm{padding:8px 14px; font-size:.78rem; width:auto; border-radius:10px;}
+  .btn:disabled{opacity:.45; cursor:not-allowed; transform:none;}
+  .action-row{display:flex; gap:10px; margin-top:14px;}
+
+  .error-msg{
+    background:var(--danger-bg); border:1.5px solid transparent; color:var(--danger); border-radius:var(--r-sm);
+    padding:12px 14px; font-size:.84rem; margin-bottom:14px; display:none; font-weight:600;
+  }
+  .error-msg.show{display:block;}
+
+  /* ---------- preview ---------- */
+  section.preview{ min-width:0; }
+  .preview-empty{
+    height:70vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    color:var(--ink-500); text-align:center; gap:12px;
+    background:var(--white); border:1px solid var(--border-card); border-radius:var(--r-md); box-shadow:var(--shadow-card);
+  }
+  .preview-empty svg{width:52px;height:52px; opacity:.55; stroke:var(--ink-500);}
+  .preview-empty h2{font-family:'Fraunces',serif; font-size:1.1rem; color:var(--ink-900); font-weight:600; margin:0;}
+  .preview-empty p{font-size:.86rem; max-width:320px; margin:0;}
+
+  .preview-header{
+    display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:10px;
+    margin-bottom:16px;
+  }
+  .preview-header h2{font-family:'Fraunces',serif; font-size:1.1rem; font-weight:600; margin:0;}
+  .dims-readout{
+    font-family:'JetBrains Mono',monospace; font-size:.78rem; color:var(--ink-500);
+    background:var(--white); border:1px solid var(--border-card); border-radius:999px; padding:7px 14px;
+  }
+  .dims-readout b{color:var(--ink-900);}
+
+  .assembled-wrap{
+    background:
+      linear-gradient(var(--border-card) 1px, transparent 1px) 0 0/24px 24px,
+      linear-gradient(90deg, var(--border-card) 1px, transparent 1px) 0 0/24px 24px,
+      var(--white);
+    border:1px solid var(--border-card); border-radius:var(--r-md);
+    padding:22px; display:flex; align-items:center; justify-content:center;
+    margin-bottom:24px; box-shadow:var(--shadow-card);
+  }
+  #assembledCanvas{
+    max-width:100%; display:block; box-shadow:0 18px 40px -18px rgba(13,56,65,.4); border-radius:2px;
+  }
+
+  .sheets-header{
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;
+  }
+  .sheets-header h3{font-size:.76rem; font-weight:700; margin:0; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-500);}
+  .sheets-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:14px;
+  }
+  .sheet-tile{
+    border:1px solid var(--border-card); border-radius:var(--r-sm); background:var(--white); overflow:hidden;
+    box-shadow:var(--shadow-card);
+  }
+  .sheet-tile .st-canvas-wrap{
+    padding:10px; display:flex; align-items:center; justify-content:center; background:var(--cream);
+    position:relative;
+  }
+  .sheet-tile canvas{max-width:100%; display:block; box-shadow:0 4px 14px rgba(13,56,65,.18); background:#fff;}
+  .corner-mark{position:absolute; width:9px; height:9px; }
+  .corner-tl{top:6px; left:6px; border-top:1.5px solid var(--gold-500); border-left:1.5px solid var(--gold-500);}
+  .corner-tr{top:6px; right:6px; border-top:1.5px solid var(--gold-500); border-right:1.5px solid var(--gold-500);}
+  .corner-bl{bottom:6px; left:6px; border-bottom:1.5px solid var(--gold-500); border-left:1.5px solid var(--gold-500);}
+  .corner-br{bottom:6px; right:6px; border-bottom:1.5px solid var(--gold-500); border-right:1.5px solid var(--gold-500);}
+  .sheet-tile .st-label{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:9px 11px; font-family:'JetBrains Mono',monospace; font-size:.68rem;
+    border-top:1px solid var(--border-card);
+  }
+  .st-label .st-num{font-weight:700; color:var(--ink-900);}
+  .st-label .st-pos{color:var(--ink-500);}
+
+  .actions-bar{
+    display:flex; gap:12px; margin-top:24px; flex-wrap:wrap;
+  }
+  .actions-bar .btn{width:auto; padding:13px 24px;}
+
+  /* ---------- toast ---------- */
+  #toast-wrap{
+    position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 20px);
+    z-index:150; display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:none;
+  }
+  .toast{
+    background:var(--teal-900);
+    color:var(--white);
+    font-size:.84rem;
+    font-weight:600;
+    padding:12px 18px;
+    border-radius:999px;
+    box-shadow:0 14px 30px -12px rgba(0,0,0,.4);
+    opacity:0; transform:translateY(10px);
+    transition:opacity .3s var(--ease), transform .3s var(--ease);
+    max-width:88vw;
+  }
+  html[data-theme="dark"] .toast{ color:var(--teal-900); background:var(--gold-400); }
+  .toast.show{ opacity:1; transform:translateY(0); }
+  .toast.error{ background:var(--danger); color:var(--white); }
+
+  /* ---------- print ---------- */
+  #printArea{display:none;}
+  @media print{
+    .app-header, aside.controls, section.preview > *:not(#printArea), #toast-wrap{display:none !important;}
+    body, main.layout{background:#fff; display:block;}
+    #printArea{display:block;}
+    .print-page{
+      display:flex; align-items:center; justify-content:center;
+      page-break-after:always; break-after:page;
+      width:100%; height:100%;
+    }
+    .print-page:last-child{page-break-after:auto; break-after:auto;}
+    .print-page canvas{display:block;}
+    .print-tag{
+      position:fixed; font-family:'JetBrains Mono',monospace; font-size:9px; color:#aaa;
+      bottom:2mm; right:3mm;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-header-top">
+    <div class="header-brand">
+      <button class="back-btn" id="back-btn" type="button" aria-label="Back to dashboard" title="Back to dashboard">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <div class="header-text">
+        <p class="header-greeting">Image Enlarger</p>
+        <p class="header-sub">Tools &bull; Poster Print Splitter</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" id="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4.2"/>
+          <path d="M12 2.5v2.4M12 19.1v2.4M4.5 4.5l1.7 1.7M17.8 17.8l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.5 19.5l1.7-1.7M17.8 6.2l1.7-1.7"/>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5Z"/>
+        </svg>
+      </button>
+      <button class="icon-btn" id="resetBtn" type="button" aria-label="Reset" title="Reset" style="display:none;">
+        <svg viewBox="0 0 24 24" aria-hidden="true" style="opacity:1; position:static;"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="controls">
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <!-- STEP 1: UPLOAD -->
+    <div class="step" id="stepUpload">
+      <div class="step-head">
+        <div class="step-num">1</div>
+        <div class="step-title">Upload image</div>
+      </div>
+      <div id="uploadZoneWrap">
+        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Upload image">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+          <div class="dz-title">Drop an image, or click to browse</div>
+          <div class="dz-sub">JPG, PNG, WebP, GIF — any size</div>
+        </div>
+      </div>
+      <div id="fileChipWrap" style="display:none; margin-top:2px;"></div>
+      <input type="file" id="fileInput" accept="image/*">
+    </div>
+
+    <!-- STEP 2: PAPER -->
+    <div class="step" id="stepPaper" data-disabled="true">
+      <div class="step-head"><div class="step-num">2</div><div class="step-title">Paper &amp; orientation</div></div>
+      <div class="field">
+        <label class="field-label" for="paperSelect">Paper size</label>
+        <select id="paperSelect">
+          <option value="A4" selected>A4 — 210 × 297 mm</option>
+          <option value="A3">A3 — 297 × 420 mm</option>
+          <option value="A5">A5 — 148 × 210 mm</option>
+          <option value="A6">A6 — 105 × 148 mm</option>
+          <option value="Letter">US Letter — 215.9 × 279.4 mm</option>
+          <option value="Legal">US Legal — 215.9 × 355.6 mm</option>
+          <option value="Tabloid">Tabloid — 279.4 × 431.8 mm</option>
+          <option value="Custom">Custom size…</option>
+        </select>
+      </div>
+      <div class="field" id="customSizeField" style="display:none;">
+        <label class="field-label">Custom size (mm)</label>
+        <div class="row">
+          <input type="number" class="num-input" id="customW" min="20" max="2000" value="210" placeholder="Width">
+          <input type="number" class="num-input" id="customH" min="20" max="2000" value="297" placeholder="Height">
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Orientation</label>
+        <div class="seg" id="orientSeg">
+          <button data-val="portrait" class="active">Portrait</button>
+          <button data-val="landscape">Landscape</button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="marginRange">Printer margin</label>
+        <input type="range" id="marginRange" min="0" max="20" step="1" value="0">
+        <div class="range-readout"><span id="marginVal">0 mm</span><span>0–20 mm</span></div>
+        <div class="hint">Set to 0 for borderless printing. Increase if your printer can't print to the edge of the page.</div>
+      </div>
+    </div>
+
+    <!-- STEP 3: LAYOUT -->
+    <div class="step" id="stepLayout" data-disabled="true">
+      <div class="step-head"><div class="step-num">3</div><div class="step-title">Layout</div></div>
+      <div class="field">
+        <label class="field-label">Grid presets</label>
+        <div class="grid-presets" id="gridPresets">
+          <button data-cols="2" data-rows="2" class="active">2 × 2</button>
+          <button data-cols="3" data-rows="2">3 × 2</button>
+          <button data-cols="3" data-rows="3">3 × 3</button>
+          <button data-cols="4" data-rows="3">4 × 3</button>
+          <button data-cols="4" data-rows="4">4 × 4</button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Custom grid</label>
+        <div class="row">
+          <input type="number" class="num-input" id="colsInput" min="1" max="10" value="2">
+          <input type="number" class="num-input" id="rowsInput" min="1" max="10" value="2">
+        </div>
+        <div class="hint">Columns × rows. Large grids (over ~25 sheets) take longer to render.</div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="overlapRange">Sheet overlap</label>
+        <input type="range" id="overlapRange" min="0" max="30" step="1" value="0">
+        <div class="range-readout"><span id="overlapVal">0 mm</span><span>0–30 mm</span></div>
+        <div class="hint">Duplicates a strip of image on neighboring sheets, so you can overlap the paper edges to align them precisely before trimming or gluing.</div>
+      </div>
+    </div>
+
+    <!-- STEP 4: FIT -->
+    <div class="step" id="stepFit" data-disabled="true">
+      <div class="step-head"><div class="step-num">4</div><div class="step-title">Fit &amp; position</div></div>
+      <div class="field">
+        <div class="radio-cards" id="fitModeCards">
+          <label class="radio-card active" data-val="contain">
+            <input type="radio" name="fitMode" value="contain" checked>
+            <span><span class="rc-title">Fit whole image</span><br><span class="rc-desc">No cropping. Outer sheets may have a small white margin so the aspect ratio stays exact.</span></span>
+          </label>
+          <label class="radio-card" data-val="cover">
+            <input type="radio" name="fitMode" value="cover">
+            <span><span class="rc-title">Fill every sheet</span><br><span class="rc-desc">No white space, but the image is cropped slightly to match the paper grid exactly.</span></span>
+          </label>
+        </div>
+      </div>
+      <div id="panFields" style="display:none;">
+        <div class="field">
+          <label class="field-label" for="panX">Horizontal crop position</label>
+          <input type="range" id="panX" min="0" max="100" value="50">
+        </div>
+        <div class="field">
+          <label class="field-label" for="panY">Vertical crop position</label>
+          <input type="range" id="panY" min="0" max="100" value="50">
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="qualitySelect">Print quality</label>
+        <select id="qualitySelect">
+          <option value="100">Draft — 100 dpi (fast)</option>
+          <option value="150" selected>Standard — 150 dpi</option>
+          <option value="300">High — 300 dpi (slower)</option>
+        </select>
+      </div>
+    </div>
+
+  </aside>
+
+  <section class="preview" id="previewSection">
+    <div class="preview-empty" id="previewEmpty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      <h2>Your enlarged poster preview will appear here</h2>
+      <p>Upload an image on the left to see the full assembled poster, the sheet grid, and every printable page.</p>
+    </div>
+
+    <div id="previewContent" style="display:none;">
+      <div class="preview-header">
+        <h2>Assembled poster preview</h2>
+        <div class="dims-readout" id="dimsReadout"></div>
+      </div>
+      <div class="assembled-wrap">
+        <canvas id="assembledCanvas"></canvas>
+      </div>
+
+      <div class="sheets-header">
+        <h3 id="sheetsCount">Sheets</h3>
+      </div>
+      <div class="sheets-grid" id="sheetsGrid"></div>
+
+      <div class="actions-bar">
+        <button class="btn btn-primary" id="printBtn">🖨️ Print sheets</button>
+        <button class="btn btn-secondary" id="pdfBtn">⬇ Download as PDF</button>
+      </div>
+      <p class="hint" style="margin-top:12px;">When the print dialog opens, set <b>Scale</b> to <b>100% / Actual size</b> and <b>Margins</b> to <b>None</b> for accurate results.</p>
+    </div>
+  </section>
+</main>
+
+<div id="toast-wrap"></div>
+<div id="printArea"></div>
+<style id="dynamicPrintStyle"></style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  /* =========================================================
+     THEME TOGGLE (matches GSMS portal)
+  ========================================================= */
+  var DASHBOARD_URL = 'index.html';
+  document.getElementById('theme-toggle').addEventListener('click', function(){
+    var root = document.documentElement;
+    var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try{ localStorage.setItem('gsms-theme', next); }catch(e){}
+    scheduleRender();
+  });
+  document.getElementById('back-btn').addEventListener('click', function(){
+    window.location.href = DASHBOARD_URL;
+  });
+
+  /* =========================================================
+     TOAST (matches GSMS portal)
+  ========================================================= */
+  function toast(msg, isError){
+    var wrap = document.getElementById('toast-wrap');
+    var el = document.createElement('div');
+    el.className = 'toast' + (isError ? ' error' : '');
+    el.textContent = msg;
+    wrap.appendChild(el);
+    requestAnimationFrame(function(){ el.classList.add('show'); });
+    setTimeout(function(){
+      el.classList.remove('show');
+      setTimeout(function(){ el.remove(); }, 300);
+    }, 2800);
+  }
+
+  function themeColor(varName, fallback){
+    try{
+      var v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+      return v || fallback;
+    }catch(e){ return fallback; }
+  }
+
+  var PAPER_SIZES = {
+    A3:[297,420], A4:[210,297], A5:[148,210], A6:[105,148],
+    Letter:[215.9,279.4], Legal:[215.9,355.6], Tabloid:[279.4,431.8]
+  };
+  var MAX_PIXELS = 24000000; // safety cap for decoded working image
+  var MAX_SHEETS_WARN = 30;
+
+  var state = {
+    img:null, natW:0, natH:0, fileName:"", fileSizeLabel:"",
+    paper:"A4", customW:210, customH:297,
+    orientation:"portrait", margin:0, overlap:0,
+    cols:2, rows:2, fitMode:"contain", panX:0.5, panY:0.5, dpi:150,
+    objectUrl:null
+  };
+
+  // ---------- element refs ----------
+  var $ = function(id){ return document.getElementById(id); };
+  var dropzone = $("dropzone"), fileInput = $("fileInput"), fileChipWrap = $("fileChipWrap");
+  var errorMsg = $("errorMsg");
+  var stepPaper = $("stepPaper"), stepLayout = $("stepLayout"), stepFit = $("stepFit");
+  var previewEmpty = $("previewEmpty"), previewContent = $("previewContent");
+  var assembledCanvas = $("assembledCanvas");
+  var sheetsGrid = $("sheetsGrid"), sheetsCount = $("sheetsCount");
+  var dimsReadout = $("dimsReadout");
+  var resetBtn = $("resetBtn");
+
+  function showError(msg){
+    errorMsg.textContent = msg;
+    errorMsg.classList.add("show");
+    window.clearTimeout(showError._t);
+    showError._t = window.setTimeout(function(){ errorMsg.classList.remove("show"); }, 6000);
+  }
+  function showToast(msg, isError){ toast(msg, isError); }
+  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+
+  // ---------- file handling ----------
+  function onFilesSelected(files){
+    errorMsg.classList.remove("show");
+    if(!files || !files.length) return;
+    var file = files[0];
+    if(!file.type || file.type.indexOf("image/") !== 0){
+      showError("That file doesn't look like an image. Please choose a JPG, PNG, WebP, or GIF.");
+      return;
+    }
+    if(file.size > 60*1024*1024){
+      showError("This image is very large (over 60 MB) and may not load reliably in the browser.");
+    }
+    if(state.objectUrl){ URL.revokeObjectURL(state.objectUrl); }
+    var url = URL.createObjectURL(file);
+    state.objectUrl = url;
+    var img = new Image();
+    img.onload = function(){
+      try{
+        finishImageLoad(img, file);
+      }catch(e){
+        showError("Something went wrong reading that image. Please try a different file.");
+      }
+    };
+    img.onerror = function(){
+      showError("This image couldn't be decoded. It may be corrupted or in an unsupported format.");
+    };
+    img.src = url;
+  }
+
+  function finishImageLoad(img, file){
+    var w = img.naturalWidth, h = img.naturalHeight;
+    if(!w || !h){ showError("This image has no readable dimensions."); return; }
+
+    var srcForCanvas = img;
+    if(w*h > MAX_PIXELS){
+      var ratio = Math.sqrt(MAX_PIXELS/(w*h));
+      var nw = Math.max(1, Math.round(w*ratio));
+      var nh = Math.max(1, Math.round(h*ratio));
+      var off = document.createElement("canvas");
+      off.width = nw; off.height = nh;
+      off.getContext("2d").drawImage(img, 0, 0, nw, nh);
+      srcForCanvas = off;
+      w = nw; h = nh;
+      showToast("Large image resized to " + nw + "×" + nh + "px for smoother editing.");
+    }
+
+    state.img = srcForCanvas;
+    state.natW = w; state.natH = h;
+    state.fileName = file.name;
+    state.fileSizeLabel = formatBytes(file.size);
+
+    stepPaper.removeAttribute("data-disabled");
+    stepLayout.removeAttribute("data-disabled");
+    stepFit.removeAttribute("data-disabled");
+    resetBtn.style.display = "";
+
+    renderFileChip();
+    previewEmpty.style.display = "none";
+    previewContent.style.display = "block";
+    scheduleRender();
+  }
+
+  function formatBytes(b){
+    if(b < 1024) return b + " B";
+    if(b < 1024*1024) return (b/1024).toFixed(0) + " KB";
+    return (b/(1024*1024)).toFixed(1) + " MB";
+  }
+
+  function renderFileChip(){
+    fileChipWrap.style.display = "block";
+    fileChipWrap.innerHTML = "";
+    var chip = document.createElement("div");
+    chip.className = "file-chip";
+    chip.innerHTML =
+      '<div style="overflow:hidden;">' +
+        '<div class="fc-name"></div>' +
+        '<div class="fc-meta">' + state.natW + ' × ' + state.natH + 'px · ' + state.fileSizeLabel + '</div>' +
+      '</div>' +
+      '<button type="button" aria-label="Remove image">✕</button>';
+    chip.querySelector(".fc-name").textContent = state.fileName;
+    chip.querySelector("button").addEventListener("click", resetAll);
+    fileChipWrap.appendChild(chip);
+    $("uploadZoneWrap").style.display = "none";
+  }
+
+  function resetAll(){
+    if(state.objectUrl){ URL.revokeObjectURL(state.objectUrl); }
+    state.img = null; state.natW = 0; state.natH = 0; state.objectUrl = null;
+    fileInput.value = "";
+    fileChipWrap.style.display = "none";
+    fileChipWrap.innerHTML = "";
+    $("uploadZoneWrap").style.display = "block";
+    stepPaper.setAttribute("data-disabled","true");
+    stepLayout.setAttribute("data-disabled","true");
+    stepFit.setAttribute("data-disabled","true");
+    resetBtn.style.display = "none";
+    previewEmpty.style.display = "flex";
+    previewContent.style.display = "none";
+    errorMsg.classList.remove("show");
+  }
+
+  dropzone.addEventListener("click", function(){ fileInput.click(); });
+  dropzone.addEventListener("keydown", function(e){ if(e.key==="Enter"||e.key===" "){ fileInput.click(); } });
+  fileInput.addEventListener("change", function(e){ onFilesSelected(e.target.files); });
+  ["dragenter","dragover"].forEach(function(ev){
+    dropzone.addEventListener(ev, function(e){ e.preventDefault(); e.stopPropagation(); dropzone.classList.add("drag"); });
+  });
+  ["dragleave","drop"].forEach(function(ev){
+    dropzone.addEventListener(ev, function(e){ e.preventDefault(); e.stopPropagation(); dropzone.classList.remove("drag"); });
+  });
+  dropzone.addEventListener("drop", function(e){
+    var dt = e.dataTransfer;
+    if(dt && dt.files) onFilesSelected(dt.files);
+  });
+  resetBtn.addEventListener("click", resetAll);
+
+  // ---------- controls wiring ----------
+  var paperSelect = $("paperSelect"), customSizeField = $("customSizeField");
+  var customWInput = $("customW"), customHInput = $("customH");
+  paperSelect.addEventListener("change", function(){
+    state.paper = paperSelect.value;
+    customSizeField.style.display = (state.paper === "Custom") ? "block" : "none";
+    scheduleRender();
+  });
+  customWInput.addEventListener("input", function(){ state.customW = clamp(parseFloat(customWInput.value)||210, 20, 2000); scheduleRender(); });
+  customHInput.addEventListener("input", function(){ state.customH = clamp(parseFloat(customHInput.value)||297, 20, 2000); scheduleRender(); });
+
+  var orientSeg = $("orientSeg");
+  orientSeg.addEventListener("click", function(e){
+    var btn = e.target.closest("button"); if(!btn) return;
+    state.orientation = btn.getAttribute("data-val");
+    Array.prototype.forEach.call(orientSeg.children, function(b){ b.classList.toggle("active", b===btn); });
+    scheduleRender();
+  });
+
+  var marginRange = $("marginRange"), marginVal = $("marginVal");
+  marginRange.addEventListener("input", function(){
+    state.margin = parseFloat(marginRange.value);
+    marginVal.textContent = state.margin + " mm";
+    scheduleRender();
+  });
+
+  var gridPresets = $("gridPresets"), colsInput = $("colsInput"), rowsInput = $("rowsInput");
+  gridPresets.addEventListener("click", function(e){
+    var btn = e.target.closest("button"); if(!btn) return;
+    state.cols = parseInt(btn.getAttribute("data-cols"),10);
+    state.rows = parseInt(btn.getAttribute("data-rows"),10);
+    colsInput.value = state.cols; rowsInput.value = state.rows;
+    Array.prototype.forEach.call(gridPresets.children, function(b){ b.classList.toggle("active", b===btn); });
+    scheduleRender();
+  });
+  function onGridInputChange(){
+    state.cols = clamp(parseInt(colsInput.value,10)||1, 1, 10);
+    state.rows = clamp(parseInt(rowsInput.value,10)||1, 1, 10);
+    Array.prototype.forEach.call(gridPresets.children, function(b){ b.classList.remove("active"); });
+    if(state.cols*state.rows > MAX_SHEETS_WARN){
+      showToast("Large grid (" + (state.cols*state.rows) + " sheets) — rendering may take a moment.");
+    }
+    scheduleRender();
+  }
+  colsInput.addEventListener("input", onGridInputChange);
+  rowsInput.addEventListener("input", onGridInputChange);
+
+  var overlapRange = $("overlapRange"), overlapVal = $("overlapVal");
+  overlapRange.addEventListener("input", function(){
+    state.overlap = parseFloat(overlapRange.value);
+    overlapVal.textContent = state.overlap + " mm";
+    scheduleRender();
+  });
+
+  var fitModeCards = $("fitModeCards"), panFields = $("panFields");
+  fitModeCards.addEventListener("click", function(e){
+    var card = e.target.closest(".radio-card"); if(!card) return;
+    state.fitMode = card.getAttribute("data-val");
+    Array.prototype.forEach.call(fitModeCards.children, function(c){ c.classList.toggle("active", c===card); });
+    var radio = card.querySelector("input"); if(radio) radio.checked = true;
+    panFields.style.display = (state.fitMode === "cover") ? "block" : "none";
+    scheduleRender();
+  });
+  var panX = $("panX"), panY = $("panY");
+  panX.addEventListener("input", function(){ state.panX = parseInt(panX.value,10)/100; scheduleRender(); });
+  panY.addEventListener("input", function(){ state.panY = parseInt(panY.value,10)/100; scheduleRender(); });
+
+  var qualitySelect = $("qualitySelect");
+  qualitySelect.addEventListener("change", function(){ state.dpi = parseInt(qualitySelect.value,10); scheduleRender(); });
+
+  // ---------- layout math ----------
+  function getPaperDims(){
+    return state.paper === "Custom" ? [state.customW, state.customH] : PAPER_SIZES[state.paper];
+  }
+
+  function computeLayout(){
+    var dims = getPaperDims();
+    var a = dims[0], b = dims[1];
+    var pageW, pageH;
+    if(state.orientation === "landscape"){ pageW = Math.max(a,b); pageH = Math.min(a,b); }
+    else { pageW = Math.min(a,b); pageH = Math.max(a,b); }
+
+    var margin = clamp(state.margin, 0, Math.min(pageW,pageH)/2 - 1);
+    var Ws = pageW - 2*margin, Hs = pageH - 2*margin;
+    var overlap = clamp(state.overlap, 0, Math.max(0, Math.min(Ws,Hs) - 1));
+    var cols = state.cols, rows = state.rows;
+
+    var TW = cols*Ws - (cols-1)*overlap;
+    var TH = rows*Hs - (rows-1)*overlap;
+
+    var W = state.natW, H = state.natH;
+    var scale = (state.fitMode === "contain")
+      ? Math.min(TW/W, TH/H)
+      : Math.max(TW/W, TH/H);
+    var renderedW = W*scale, renderedH = H*scale;
+
+    var offsetX, offsetY;
+    if(state.fitMode === "contain"){
+      offsetX = (TW - renderedW)/2;
+      offsetY = (TH - renderedH)/2;
+    } else {
+      offsetX = state.panX * (TW - renderedW);
+      offsetY = state.panY * (TH - renderedH);
+    }
+
+    var ppm = state.dpi / 25.4;
+
+    return {
+      pageW:pageW, pageH:pageH, margin:margin, Ws:Ws, Hs:Hs, overlap:overlap,
+      cols:cols, rows:rows, TW:TW, TH:TH, scale:scale,
+      renderedW:renderedW, renderedH:renderedH, offsetX:offsetX, offsetY:offsetY, ppm:ppm
+    };
+  }
+
+  function getSheetParams(layout, r, c, ppmOverride){
+    var Ws=layout.Ws, Hs=layout.Hs, overlap=layout.overlap;
+    var offsetX=layout.offsetX, offsetY=layout.offsetY;
+    var renderedW=layout.renderedW, renderedH=layout.renderedH, scale=layout.scale;
+    var ppm = ppmOverride || layout.ppm;
+
+    var x0 = c*(Ws-overlap), y0 = r*(Hs-overlap);
+    var ix0 = Math.max(x0, offsetX), ix1 = Math.min(x0+Ws, offsetX+renderedW);
+    var iy0 = Math.max(y0, offsetY), iy1 = Math.min(y0+Hs, offsetY+renderedH);
+
+    var sheetWpx = Math.max(1, Math.round(Ws*ppm));
+    var sheetHpx = Math.max(1, Math.round(Hs*ppm));
+
+    if(ix1 <= ix0 || iy1 <= iy0){
+      return { sheetWpx:sheetWpx, sheetHpx:sheetHpx, empty:true, x0:x0, y0:y0 };
+    }
+    var sx = (ix0-offsetX)/scale, sy = (iy0-offsetY)/scale;
+    var sw = (ix1-ix0)/scale, sh = (iy1-iy0)/scale;
+    var dx = (ix0-x0)*ppm, dy = (iy0-y0)*ppm;
+    var dw = (ix1-ix0)*ppm, dh = (iy1-iy0)*ppm;
+
+    return { sheetWpx:sheetWpx, sheetHpx:sheetHpx, empty:false, sx:sx, sy:sy, sw:sw, sh:sh, dx:dx, dy:dy, dw:dw, dh:dh, x0:x0, y0:y0 };
+  }
+
+  function drawSheet(canvas, layout, r, c, ppmOverride){
+    var p = getSheetParams(layout, r, c, ppmOverride);
+    canvas.width = p.sheetWpx; canvas.height = p.sheetHpx;
+    var ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    if(!p.empty){
+      ctx.drawImage(state.img, p.sx, p.sy, p.sw, p.sh, p.dx, p.dy, p.dw, p.dh);
+    }
+    return canvas;
+  }
+
+  function mmToInches(mm){ return mm/25.4; }
+
+  // ---------- rendering ----------
+  var renderTimer = null;
+  function scheduleRender(){
+    if(!state.img) return;
+    window.clearTimeout(renderTimer);
+    renderTimer = window.setTimeout(renderAll, 40);
+  }
+
+  function renderAll(){
+    var layout = computeLayout();
+    renderDims(layout);
+    renderAssembled(layout);
+    renderSheetTiles(layout);
+  }
+
+  function renderDims(layout){
+    var wCm = (layout.TW/10).toFixed(1), hCm = (layout.TH/10).toFixed(1);
+    var wIn = mmToInches(layout.TW).toFixed(1), hIn = mmToInches(layout.TH).toFixed(1);
+    dimsReadout.innerHTML = "Assembled size: <b>" + wCm + " × " + hCm + " cm</b>" +
+      " (" + wIn + " × " + hIn + " in) — " + layout.cols + "×" + layout.rows + " sheets";
+    sheetsCount.textContent = "Sheets (" + (layout.cols*layout.rows) + ")";
+  }
+
+  function renderAssembled(layout){
+    var wrap = assembledCanvas.parentElement;
+    var maxW = Math.max(240, wrap.clientWidth - 44);
+    var maxH = 520;
+    var s = Math.min(maxW/layout.TW, maxH/layout.TH);
+    var cw = Math.max(1, Math.round(layout.TW*s));
+    var ch = Math.max(1, Math.round(layout.TH*s));
+    assembledCanvas.width = cw; assembledCanvas.height = ch;
+    var ctx = assembledCanvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0,0,cw,ch);
+
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0,0,cw,ch); ctx.clip();
+    ctx.drawImage(state.img, layout.offsetX*s, layout.offsetY*s, layout.renderedW*s, layout.renderedH*s);
+    ctx.restore();
+
+    var accent = themeColor('--gold-600', '#e2941a');
+    var ink = themeColor('--ink-900', '#1c2626');
+    var whiteTint = "rgba(255,255,255,0.88)";
+
+    // grid overlay
+    ctx.lineWidth = 1.25;
+    ctx.setLineDash([5,4]);
+    ctx.strokeStyle = accent;
+    for(var r=0;r<layout.rows;r++){
+      for(var c=0;c<layout.cols;c++){
+        var x0 = c*(layout.Ws-layout.overlap)*s;
+        var y0 = r*(layout.Hs-layout.overlap)*s;
+        var w = layout.Ws*s, h = layout.Hs*s;
+        ctx.strokeRect(x0+0.5, y0+0.5, w, h);
+      }
+    }
+    ctx.setLineDash([]);
+
+    // corner registration marks + sheet numbers
+    ctx.font = "600 11px 'JetBrains Mono', monospace";
+    var n = 1;
+    for(var r2=0;r2<layout.rows;r2++){
+      for(var c2=0;c2<layout.cols;c2++){
+        var x = c2*(layout.Ws-layout.overlap)*s;
+        var y = r2*(layout.Hs-layout.overlap)*s;
+        var w2 = layout.Ws*s, h2 = layout.Hs*s;
+        drawCornerMarks(ctx, x, y, w2, h2, accent);
+        ctx.fillStyle = whiteTint;
+        ctx.fillRect(x+6, y+6, 22, 14);
+        ctx.fillStyle = ink;
+        ctx.fillText(String(n).padStart(2,"0"), x+9, y+16);
+        n++;
+      }
+    }
+  }
+
+  function drawCornerMarks(ctx, x, y, w, h, color){
+    var len = 9;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.4;
+    ctx.setLineDash([]);
+    var corners = [[x,y,1,1],[x+w,y,-1,1],[x,y+h,1,-1],[x+w,y+h,-1,-1]];
+    corners.forEach(function(cn){
+      var cx=cn[0], cy=cn[1], dx=cn[2], dy=cn[3];
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + dy*len); ctx.lineTo(cx, cy); ctx.lineTo(cx + dx*len, cy);
+      ctx.stroke();
+    });
+  }
+
+  function renderSheetTiles(layout){
+    sheetsGrid.innerHTML = "";
+    var total = layout.cols*layout.rows;
+    var thumbPpm = total > 24 ? 2.2 : 3.5;
+    var n = 1;
+    for(var r=0;r<layout.rows;r++){
+      for(var c=0;c<layout.cols;c++){
+        (function(r,c,n){
+          var tile = document.createElement("div");
+          tile.className = "sheet-tile";
+          var wrapEl = document.createElement("div");
+          wrapEl.className = "st-canvas-wrap";
+          var canvas = document.createElement("canvas");
+          drawSheet(canvas, layout, r, c, thumbPpm);
+          wrapEl.appendChild(canvas);
+          ["corner-tl","corner-tr","corner-bl","corner-br"].forEach(function(cls){
+            var m = document.createElement("div");
+            m.className = "corner-mark " + cls;
+            wrapEl.appendChild(m);
+          });
+          var label = document.createElement("div");
+          label.className = "st-label";
+          label.innerHTML = '<span class="st-num">SHEET ' + String(n).padStart(2,"0") + ' / ' + String(layout.cols*layout.rows).padStart(2,"0") + '</span>' +
+            '<span class="st-pos">R' + (r+1) + 'C' + (c+1) + '</span>';
+          tile.appendChild(wrapEl);
+          tile.appendChild(label);
+          sheetsGrid.appendChild(tile);
+        })(r,c,n);
+        n++;
+      }
+    }
+  }
+
+  window.addEventListener("resize", function(){ scheduleRender(); });
+
+  // ---------- print ----------
+  function buildPrintPages(){
+    var layout = computeLayout();
+    var printArea = $("printArea");
+    printArea.innerHTML = "";
+    var total = layout.cols*layout.rows;
+    var n = 1;
+    for(var r=0;r<layout.rows;r++){
+      for(var c=0;c<layout.cols;c++){
+        var page = document.createElement("div");
+        page.className = "print-page";
+        page.style.padding = layout.margin + "mm";
+        var canvas = document.createElement("canvas");
+        drawSheet(canvas, layout, r, c);
+        canvas.style.width = layout.Ws + "mm";
+        canvas.style.height = layout.Hs + "mm";
+        page.appendChild(canvas);
+        var tag = document.createElement("div");
+        tag.className = "print-tag";
+        tag.textContent = "Sheet " + n + "/" + total + " · R" + (r+1) + "C" + (c+1);
+        page.appendChild(tag);
+        printArea.appendChild(page);
+        n++;
+      }
+    }
+    $("dynamicPrintStyle").textContent =
+      "@page{ size:" + layout.pageW + "mm " + layout.pageH + "mm; margin:0; }";
+    return layout;
+  }
+
+  $("printBtn").addEventListener("click", function(){
+    if(!state.img) return;
+    buildPrintPages();
+    window.setTimeout(function(){ window.print(); }, 60);
+  });
+
+  // ---------- PDF ----------
+  $("pdfBtn").addEventListener("click", function(){
+    if(!state.img) return;
+    var btn = $("pdfBtn");
+    var originalText = btn.textContent;
+    btn.textContent = "Generating PDF…";
+    btn.disabled = true;
+    window.setTimeout(function(){
+      try{
+        generatePdf();
+      }catch(e){
+        showError("PDF generation failed. Try lowering print quality or the grid size.");
+      }finally{
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
+    }, 30);
+  });
+
+  function generatePdf(){
+    var layout = computeLayout();
+    var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+    if(!jsPDFCtor){ showError("PDF library failed to load. Check your connection and try again."); return; }
+    var orient = state.orientation === "landscape" ? "l" : "p";
+    var pdf = new jsPDFCtor({ unit:"mm", format:[layout.pageW, layout.pageH], orientation:orient });
+    var tmp = document.createElement("canvas");
+    var first = true;
+    for(var r=0;r<layout.rows;r++){
+      for(var c=0;c<layout.cols;c++){
+        drawSheet(tmp, layout, r, c);
+        var dataUrl = tmp.toDataURL("image/jpeg", 0.92);
+        if(!first){ pdf.addPage([layout.pageW, layout.pageH], orient); }
+        pdf.addImage(dataUrl, "JPEG", layout.margin, layout.margin, layout.Ws, layout.Hs);
+        first = false;
+      }
+    }
+    var base = (state.fileName || "poster").replace(/\.[^.]+$/, "");
+    pdf.save(base + "-enlarged.pdf");
+    showToast("PDF downloaded.");
+  }
+
+})();
+</script>
+</body>
+</html>
