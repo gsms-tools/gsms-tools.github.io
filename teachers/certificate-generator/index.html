@@ -224,7 +224,7 @@
   <main class="dash">
 
     <div class="card">
-      <p class="card-title">Choose a template <span class="chip" id="tpl-count-chip">8 designs</span></p>
+      <p class="card-title">Choose a template <span class="chip" id="tpl-count-chip">5 designs</span></p>
       <div class="tpl-scroll" id="tpl-scroll"></div>
     </div>
 
@@ -1066,7 +1066,7 @@ var TITLE_PRESETS = ['Certificate of Achievement','Certificate of Excellence','C
    APP DATA MODEL
 ========================================================= */
 var certData = {
-  templateId: 'classic',
+  templateId: 'minimal',
   title: 'Certificate of Achievement',
   recipientType: 'student',
   recipientName: '',
@@ -1140,7 +1140,9 @@ document.getElementById('logo-remove').addEventListener('click', function(){
 function renderTemplateGallery(){
   var wrap = document.getElementById('tpl-scroll');
   wrap.innerHTML = '';
-  TEMPLATES.forEach(function(t){
+  TEMPLATES.TEMPLATES.filter(function(t){
+  return !['classic', 'appreciation', 'floral'].includes(t.id);
+}).forEach(function(t){forEach(function(t){
     var card = document.createElement('div');
     card.className = 'tpl-card' + (t.id === certData.templateId ? ' selected' : '');
     card.dataset.id = t.id;
