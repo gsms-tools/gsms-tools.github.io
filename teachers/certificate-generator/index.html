@@ -609,7 +609,7 @@ function drawLogoOrMonogram(ctx, data, cx, cy, r, ringColor, fillColor, textColo
     ctx.fillStyle = '#fff'; ctx.fillRect(cx-r,cy-r,r*2,r*2);
     ctx.drawImage(img, cx - dw/2, cy - dh/2, dw, dh);
     ctx.restore();
-    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.lineWidth = r*0.08; ctx.strokeStyle = ringColor; ctx.stroke();
+    // ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.lineWidth = r*0.08; ctx.strokeStyle = ringColor; ctx.stroke();
   } else {
     var initials = (data.school||'GSMS').split(/\s+/).map(function(w){return w[0];}).slice(0,3).join('').toUpperCase();
     drawMonogram(ctx, cx, cy, r, ringColor, fillColor, textColor, initials || 'S');
@@ -637,7 +637,7 @@ function tplClassic(ctx, W, H, data){
   ctx.textAlign='center';
   ctx.fillStyle = teal;
   ctx.font = '700 ' + Math.round(H*0.042) + 'px "Manrope"';
-  drawWrappedCentered(ctx, data.school, cx, H*0.28, W*0.7, H*0.05);
+  drawWrappedCentered(ctx, data.school, cx, H*0.30, W*0.7, H*0.05);
 
   ctx.fillStyle = accent;
   ctx.font = '600 ' + Math.round(H*0.024) + 'px "Manrope"';
