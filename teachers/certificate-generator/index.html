@@ -224,7 +224,7 @@
   <main class="dash">
 
     <div class="card">
-      <p class="card-title">Choose a template <span class="chip" id="tpl-count-chip">5 designs</span></p>
+      <p class="card-title">Choose a template <span class="chip" id="tpl-count-chip">8 designs</span></p>
       <div class="tpl-scroll" id="tpl-scroll"></div>
     </div>
 
@@ -591,7 +591,6 @@ function drawSignatures(ctx, x, y, width, signatories, palette){
 ========================================================= */
 function drawMonogram(ctx, cx, cy, r, ringColor, fillColor, textColor, initials){
   ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fillStyle = fillColor; ctx.fill();
-  ctx.lineWidth = r*0.08; ctx.strokeStyle = ringColor; ctx.stroke();
   ctx.fillStyle = textColor;
   ctx.font = '700 ' + Math.round(r*0.85) + 'px "Fraunces"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -609,7 +608,6 @@ function drawLogoOrMonogram(ctx, data, cx, cy, r, ringColor, fillColor, textColo
     ctx.fillStyle = '#fff'; ctx.fillRect(cx-r,cy-r,r*2,r*2);
     ctx.drawImage(img, cx - dw/2, cy - dh/2, dw, dh);
     ctx.restore();
-    // ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.lineWidth = r*0.08; ctx.strokeStyle = ringColor; ctx.stroke();
   } else {
     var initials = (data.school||'GSMS').split(/\s+/).map(function(w){return w[0];}).slice(0,3).join('').toUpperCase();
     drawMonogram(ctx, cx, cy, r, ringColor, fillColor, textColor, initials || 'S');
@@ -632,7 +630,7 @@ function tplClassic(ctx, W, H, data){
   ctx.strokeRect(m*2.1,m*2.1,W-4.2*m,H-4.2*m);
 
   var cx = W/2;
-  drawLogoOrMonogram(ctx, data, cx, H*0.155, H*0.075, accent, '#fff', teal);
+  drawLogoOrMonogram(ctx, data, cx, H*0.155, H*0.062, accent, '#fff', teal);
 
   ctx.textAlign='center';
   ctx.fillStyle = teal;
@@ -643,7 +641,7 @@ function tplClassic(ctx, W, H, data){
   ctx.font = '600 ' + Math.round(H*0.024) + 'px "Manrope"';
   ctx.fillText('presents this', cx, H*0.325);
 
-  drawLaurelPair(ctx, cx, H*0.40, H*0.11, accent);
+  drawLaurelPair(ctx, cx, H*0.347, H*0.04, accent);
   ctx.fillStyle = teal;
   ctx.font = '700 ' + Math.round(H*0.075) + 'px "Fraunces"';
   ctx.fillText(data.title || 'Certificate of Achievement', cx, H*0.415);
@@ -668,7 +666,7 @@ function tplClassic(ctx, W, H, data){
   ctx.fillText('Date: ' + (data.dateStr||''), W*0.08, H*0.86);
   if(data.certNo){ ctx.fillText('Cert. No: ' + data.certNo, W*0.08, H*0.895); }
 
-  drawSignatures(ctx, W*0.14, H*0.87, W*0.72, data.signatories, {ink:'#1c2626', inkLight:'#5f6f70', lineColor:teal});
+  drawSignatures(ctx, W*0.14, H*0.845, W*0.72, data.signatories, {ink:'#1c2626', inkLight:'#5f6f70', lineColor:teal});
 }
 
 function tplMinimal(ctx, W, H, data){
@@ -679,7 +677,7 @@ function tplMinimal(ctx, W, H, data){
   ctx.strokeRect(m,m,W-2*m,H-2*m);
 
   var cx = W/2;
-  drawLogoOrMonogram(ctx, data, cx, H*0.14, H*0.055, accent, '#fff', '#2b2b2b');
+  drawLogoOrMonogram(ctx, data, cx, H*0.14, H*0.045, accent, '#fff', '#2b2b2b');
 
   ctx.textAlign='center';
   ctx.fillStyle = '#8a8378';
@@ -742,7 +740,7 @@ function tplOrnate(ctx, W, H, data){
   ctx.strokeStyle = gold; ctx.lineWidth = W*0.0022; ctx.stroke();
 
   var cx = W/2;
-  drawLogoOrMonogram(ctx, data, cx, H*0.175, H*0.065, gold, '#0d2136', gold);
+  drawLogoOrMonogram(ctx, data, cx, H*0.175, H*0.053, gold, '#0d2136', gold);
 
   ctx.textAlign='center';
   ctx.fillStyle = '#0d2136';
@@ -796,7 +794,7 @@ function tplKidsStars(ctx, W, H, data){
   ctx.strokeStyle = '#ffb648'; ctx.lineWidth = W*0.006; ctx.stroke();
 
   var cx = W/2;
-  drawLogoOrMonogram(ctx, data, cx, H*0.195, H*0.06, '#ffb648', '#fff', '#123b4a');
+  drawLogoOrMonogram(ctx, data, cx, H*0.195, H*0.05, '#ffb648', '#fff', '#123b4a');
 
   ctx.textAlign='center';
   ctx.fillStyle = '#123b4a';
@@ -857,7 +855,7 @@ function tplSports(ctx, W, H, data){
   ctx.strokeRect(m,m,W-2*m,H-2*m);
 
   var cx = W/2;
-  drawLogoOrMonogram(ctx, data, cx, H*0.16, H*0.062, accent, '#fff', teal);
+  drawLogoOrMonogram(ctx, data, cx, H*0.16, H*0.051, accent, '#fff', teal);
 
   ctx.textAlign='center';
   ctx.fillStyle = teal;
@@ -903,14 +901,14 @@ function tplAppreciation(ctx, W, H, data){
   ctx.strokeRect(m*1.6,m*1.6,W-3.2*m,H-3.2*m);
 
   var cx = W/2;
-  drawLogoOrMonogram(ctx, data, cx, H*0.165, H*0.065, gold, '#0d3841', gold);
+  drawLogoOrMonogram(ctx, data, cx, H*0.165, H*0.053, gold, '#0d3841', gold);
 
   ctx.textAlign='center';
   ctx.fillStyle = gold;
   ctx.font = '600 ' + Math.round(H*0.028) + 'px "Playfair Display"';
   ctx.fillText(data.school, cx, H*0.25);
 
-  drawLaurelPair(ctx, cx, H*0.36, H*0.1, gold);
+  drawLaurelPair(ctx, cx, H*0.315, H*0.04, gold);
   ctx.fillStyle = '#faf6ea';
   ctx.font = '700 ' + Math.round(H*0.068) + 'px "Playfair Display"';
   ctx.fillText(data.title || 'Certificate of Appreciation', cx, H*0.375);
@@ -950,7 +948,7 @@ function tplFloral(ctx, W, H, data){
   ctx.strokeRect(m,m,W-2*m,H-2*m);
 
   var cx = W/2;
-  drawLogoOrMonogram(ctx, data, cx, H*0.155, H*0.06, rose, '#fff', '#5c3a30');
+  drawLogoOrMonogram(ctx, data, cx, H*0.155, H*0.05, rose, '#fff', '#5c3a30');
 
   ctx.textAlign='center';
   ctx.fillStyle = '#5c3a30';
@@ -1010,7 +1008,7 @@ function tplKidsAnimals(ctx, W, H, data){
   ctx.strokeStyle = '#7bd389'; ctx.lineWidth = W*0.005; ctx.stroke();
 
   var cx = W/2;
-  drawLogoOrMonogram(ctx, data, cx, H*0.205, H*0.058, '#ff9f43', '#fff', '#4a3728');
+  drawLogoOrMonogram(ctx, data, cx, H*0.205, H*0.048, '#ff9f43', '#fff', '#4a3728');
 
   ctx.textAlign='center';
   ctx.fillStyle = '#4a3728';
@@ -1066,7 +1064,7 @@ var TITLE_PRESETS = ['Certificate of Achievement','Certificate of Excellence','C
    APP DATA MODEL
 ========================================================= */
 var certData = {
-  templateId: 'minimal',
+  templateId: 'classic',
   title: 'Certificate of Achievement',
   recipientType: 'student',
   recipientName: '',
@@ -1140,9 +1138,7 @@ document.getElementById('logo-remove').addEventListener('click', function(){
 function renderTemplateGallery(){
   var wrap = document.getElementById('tpl-scroll');
   wrap.innerHTML = '';
-  TEMPLATES.TEMPLATES.filter(function(t){
-  return !['classic', 'appreciation', 'floral'].includes(t.id);
-}).forEach(function(t){forEach(function(t){
+  TEMPLATES.forEach(function(t){
     var card = document.createElement('div');
     card.className = 'tpl-card' + (t.id === certData.templateId ? ' selected' : '');
     card.dataset.id = t.id;
