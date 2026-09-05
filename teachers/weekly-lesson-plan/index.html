@@ -21,9 +21,15 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Devanagari-capable web font, loaded so the PDF snapshot (rendered by html2canvas) always has a proper Hindi typeface available, regardless of the device's installed system fonts. -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;700&family=Noto+Sans+Devanagari:wght@400;500;700&display=swap" rel="stylesheet">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- html2canvas rasterises the actual browser-rendered DOM (fonts, shaping, ligatures and all) into an image.
+     jsPDF is now only used as a thin container that places those page images onto A4 pages — it never draws
+     text itself, so its font/glyph limitations (the cause of the Hindi-in-PDF bug) never come into play. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <style>
   :root{
@@ -1109,6 +1115,15 @@ function escapeHtml(str){
 
 /* =========================================================
    PDF GENERATION + SHARE
+   ---------------------------------------------------------
+   Approach: html2canvas rasterises the ACTUAL browser-rendered
+   DOM (same fonts/shaping used on screen, so Hindi/Devanagari
+   text — including conjuncts and matras — renders exactly as
+   it appears in the app). jsPDF is only used afterwards, as a
+   plain container to place those page images onto A4 sheets;
+   it never draws text itself, so its Latin-only default fonts
+   never enter the picture. This is what actually fixes the bug
+   (jsPDF's .text() API is the thing that mangled Hindi before).
 ========================================================= */
 function loadImageAsDataURL(url){
   return new Promise(function(resolve){
@@ -1128,126 +1143,6 @@ function loadImageAsDataURL(url){
   });
 }
 
-document.getElementById('btn-share-pdf').addEventListener('click', function(){
-  if(!lastBrowseResults.plans || lastBrowseResults.plans.length === 0){
-    toast('Load a week with at least one plan first.', true);
-    return;
-  }
-  var btn = document.getElementById('btn-share-pdf');
-  btn.disabled = true;
-  var originalHtml = btn.innerHTML;
-  btn.textContent = 'Preparing PDF…';
-
-  loadImageAsDataURL('https://gsms-tools.github.io/gsms-logo.png').then(function(logoDataUrl){
-    try{
-      var result = buildPdf(logoDataUrl);
-      shareOrDownloadBlob(result.blob, result.fileName);
-    }catch(e){
-      console.error(e);
-      toast('Could not generate PDF.', true);
-    }finally{
-      btn.disabled = false;
-      btn.innerHTML = originalHtml;
-    }
-  });
-});
-
-document.getElementById('btn-download-pdf').addEventListener('click', function(){
-  if(!lastBrowseResults.plans || lastBrowseResults.plans.length === 0){
-    toast('Load a week with at least one plan first.', true);
-    return;
-  }
-  var btn = document.getElementById('btn-download-pdf');
-  btn.disabled = true;
-  var originalHtml = btn.innerHTML;
-  btn.textContent = 'Preparing PDF…';
-
-  loadImageAsDataURL('https://gsms-tools.github.io/gsms-logo.png').then(function(logoDataUrl){
-    try{
-      var result = buildPdf(logoDataUrl);
-      downloadBlob(result.blob, result.fileName);
-      toast('PDF downloaded.');
-    }catch(e){
-      console.error(e);
-      toast('Could not generate PDF.', true);
-    }finally{
-      btn.disabled = false;
-      btn.innerHTML = originalHtml;
-    }
-  });
-});
-
-function buildPdf(logoDataUrl){
-  var jsPDF = window.jspdf.jsPDF;
-  var doc = new jsPDF({ unit: 'pt', format: 'a4' });
-  var pageW = doc.internal.pageSize.getWidth();
-  var pageH = doc.internal.pageSize.getHeight();
-  var margin = 42;
-  var y = margin;
-
-  var teal = [13, 56, 65];
-  var gold = [226, 148, 26];
-  var ink = [28, 38, 38];
-  var inkLight = [95, 111, 112];
-
-  // Header band
-  doc.setFillColor(teal[0], teal[1], teal[2]);
-  doc.rect(0, 0, pageW, 86, 'F');
-  if(logoDataUrl){
-    try{ doc.addImage(logoDataUrl, 'PNG', margin, 18, 50, 50); }catch(e){}
-  }
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.text('Gopal Sharma Memorial School', margin + (logoDataUrl ? 62 : 0), 40);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10.5);
-  doc.setTextColor(255, 214, 133);
-  doc.text('Weekly Lesson Plan', margin + (logoDataUrl ? 62 : 0), 58);
-
-  doc.setFontSize(10.5);
-  doc.setTextColor(255,255,255);
-  var classLabel = 'Class ' + lastBrowseResults.class;
-  doc.text(classLabel, pageW - margin, 40, { align: 'right' });
-  doc.setFontSize(9.5);
-  doc.setTextColor(255, 214, 133);
-  doc.text(formatRange(lastBrowseResults.weekStart, lastBrowseResults.weekEnd), pageW - margin, 56, { align: 'right' });
-
-  y = 106;
-  // Hide the generated line temporarily
-  //doc.setTextColor(inkLight[0], inkLight[1], inkLight[2]);
-  //doc.setFontSize(8.5);
-  //doc.text('Generated ' + new Date().toLocaleString(), margin, y);
-  //y += 18;
-
-  lastBrowseResults.plans.forEach(function(p){
-    var estimatedHeight = estimateSubjectBlockHeight(doc, p, pageW - margin*2);
-    if(y + estimatedHeight > pageH - margin){
-      doc.addPage();
-      y = margin;
-    }
-    y = drawSubjectBlock(doc, p, margin, y, pageW - margin*2, gold, teal, ink, inkLight);
-    y += 14;
-  });
-
-  // Footer on every page
-  var pageCount = doc.internal.getNumberOfPages();
-  for(var i = 1; i <= pageCount; i++){
-    doc.setPage(i);
-    doc.setDrawColor(226, 148, 26);
-    doc.setLineWidth(1);
-    doc.line(margin, pageH - 34, pageW - margin, pageH - 34);
-    doc.setFontSize(8);
-    doc.setTextColor(inkLight[0], inkLight[1], inkLight[2]);
-    doc.text('Gopal Sharma Memorial School — Weekly Lesson Plan', margin, pageH - 20);
-    doc.text('Page ' + i + ' of ' + pageCount, pageW - margin, pageH - 20, { align: 'right' });
-  }
-
-  var fileName = 'Weekly-Lesson-Plan_Class_' + lastBrowseResults.class.replace(/[^a-z0-9]/gi,'') + '_' + lastBrowseResults.weekStart + '.pdf';
-  var blob = doc.output('blob');
-  return { blob: blob, fileName: fileName };
-}
-
 function subjectFieldsList(p){
   return [
     ['Chapter / Topics', p.topics],
@@ -1258,61 +1153,213 @@ function subjectFieldsList(p){
   ];
 }
 
-function estimateSubjectBlockHeight(doc, p, width){
-  var h = 26; // subject title area
-  subjectFieldsList(p).forEach(function(f){
-    var text = f[1] && f[1].trim() ? f[1] : 'Not specified';
-    var lines = doc.splitTextToSize(text, width - 14);
-    h += 14 + (lines.length * 12) + 6;
-  });
-  return h + 10;
-}
+// Builds one subject's block as a real DOM element, styled to match the
+// app's brand (teal/gold), which html2canvas will later snapshot.
+function buildSubjectCardEl(p){
+  var card = document.createElement('div');
+  card.style.cssText =
+    'position:relative; padding:12px 14px 14px 20px; margin-bottom:14px; ' +
+    'border-left:3px solid #e2941a; page-break-inside:avoid;';
 
-function drawSubjectBlock(doc, p, x, y, width, gold, teal, ink, inkLight){
-  doc.setFillColor(253, 241, 220);
-  var blockTop = y;
+  var titleEl = document.createElement('div');
+  titleEl.style.cssText = 'font-family:Georgia,"Times New Roman",serif; font-weight:700; font-size:13pt; color:#124f59;';
+  titleEl.textContent = p.subject;
+  card.appendChild(titleEl);
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12.5);
-  doc.setTextColor(teal[0], teal[1], teal[2]);
-  doc.text(p.subject, x, y + 14);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(inkLight[0], inkLight[1], inkLight[2]);
-  var teacherName = (p.teachers && p.teachers.name) ? p.teachers.name : '';
-  // hide teacher name temporarily
-  teacherName = '';
-  // doc.text(teacherName, x + width, y + 14, { align: 'right' });
-
-  y += 28;
-  doc.setDrawColor(gold[0], gold[1], gold[2]);
-  doc.setLineWidth(1.4);
-  doc.line(x, y - 8, x + width, y - 8);
-  y += 6;
+  var ruleEl = document.createElement('div');
+  ruleEl.style.cssText = 'height:1.4px; background:#e2941a; margin:8px 0 2px;';
+  card.appendChild(ruleEl);
 
   subjectFieldsList(p).forEach(function(f){
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.setTextColor(gold[0]-30 < 0 ? 0 : gold[0]-30, gold[1], gold[2] - 40 < 0 ? 0 : gold[2]-40);
-    doc.text(f[0].toUpperCase(), x, y);
-    y += 16;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(ink[0], ink[1], ink[2]);
-    var text = f[1] && f[1].trim() ? f[1] : 'Not specified';
-    var lines = doc.splitTextToSize(text, width - 14);
-    doc.text(lines, x, y);
-    y += (lines.length * 12) + 6;
+    var hasValue = !!(f[1] && f[1].trim());
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'margin-top:9px;';
+
+    var labelEl = document.createElement('div');
+    labelEl.style.cssText = 'font-family:Helvetica,Arial,sans-serif; font-size:8.2pt; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#b26a12;';
+    labelEl.textContent = f[0];
+    wrap.appendChild(labelEl);
+
+    var valueEl = document.createElement('div');
+    valueEl.style.cssText =
+      'font-family:"Noto Sans","Noto Sans Devanagari",Manrope,Helvetica,Arial,sans-serif; ' +
+      'font-size:10.2pt; line-height:1.55; white-space:pre-wrap; word-break:break-word; margin-top:2px; ' +
+      (hasValue ? 'color:#1c2626;' : 'color:#5f6f70; font-style:italic;');
+    valueEl.textContent = hasValue ? f[1] : 'Not specified';
+    wrap.appendChild(valueEl);
+
+    card.appendChild(wrap);
   });
 
-  // subtle side rule
-  doc.setDrawColor(226, 148, 26);
-  doc.setLineWidth(2);
-  doc.line(x - 8, blockTop - 4, x - 8, y - 6);
-
-  return y;
+  return card;
 }
+
+async function buildPdf(logoDataUrl){
+  if(typeof html2canvas === 'undefined'){
+    throw new Error('html2canvas did not load — check your internet connection and try again.');
+  }
+  // Make sure the Noto Sans / Noto Sans Devanagari web fonts are fully
+  // loaded before we snapshot anything, so the canvas doesn't capture a
+  // fallback-font frame mid-swap.
+  if(document.fonts && document.fonts.ready){
+    try{ await document.fonts.ready; }catch(e){}
+  }
+
+  var PAGE_W = 794;   // css px — A4 width @ 96dpi
+  var PAGE_H = 1123;  // css px — A4 height @ 96dpi (same aspect ratio as A4 in pt)
+  var MARGIN = 40;
+  var FOOTER_ZONE = 34;
+
+  var stage = document.createElement('div');
+  stage.style.cssText = 'position:fixed; left:-10000px; top:0; width:'+PAGE_W+'px; z-index:-1; background:#faf8f3;';
+  document.body.appendChild(stage);
+
+  try{
+    /* ---- Header band (page 1 only) ---- */
+    var headerEl = document.createElement('div');
+    headerEl.style.cssText =
+      'width:'+PAGE_W+'px; box-sizing:border-box; background:#0d3841; padding:18px '+MARGIN+'px; ' +
+      'display:flex; align-items:center; justify-content:space-between;';
+    headerEl.innerHTML =
+      '<div style="display:flex; align-items:center; gap:14px;">' +
+        (logoDataUrl ? '<img src="'+logoDataUrl+'" style="width:44px;height:44px;object-fit:contain;">' : '') +
+        '<div>' +
+          '<div style="font-family:Georgia,\'Times New Roman\',serif; font-weight:700; font-size:15pt; color:#ffffff;">Gopal Sharma Memorial School</div>' +
+          '<div style="font-family:Helvetica,Arial,sans-serif; font-size:9.5pt; color:#ffd685; margin-top:3px;">Weekly Lesson Plan</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="text-align:right;">' +
+        '<div style="font-family:Helvetica,Arial,sans-serif; font-size:9.5pt; color:#ffffff;">Class ' + escapeHtml(lastBrowseResults.class) + '</div>' +
+        '<div style="font-family:Helvetica,Arial,sans-serif; font-size:8.6pt; color:#ffd685; margin-top:3px;">' + escapeHtml(formatRange(lastBrowseResults.weekStart, lastBrowseResults.weekEnd)) + '</div>' +
+      '</div>';
+    stage.appendChild(headerEl);
+    var headerHeight = headerEl.getBoundingClientRect().height;
+    stage.removeChild(headerEl);
+
+    /* ---- Build & measure each subject card ---- */
+    var cardEls = lastBrowseResults.plans.map(function(p){ return buildSubjectCardEl(p); });
+    var cardHeights = cardEls.map(function(el){
+      el.style.width = (PAGE_W - MARGIN*2) + 'px';
+      stage.appendChild(el);
+      var h = el.getBoundingClientRect().height;
+      stage.removeChild(el);
+      return h;
+    });
+
+    /* ---- Greedy pagination: never split a subject card across pages ---- */
+    var pages = [];
+    var current = [];
+    var usable = PAGE_H - MARGIN*2 - headerHeight - FOOTER_ZONE - 10;
+    var used = 0;
+    for(var i = 0; i < cardEls.length; i++){
+      var h = cardHeights[i] + 14;
+      if(current.length > 0 && used + h > usable){
+        pages.push(current);
+        current = [];
+        used = 0;
+        usable = PAGE_H - MARGIN*2 - FOOTER_ZONE - 10; // no header band on later pages
+      }
+      current.push(i);
+      used += h;
+    }
+    if(current.length > 0 || pages.length === 0) pages.push(current);
+
+    /* ---- Render every page to an image, then assemble the PDF ---- */
+    var jsPDF = window.jspdf.jsPDF;
+    var doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    var pdfW = doc.internal.pageSize.getWidth();
+    var pdfH = doc.internal.pageSize.getHeight();
+
+    for(var pageIndex = 0; pageIndex < pages.length; pageIndex++){
+      var pageEl = document.createElement('div');
+      pageEl.style.cssText =
+        'width:'+PAGE_W+'px; height:'+PAGE_H+'px; background:#faf8f3; box-sizing:border-box; ' +
+        'position:relative; font-family:Manrope,Helvetica,Arial,sans-serif;';
+
+      if(pageIndex === 0){
+        pageEl.appendChild(headerEl.cloneNode(true));
+      }
+
+      var contentEl = document.createElement('div');
+      contentEl.style.cssText = 'padding:'+(pageIndex === 0 ? '18px' : MARGIN+'px')+' '+MARGIN+'px 0;';
+      pages[pageIndex].forEach(function(idx){
+        contentEl.appendChild(cardEls[idx].cloneNode(true));
+      });
+      pageEl.appendChild(contentEl);
+
+      var footerEl = document.createElement('div');
+      footerEl.style.cssText =
+        'position:absolute; left:'+MARGIN+'px; right:'+MARGIN+'px; bottom:'+(MARGIN-8)+'px; ' +
+        'border-top:1px solid #e2941a; padding-top:8px; display:flex; justify-content:space-between; ' +
+        'font-family:Helvetica,Arial,sans-serif; font-size:7.6pt; color:#5f6f70;';
+      footerEl.innerHTML =
+        '<span>Gopal Sharma Memorial School — Weekly Lesson Plan</span>' +
+        '<span>Page ' + (pageIndex+1) + ' of ' + pages.length + '</span>';
+      pageEl.appendChild(footerEl);
+
+      stage.appendChild(pageEl);
+      var canvas = await html2canvas(pageEl, { scale: 2, backgroundColor: '#faf8f3', useCORS: true });
+      stage.removeChild(pageEl);
+
+      var imgData = canvas.toDataURL('image/png');
+      if(pageIndex > 0) doc.addPage();
+      doc.addImage(imgData, 'PNG', 0, 0, pdfW, pdfH);
+    }
+
+    var fileName = 'Weekly-Lesson-Plan_Class_' + lastBrowseResults.class.replace(/[^a-z0-9]/gi,'') + '_' + lastBrowseResults.weekStart + '.pdf';
+    var blob = doc.output('blob');
+    return { blob: blob, fileName: fileName };
+  } finally {
+    document.body.removeChild(stage);
+  }
+}
+
+document.getElementById('btn-share-pdf').addEventListener('click', async function(){
+  if(!lastBrowseResults.plans || lastBrowseResults.plans.length === 0){
+    toast('Load a week with at least one plan first.', true);
+    return;
+  }
+  var btn = this;
+  btn.disabled = true;
+  var originalHtml = btn.innerHTML;
+  btn.textContent = 'Preparing PDF…';
+
+  try{
+    var logoDataUrl = await loadImageAsDataURL('https://gsms-tools.github.io/gsms-logo.png');
+    var result = await buildPdf(logoDataUrl);
+    shareOrDownloadBlob(result.blob, result.fileName);
+  }catch(e){
+    console.error(e);
+    toast('Could not generate PDF.', true);
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  }
+});
+
+document.getElementById('btn-download-pdf').addEventListener('click', async function(){
+  if(!lastBrowseResults.plans || lastBrowseResults.plans.length === 0){
+    toast('Load a week with at least one plan first.', true);
+    return;
+  }
+  var btn = this;
+  btn.disabled = true;
+  var originalHtml = btn.innerHTML;
+  btn.textContent = 'Preparing PDF…';
+
+  try{
+    var logoDataUrl = await loadImageAsDataURL('https://gsms-tools.github.io/gsms-logo.png');
+    var result = await buildPdf(logoDataUrl);
+    downloadBlob(result.blob, result.fileName);
+    toast('PDF downloaded.');
+  }catch(e){
+    console.error(e);
+    toast('Could not generate PDF.', true);
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  }
+});
 
 function shareOrDownloadBlob(blob, fileName){
   var file = new File([blob], fileName, { type: 'application/pdf' });
