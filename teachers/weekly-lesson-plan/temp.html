@@ -485,15 +485,29 @@
      text drawing which only understands a handful of Latin fonts. */
   #pdf-render-root{
     position:fixed;
-    top:-99999px;
-    left:-99999px;
+    top:0;
+    left:0;
     width:780px;
     background:#ffffff;
     font-family:'Manrope','Noto Sans Devanagari',sans-serif;
     color:#1c2626;
     -webkit-font-smoothing:antialiased;
+    z-index:1;
   }
   #pdf-render-root *{ box-sizing:border-box; }
+
+  /* Opaque overlay shown while the PDF is being rasterised. It sits above
+     #pdf-render-root so the user never sees the raw render target — html2canvas
+     still captures #pdf-render-root correctly regardless of what's stacked
+     visually on top of it, since it draws from the DOM/CSS, not a screen grab. */
+  #pdf-generating-overlay{
+    position:fixed; inset:0; z-index:9999;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+    background:var(--cream);
+    color:var(--ink-500);
+    font-weight:600;
+    font-size:.9rem;
+  }
   .pdf-header{
     background:#0d3841;
     padding:26px 34px;
@@ -721,6 +735,11 @@
 </div>
 
 <div id="toast-wrap"></div>
+
+<div id="pdf-generating-overlay" style="display:none;">
+  <div class="spinner" role="status" aria-label="Generating PDF"></div>
+  <span>Preparing PDF…</span>
+</div>
 
 <script>
 /* =========================================================
@@ -1247,8 +1266,11 @@ function buildPdfMarkup(logoDataUrl){
   );
 }
 
-/* Renders the markup off-screen and returns a PDF Blob via html2pdf.js. */
+/* Renders the markup on-screen (behind an opaque overlay) and returns a PDF Blob via html2pdf.js. */
 function generatePdfBlob(logoDataUrl){
+  var overlay = document.getElementById('pdf-generating-overlay');
+  overlay.style.display = 'flex';
+
   var container = document.createElement('div');
   container.id = 'pdf-render-root';
   container.innerHTML = buildPdfMarkup(logoDataUrl);
@@ -1257,7 +1279,7 @@ function generatePdfBlob(logoDataUrl){
   var opts = {
     margin: 0,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 780 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 780, scrollX: 0, scrollY: 0 },
     jsPDF: { unit: 'pt', format: 'a4', orientation: 'portrait' },
     pagebreak: { mode: ['css', 'avoid-all'] }
   };
@@ -1290,6 +1312,7 @@ function generatePdfBlob(logoDataUrl){
     return pdf.output('blob');
   }).finally(function(){
     if(container.parentNode) container.parentNode.removeChild(container);
+    overlay.style.display = 'none';
   });
 }
 
