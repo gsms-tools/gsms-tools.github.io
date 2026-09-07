@@ -456,7 +456,8 @@ var state = {
   selectedFields: DEFAULT_FIELDS.slice(),
   heavyDataCache: {},        // id -> {father_name, mother_name, phone, address}
   editingListId: null,       // set when editing an existing saved list
-  savedLists: []
+  savedLists: [],
+  teacherNamesById: {}
 };
 
 /* =========================================================
@@ -990,14 +991,25 @@ function loadSavedLists(){
 
   // Metadata-only fetch: student_count is a stored generated column, so the
   // full student_ids array is never transferred just to show the list.
+  // created_by only has a FK to auth.users (not to teachers, since a
+  // standalone admin need not be a teacher), so PostgREST can't embed
+  // teachers(name) here — owner names are resolved in a small follow-up query.
   supabaseClient
     .from('student_lists')
-    .select('id, name, visibility, student_count, created_by, created_at, updated_at, teachers(name)')
+    .select('id, name, visibility, student_count, created_by, created_at, updated_at')
     .order('updated_at', { ascending: false })
     .then(function(res){
       if(res.error){ toast('Could not load saved lists: ' + res.error.message, true); container.innerHTML=''; placeholder.style.display='flex'; return; }
       state.savedLists = res.data || [];
-      renderSavedLists();
+      var otherOwnerIds = Array.from(new Set(
+        state.savedLists.map(function(l){ return l.created_by; }).filter(function(id){ return id !== state.user.id; })
+      ));
+      if(otherOwnerIds.length === 0){ renderSavedLists(); return; }
+      supabaseClient.from('teachers').select('id, name').in('id', otherOwnerIds).then(function(tres){
+        state.teacherNamesById = {};
+        (tres.data || []).forEach(function(t){ state.teacherNamesById[t.id] = t.name; });
+        renderSavedLists();
+      });
     });
 }
 document.getElementById('btn-refresh-saved').addEventListener('click', loadSavedLists);
@@ -1013,7 +1025,7 @@ function renderSavedLists(){
   container.innerHTML = '';
   state.savedLists.forEach(function(list, i){
     var canEdit = state.isAdmin || list.created_by === state.user.id;
-    var ownerName = (list.teachers && list.teachers.name) ? list.teachers.name : (list.created_by === state.user.id ? 'You' : 'Admin');
+    var ownerName = list.created_by === state.user.id ? 'You' : ((state.teacherNamesById && state.teacherNamesById[list.created_by]) || 'Admin');
     var card = document.createElement('div');
     card.className = 'saved-card';
     card.style.animationDelay = (i * 0.04) + 's';
