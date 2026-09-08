@@ -142,7 +142,11 @@
   .altar-scene{
     position:relative;
     width:min(680px, 92vw);
-    height:min(52vh, 400px);
+    /* was a fixed height; now it's a shrinkable flex item so it
+       yields space to the tray instead of pushing it off-screen */
+    flex:1 1 auto;
+    min-height:0;
+    max-height:min(52vh, 400px);
     display:flex; align-items:flex-end; justify-content:center;
   }
 
@@ -233,6 +237,7 @@
     position:relative; z-index:15;
     display:flex; align-items:flex-end; gap:10px;
     width:min(680px,92vw); margin:2px auto 4px;
+    flex:0 0 auto;
   }
   .mascot{ width:56px; height:48px; flex:0 0 auto; animation:mouse-bounce 2.4s ease-in-out infinite; filter:drop-shadow(0 4px 4px rgba(0,0,0,.35)); }
   @keyframes mouse-bounce{ 0%,100%{ transform:translateY(0);} 50%{ transform:translateY(-5px);} }
@@ -362,9 +367,26 @@
   @media (max-width:640px){
     .brand h1{ font-size:15px; }
     .brand p{ display:none; }
-    .altar-scene{ height:46vh; }
+    .altar-scene{ max-height:46vh; }
     .drag-item svg{ width:44px; height:44px; }
     #zone-idol{ width:42%; }
+  }
+
+  @media (max-width:640px) and (max-height:640px){
+    .altar-scene{ max-height:34vh; }
+    .mascot{ width:44px; height:38px; }
+    .tray{ min-height:64px; padding:8px 12px; }
+  }
+
+  /* Wide-but-short viewports (Smart TVs, laptops in browser windows with
+   little vertical room): shrink the altar further and tighten spacing
+   so the tray never gets pushed past the visible area. */
+  @media (min-width:900px) and (max-height:800px){
+    .altar-scene{ max-height:38vh; }
+    .hud{ padding:10px 18px 4px; }
+    .mascot-row{ margin:0 auto 2px; }
+    .mascot{ width:44px; height:38px; }
+    .tray{ min-height:64px; padding:8px 14px; }
   }
 
   @media (prefers-reduced-motion: reduce){
