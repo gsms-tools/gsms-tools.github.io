@@ -1079,30 +1079,24 @@ function updateLyricFromTime(){
   }
 
   function startAarti(){
-    aartiOverlay.classList.add('show');
-    lyricIdx = 0;
-    showLyric();
-    lyricTimer = setInterval(showLyric, 3000);
-    petalTimer = setInterval(spawnPetal, 260);
+  aartiOverlay.classList.add('show');
+  currentCueIndex = -1;
+  petalTimer = setInterval(spawnPetal, 260);
 
-    aartiAudio.currentTime = 0;
-    aartiAudio.play().then(()=>{
-      stopAartiChime();
-    }).catch(()=>{
-      startAartiChime();
-    });
+  aartiAudio.currentTime = 0;
+  aartiAudio.addEventListener('timeupdate', updateLyricFromTime);
+  aartiAudio.addEventListener('ended', onAartiEnded);
 
-    setTimeout(()=>{
-      $('#finishPanel').classList.add('show');
-    }, lyrics.length*3000 + 500);
-  }
+  aartiAudio.play().then(()=>{
+    stopAartiChime();
+  }).catch(()=>{
+    startAartiChime(); // no real audio — beep fallback, lyrics just show cue 0
+  });
+}
 
-  function showLyric(){
-    const l = lyrics[lyricIdx % lyrics.length];
-    $('#lyricHi').textContent = l.hi;
-    $('#lyricTr').textContent = l.tr;
-    lyricIdx++;
-  }
+function onAartiEnded(){
+  $('#finishPanel').classList.add('show');
+}
 
   const petalEmojis = ['🌼','🌸','🌺','🪔','✨'];
   function spawnPetal(){
@@ -1118,11 +1112,12 @@ function updateLyricFromTime(){
   }
 
   function stopAarti(){
-    clearInterval(lyricTimer); lyricTimer=null;
-    clearInterval(petalTimer); petalTimer=null;
-    stopAartiChime();
-    aartiAudio.pause();
-  }
+  clearInterval(petalTimer); petalTimer=null;
+  aartiAudio.removeEventListener('timeupdate', updateLyricFromTime);
+  aartiAudio.removeEventListener('ended', onAartiEnded);
+  stopAartiChime();
+  aartiAudio.pause();
+}
 
   /* ============ controls ============ */
   $('#soundToggle').addEventListener('click', ()=>{
