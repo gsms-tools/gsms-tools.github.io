@@ -46,6 +46,15 @@
       radial-gradient(ellipse 120% 60% at 50% 0%, rgba(255,178,56,0.18), transparent 60%),
       linear-gradient(180deg, #201033 0%, #3a1638 32%, #5a2038 58%, #7a3524 82%, #8f4626 100%);
     overflow:hidden;
+    /* FIX: #app now lays out its three sections (hud / stage / tray) as a
+       flex column so they share the real available height instead of
+       stacking past it. Previously .stage-wrap alone claimed
+       calc(100% - 66px) of #app's height, leaving no room for .hud on top
+       of it *and* .tray-wrap below it — the tray (with every draggable
+       item) ended up rendered ~100-150px below the visible viewport and
+       was clipped away by this overflow:hidden, invisible and untouchable. */
+    display:flex;
+    flex-direction:column;
   }
 
   /* ---------- Ambient sky decor ---------- */
@@ -77,6 +86,9 @@
     position:relative; z-index:20;
     display:flex; align-items:center; justify-content:space-between;
     gap:10px; padding:14px 18px 6px;
+    /* FIX: pin this section to its natural content height instead of
+       letting it be squeezed/stretched by the new flex column. */
+    flex:0 0 auto;
   }
   .brand{
     display:flex; align-items:center; gap:10px;
@@ -117,7 +129,13 @@
   /* ---------- Stage / Altar ---------- */
   .stage-wrap{
     position:relative; z-index:6;
-    height:calc(100% - 66px);
+    /* FIX: was `height:calc(100% - 66px)`, a magic-number height computed
+       against #app's full height. That alone consumed almost all of
+       #app's 100vh, before .hud and .tray-wrap even took their own space,
+       guaranteeing overflow. Now it's a flexible middle section that
+       simply fills whatever space is left after .hud and .tray-wrap. */
+    flex:1 1 auto;
+    min-height:0;
     display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
   }
 
@@ -236,6 +254,9 @@
     position:relative; z-index:15; width:100%;
     padding:6px 10px 12px;
     display:flex; justify-content:center;
+    /* FIX: keep the tray pinned to its natural height at the bottom of the
+       new flex column instead of being pushed off-screen. */
+    flex:0 0 auto;
   }
   .tray{
     display:flex; gap:14px; align-items:center; justify-content:center;
@@ -634,26 +655,40 @@
       <circle cx="30" cy="10" r="3" fill="#ffe6ad"/>
     </svg>`
   };
-  // mini ganesha icon for the tray (kept simple/separate from the full altar illustration)
-  icons.ganeshaTray = `<svg viewBox="0 0 220 240" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="110" cy="150" r="46" fill="#e8973f"/>
-      <circle cx="110" cy="92" r="52" fill="#eea15a"/>
-      <ellipse cx="52" cy="88" rx="24" ry="28" fill="#f0a85c" transform="rotate(-12 52 88)"/>
-      <ellipse cx="168" cy="88" rx="24" ry="28" fill="#f0a85c" transform="rotate(12 168 88)"/>
-      <path d="M64 66 Q110 24 156 66 Q140 54 110 54 Q80 54 64 66Z" fill="#e8b73a"/>
-      <ellipse cx="90" cy="92" rx="6" ry="7" fill="#2b1a10"/>
-      <ellipse cx="130" cy="92" rx="6" ry="7" fill="#2b1a10"/>
-      <path d="M104 104 Q92 130 108 148 Q118 158 108 168" stroke="#e8973f" stroke-width="16" fill="none" stroke-linecap="round"/>
+  // mini ganesha icon for the tray — tightly cropped viewBox so it actually fills the slot
+  icons.ganeshaTray = `<svg viewBox="0 0 140 150" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="70" cy="118" rx="40" ry="26" fill="#e8503f"/>
+      <ellipse cx="28" cy="86" rx="20" ry="24" fill="#f0a85c" transform="rotate(-14 28 86)"/>
+      <ellipse cx="112" cy="86" rx="20" ry="24" fill="#f0a85c" transform="rotate(14 112 86)"/>
+      <ellipse cx="28" cy="86" rx="12" ry="16" fill="#f7c98a" transform="rotate(-14 28 86)"/>
+      <ellipse cx="112" cy="86" rx="12" ry="16" fill="#f7c98a" transform="rotate(14 112 86)"/>
+      <circle cx="70" cy="82" r="34" fill="#eea15a"/>
+      <path d="M40 62 Q70 30 100 62 Q88 52 70 52 Q52 52 40 62Z" fill="#e8b73a" stroke="#a9711f" stroke-width="1.5"/>
+      <circle cx="70" cy="42" r="5" fill="#d63b2f"/>
+      <ellipse cx="58" cy="82" rx="4.5" ry="5.5" fill="#2b1a10"/>
+      <ellipse cx="82" cy="82" rx="4.5" ry="5.5" fill="#2b1a10"/>
+      <path d="M67 92 Q60 108 70 120 Q76 126 70 132" stroke="#e8973f" stroke-width="11" fill="none" stroke-linecap="round"/>
+      <path d="M50 96 Q70 104 60 100" stroke="#7a4a2b" stroke-width="1.6" fill="none" stroke-linecap="round"/>
     </svg>`;
 
   /* ============ audio (synthesized, no external files needed) ============ */
   let actx = null;
   function ensureAudio(){
-    if(!actx){
-      const AC = window.AudioContext || window.webkitAudioContext;
-      actx = new AC();
+    // Sound is a nice-to-have — if the browser/preview environment blocks
+    // AudioContext creation for any reason, we swallow the error and simply
+    // continue silently rather than letting it block the rest of the app.
+    try{
+      if(!actx){
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if(!AC){ state.soundOn = false; return; }
+        actx = new AC();
+      }
+      if(actx.state === 'suspended') actx.resume().catch(()=>{});
+    }catch(err){
+      state.soundOn = false;
+      const btn = document.getElementById('soundToggle');
+      if(btn) btn.textContent = '🔇';
     }
-    if(actx.state === 'suspended') actx.resume();
   }
   function tone(freq, start, dur, type='sine', gainPeak=0.18){
     if(!state.soundOn || !actx) return;
@@ -1080,9 +1115,11 @@
 
   /* ============ intro / start ============ */
   $('#startBtn').addEventListener('click', ()=>{
-    ensureAudio();
+    // Game setup happens first and unconditionally; audio init is best-effort
+    // and must never be able to prevent the game from starting.
     $('#introOverlay').style.display = 'none';
     resetGame();
+    ensureAudio();
   });
 
   /* init (pre-start) */
