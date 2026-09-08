@@ -496,7 +496,7 @@
     <h3>🎉 Sadhu Sadhu! Pooja complete! 🎉</h3>
     <button class="replay-btn" id="replayBtn">Play again 🐭</button>
   </div>
-  <audio id="aartiAudio" loop>
+  <audio id="aartiAudio">
     <source src="ganesh-arti.mp3" type="audio/mpeg">
   </audio>
 </div>
@@ -1007,13 +1007,67 @@
   /* ============ bell + aarti ============ */
   const aartiOverlay = $('#aarti-overlay');
   const aartiAudio = $('#aartiAudio');
-  const lyrics = [
-    { hi:"जय गणेश जय गणेश जय गणेश देवा", tr:"Jai Ganesh, Jai Ganesh, Jai Ganesh Deva" },
-    { hi:"माता जाकी पार्वती, पिता महादेवा", tr:"Mata jaki Parvati, pita Mahadeva" },
-    { hi:"लड्डुअन का भोग लगे, संत करें सेवा", tr:"Laddoo-an ka bhog lage, sant karein seva" },
-    { hi:"जय गणेश जय गणेश जय गणेश देवा", tr:"Jai Ganesh, Jai Ganesh, Jai Ganesh Deva" }
-  ];
-  let lyricIdx = 0, lyricTimer = null, petalTimer = null;
+  // ---- Paste each unique line's text ONCE below. Order doesn't matter, just
+// match the labels (L1, L2, ...) to the lines you already sent me. ----
+const lyricText = {
+  L1: { hi: "जय गणेश जय गणेश, जय गणेश देवा,",      tr: "Jai Ganesh Jai Ganesh, Jai Ganesh Deva," },
+  L2: { hi: "माता जाकी पार्वती, पिता महादेवा।",       tr: "Mata Jaaki Parvati, Pita Mahadeva." },
+  L3: { hi: "एक दंत दयावंत, चार भुजा धारी,",         tr: "Ek Dant Dayavant, Chaar Bhuja Dhaari," },
+  L4: { hi: "माथे पर तिलक सोहे, मूसे की सवारी।",      tr: "Maathe Par Tilak Sohe, Moose Ki Sawaari." },
+  L5: { hi: "पान चढ़े फूल चढ़े, और चढ़े मेवा,",       tr: "Paan Chadhe Phool Chadhe, Aur Chadhe Mewa," },
+  L6: { hi: "लड्डुअन का भोग लगे, संत करें सेवा।",     tr: "Ladduan Ka Bhog Lage, Sant Karen Seva." },
+  L7: { hi: "अंधन को आंख देत, कोढ़िन को काया,",       tr: "Andhan Ko Aankh Det, Kodhin Ko Kaaya," },
+  L8: { hi: "बांझन को पुत्र देत, निर्धन को माया।",     tr: "Baanjhan Ko Putra Det, Nirdhan Ko Maaya." },
+  L9: { hi: "'सूर' श्याम शरण आए, सफल कीजे सेवा,",     tr: "'Soor' Shyaam Sharan Aaye, Safal Keeje Seva," },
+  MUSIC: { hi: "🎵", tr: "" }
+};
+
+// ---- Cue sheet built from your timestamps (in seconds). No text here —
+// just says "at second T, show line KEY". ----
+const lyricCues = [
+  { t: 0,   key: 'MUSIC' },
+  { t: 13,  key: 'L1' },
+  { t: 23,  key: 'L2' },
+  { t: 33,  key: 'L1' },
+  { t: 43,  key: 'L2' },
+  { t: 53,  key: 'MUSIC' },
+  { t: 64,  key: 'L3' },
+  { t: 74,  key: 'L4' },
+  { t: 84,  key: 'L3' },
+  { t: 95,  key: 'L4' },
+  { t: 105, key: 'L5' },
+  { t: 115, key: 'L6' },
+  { t: 125, key: 'L1' },
+  { t: 135, key: 'L2' },
+  { t: 145, key: 'MUSIC' },
+  { t: 155, key: 'L7' },
+  { t: 166, key: 'L8' },
+  { t: 177, key: 'L7' },
+  { t: 186, key: 'L8' },
+  { t: 196, key: 'L9' },
+  { t: 206, key: 'L2' },
+  { t: 216, key: 'L1' },
+  { t: 227, key: 'L2' },
+  { t: 237, key: 'L1' },
+  { t: 248, key: 'L2' }
+];
+
+let currentCueIndex = -1;
+let petalTimer = null;
+
+function updateLyricFromTime(){
+  const ct = aartiAudio.currentTime;
+  let idx = 0;
+  for(let i=0;i<lyricCues.length;i++){
+    if(lyricCues[i].t <= ct) idx = i; else break;
+  }
+  if(idx !== currentCueIndex){
+    currentCueIndex = idx;
+    const l = lyricText[lyricCues[idx].key];
+    $('#lyricHi').textContent = l.hi;
+    $('#lyricTr').textContent = l.tr;
+  }
+}
 
   function ringBellAndStartAarti(){
     const zone = zoneEls['bell'];
