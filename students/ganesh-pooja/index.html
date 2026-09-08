@@ -40,12 +40,16 @@
 
   #app{
     position:relative;
-    width:100vw; height:100vh;
+    width:100vw; 
+    height:100vh; /* fallback for older browsers */
+    height:100dvh; /* shrinks/grows with the browser's real visible area */
     min-height:560px;
     background:
       radial-gradient(ellipse 120% 60% at 50% 0%, rgba(255,178,56,0.18), transparent 60%),
       linear-gradient(180deg, #201033 0%, #3a1638 32%, #5a2038 58%, #7a3524 82%, #8f4626 100%);
-    overflow:hidden;
+    overflow-y:auto;
+    overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
     /* FIX: #app now lays out its three sections (hud / stage / tray) as a
        flex column so they share the real available height instead of
        stacking past it. Previously .stage-wrap alone claimed
@@ -55,6 +59,10 @@
        was clipped away by this overflow:hidden, invisible and untouchable. */
     display:flex;
     flex-direction:column;
+  }
+
+  .tray-wrap{
+    flex-shrink:0;
   }
 
   /* ---------- Ambient sky decor ---------- */
