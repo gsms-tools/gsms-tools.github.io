@@ -312,12 +312,22 @@
   /* ---------- Role cards ---------- */
   .role-grid{
     display:grid;
-    grid-template-columns:repeat(3,1fr);
+    grid-template-columns:repeat(4,1fr);
     gap:20px;
     width:100%;
   }
+
+  @media (max-width:900px){
+    .role-grid{
+      grid-template-columns:repeat(2,1fr);
+    }
+  }
+
   @media (max-width:760px){
-    .role-grid{grid-template-columns:1fr; max-width:380px;}
+    .role-grid{
+      grid-template-columns:1fr;
+      max-width:380px;
+    }
   }
 
   .role-card{
@@ -340,6 +350,7 @@
   .role-card:nth-child(1){animation-delay:.35s;}
   .role-card:nth-child(2){animation-delay:.45s;}
   .role-card:nth-child(3){animation-delay:.55s;}
+  .role-card:nth-child(4){animation-delay:.65s;}
 
   .role-card:hover,
   .role-card:focus-visible{
@@ -464,7 +475,7 @@
 <main class="hero">
   <p class="eyebrow">School Portal</p>
   <h1>Welcome. Let's get you<br><em>where you need to be.</em></h1>
-  <p class="subtitle">Please select your role to continue to the tools and resources built for you.</p>
+  <p class="subtitle">Please select your role to continue.</p>
 
   <div class="role-grid">
 
@@ -481,6 +492,27 @@
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </span>
     </a>
+
+    <a class="role-card" href="parent-auth.html" aria-label="Continue as Parent or Guardian">
+  <span class="role-icon" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="9" cy="8" r="3"/>
+      <path d="M3.5 20c.5-3.5 2.4-5.5 5.5-5.5s5 2 5.5 5.5"/>
+      <circle cx="17" cy="9" r="2.2"/>
+      <path d="M15 14.5c2.8-.2 4.7 1.5 5.2 4.5"/>
+    </svg>
+  </span>
+
+  <h2 class="role-title">Parent/Guardian</h2>
+
+  <p class="role-desc">View your ward's results, updates and school information.</p>
+
+  <span class="role-go">Continue
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 12h14M13 6l6 6-6 6"/>
+    </svg>
+  </span>
+</a>
 
     <a class="role-card" href="student-auth.html" aria-label="Continue as Student">
       <span class="role-icon" aria-hidden="true">
