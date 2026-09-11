@@ -418,6 +418,21 @@
   .field-error.show{ display:block; }
   .name-uppercase-preview{ text-transform:uppercase; }
 
+  /* ---------- Profile picture ---------- */
+  .avatar-row{ display:flex; align-items:center; gap:14px; }
+  .avatar-preview{
+    position:relative; width:72px; height:72px; border-radius:50%; overflow:hidden;
+    flex-shrink:0; background:var(--bg-tint-teal); border:1.5px solid var(--border-card);
+  }
+  .avatar-preview img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .avatar-spinner-overlay{
+    position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    background:rgba(9,34,39,.35);
+  }
+  .avatar-actions{ display:flex; flex-direction:column; gap:8px; }
+  .avatar-upload-btn{ cursor:pointer; text-align:center; padding:9px 14px; font-size:.82rem; }
+  #avatar-remove-btn{ padding:9px 14px; font-size:.82rem; }
+
   .btn{
     padding:13px 18px;
     border-radius:14px;
@@ -610,6 +625,22 @@
     </div>
     <p class="sheet-desc">Fields marked required must be filled before saving.</p>
 
+    <div class="field avatar-field">
+      <label>Profile picture</label>
+      <div class="avatar-row">
+        <div class="avatar-preview">
+          <img id="avatar-img" src="" alt="Student profile picture">
+          <div class="avatar-spinner-overlay" id="avatar-spinner-overlay"><div class="spinner sm"></div></div>
+        </div>
+        <div class="avatar-actions">
+          <label class="btn btn-ghost avatar-upload-btn" for="f-photo">Choose photo</label>
+          <input type="file" id="f-photo" accept="image/*" style="display:none;">
+          <button class="btn btn-ghost" id="avatar-remove-btn" type="button" style="display:none;">Remove</button>
+        </div>
+      </div>
+      <p class="field-hint">Any image format up to 5 MB (SVG not supported). Only applied when you save.</p>
+    </div>
+
     <div class="field">
       <label for="f-name">Full name <span style="color:var(--danger);">*</span></label>
       <input type="text" id="f-name" placeholder="e.g. Meera Kapoor" class="name-uppercase-preview">
@@ -718,6 +749,11 @@ var SUPABASE_URL = 'https://ctuqlmdunhdhhholsqco.supabase.co';
 var SUPABASE_ANON_KEY = 'sb_publishable_jaogFl0uiNQW_3kkPakSrw_uVTwohtY';
 var AUTH_REDIRECT = 'https://gsms-tools.github.io/auth.html';
 var DASHBOARD_URL = 'index.html';
+var PROFILE_PICTURE_FN_URL = SUPABASE_URL + '/functions/v1/profile-picture';
+var MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
+var AVATAR_PLACEHOLDER_MALE = 'https://avataaars.io/?avatarStyle=Circle&topType=ShortHairShortCurly&accessoriesType=Blank&hairColor=BrownDark&facialHairType=Blank&clotheType=BlazerSweater&eyeType=Happy&eyebrowType=Default&mouthType=Smile&skinColor=Light';
+var AVATAR_PLACEHOLDER_FEMALE = 'https://avataaars.io/?avatarStyle=Circle&topType=LongHairStraight2&hairColor=BrownDark&clotheType=BlazerSweater&eyeType=Happy&mouthType=Smile&skinColor=Light&facialHairType=Blank&accessoriesType=Blank';
 
 var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -737,7 +773,13 @@ var state = {
   filters: { class: '', gender: '', house: '' },
   searchDebounce: null,
   activeStudent: null, // full row loaded for edit, or null when adding
-  knownClasses: []     // seen so far, used to populate the class datalist cheaply
+  knownClasses: [],    // seen so far, used to populate the class datalist cheaply
+
+  /* Profile picture editing state (scoped to whichever sheet is currently open) */
+  originalPhotoKey: null,   // profile_pic_key as it exists in the DB right now, or null
+  avatarDownloadUrl: null,  // signed URL for originalPhotoKey, once fetched
+  pendingPhoto: null,       // { file, previewUrl } for a newly chosen, not-yet-uploaded file
+  removePhoto: false        // true if the admin explicitly removed the existing picture
 };
 
 /* =========================================================
@@ -1005,6 +1047,115 @@ filterClearBtn.addEventListener('click', function(){
 });
 
 /* =========================================================
+   PROFILE PICTURE HELPERS
+========================================================= */
+async function getAccessToken(){
+  var sessionResult = await supabaseClient.auth.getSession();
+  var session = sessionResult && sessionResult.data ? sessionResult.data.session : null;
+  if(!session || !session.access_token) throw new Error('Your session has expired. Please sign in again.');
+  return session.access_token;
+}
+
+async function callProfilePictureFn(action, params){
+  var token = await getAccessToken();
+  var res = await fetch(PROFILE_PICTURE_FN_URL, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({ action: action }, params || {}))
+  });
+  var data = {};
+  try{ data = await res.json(); }catch(e){}
+  if(!res.ok) throw new Error(data.error || ('Request failed (' + res.status + ')'));
+  return data;
+}
+
+function placeholderAvatarUrl(gender){
+  return gender === 'F' ? AVATAR_PLACEHOLDER_FEMALE : AVATAR_PLACEHOLDER_MALE;
+}
+
+var avatarImg = document.getElementById('avatar-img');
+var avatarSpinnerOverlay = document.getElementById('avatar-spinner-overlay');
+var avatarRemoveBtn = document.getElementById('avatar-remove-btn');
+var fPhoto = document.getElementById('f-photo');
+
+function updateAvatarPreview(){
+  if(state.pendingPhoto){
+    avatarImg.src = state.pendingPhoto.previewUrl;
+    avatarRemoveBtn.style.display = 'inline-flex';
+  }else if(state.originalPhotoKey && !state.removePhoto){
+    avatarImg.src = state.avatarDownloadUrl || placeholderAvatarUrl(fGender.value);
+    avatarRemoveBtn.style.display = state.avatarDownloadUrl ? 'inline-flex' : 'none';
+  }else{
+    avatarImg.src = placeholderAvatarUrl(fGender.value);
+    avatarRemoveBtn.style.display = 'none';
+  }
+}
+
+function resetPhotoState(){
+  if(state.pendingPhoto) URL.revokeObjectURL(state.pendingPhoto.previewUrl);
+  state.pendingPhoto = null;
+  state.removePhoto = false;
+  state.originalPhotoKey = null;
+  state.avatarDownloadUrl = null;
+  fPhoto.value = '';
+  avatarSpinnerOverlay.style.display = 'none';
+  updateAvatarPreview();
+}
+
+function loadAvatarForRow(row){
+  state.originalPhotoKey = row.profile_pic_key || null;
+  state.avatarDownloadUrl = null;
+  updateAvatarPreview();
+  if(!state.originalPhotoKey) return;
+
+  avatarSpinnerOverlay.style.display = 'flex';
+  callProfilePictureFn('create-download-url', { key: state.originalPhotoKey })
+    .then(function(res){
+      state.avatarDownloadUrl = res.download_url;
+      updateAvatarPreview();
+    })
+    .catch(function(err){
+      console.error('Could not load profile picture:', err);
+      toast('Could not load the existing profile picture.', true);
+    })
+    .finally(function(){
+      avatarSpinnerOverlay.style.display = 'none';
+    });
+}
+
+fPhoto.addEventListener('change', function(){
+  var file = fPhoto.files && fPhoto.files[0];
+  if(!file) return;
+
+  if(!file.type || file.type.indexOf('image/') !== 0 || file.type === 'image/svg+xml'){
+    toast('Please choose a valid image file (SVG is not supported).', true);
+    fPhoto.value = '';
+    return;
+  }
+  if(file.size > MAX_PHOTO_BYTES){
+    toast('Image must be 5 MB or smaller.', true);
+    fPhoto.value = '';
+    return;
+  }
+
+  if(state.pendingPhoto) URL.revokeObjectURL(state.pendingPhoto.previewUrl);
+  state.pendingPhoto = { file: file, previewUrl: URL.createObjectURL(file) };
+  state.removePhoto = false; // a newly chosen photo supersedes any pending removal
+  updateAvatarPreview();
+});
+
+avatarRemoveBtn.addEventListener('click', function(){
+  if(state.pendingPhoto){
+    URL.revokeObjectURL(state.pendingPhoto.previewUrl);
+    state.pendingPhoto = null;
+    fPhoto.value = '';
+  }else if(state.originalPhotoKey){
+    state.removePhoto = true;
+  }
+  updateAvatarPreview();
+});
+
+/* =========================================================
    ADD / EDIT SHEET
 ========================================================= */
 var sheetStudent = document.getElementById('sheet-student');
@@ -1029,6 +1180,7 @@ function clearForm(){
   fPhone.value = ''; fAddress.value = '';
   studentError.classList.remove('show');
   studentError.textContent = '';
+  resetPhotoState();
 }
 
 function fillForm(r){
@@ -1043,6 +1195,12 @@ function fillForm(r){
   fPhone.value = r.phone || '';
   fAddress.value = r.address || '';
 }
+
+fGender.addEventListener('change', function(){
+  if(!state.pendingPhoto && !(state.originalPhotoKey && !state.removePhoto)){
+    updateAvatarPreview();
+  }
+});
 
 document.getElementById('fab-add').addEventListener('click', function(){
   state.activeStudent = null;
@@ -1074,15 +1232,21 @@ function openEditSheet(id){
       studentSheetTitle.textContent = 'Edit student';
       studentDeleteBtn.style.display = 'flex';
       fillForm(res.data);
+      loadAvatarForRow(res.data);
     });
 }
 
 document.getElementById('student-cancel').addEventListener('click', function(){
   sheetStudent.classList.remove('show');
   state.activeStudent = null;
+  resetPhotoState();
 });
 sheetStudent.addEventListener('click', function(e){
-  if(e.target === sheetStudent){ sheetStudent.classList.remove('show'); state.activeStudent = null; }
+  if(e.target === sheetStudent){
+    sheetStudent.classList.remove('show');
+    state.activeStudent = null;
+    resetPhotoState();
+  }
 });
 
 function showStudentError(msg){
@@ -1101,7 +1265,7 @@ function textOrNull(v){
   return v === '' ? null : v;
 }
 
-document.getElementById('student-save').addEventListener('click', function(){
+document.getElementById('student-save').addEventListener('click', async function(){
   var name = fName.value.trim();
   var cls = fClass.value.trim();
 
@@ -1126,16 +1290,60 @@ document.getElementById('student-save').addEventListener('click', function(){
   studentError.classList.remove('show');
 
   var isEdit = !!state.activeStudent;
-  var query = isEdit
-    ? supabaseClient.from('students_master').update(payload).eq('id', state.activeStudent.id).select().single()
-    : supabaseClient.from('students_master').insert(payload).select().single();
+  var originalKey = state.originalPhotoKey; // the key as it exists in the DB right now, before this save
+  var uploadedNewKey = null;                // set only once the new file has actually landed in R2
 
-  query.then(function(res){
-    btn.disabled = false; btn.textContent = 'Save student';
+  try{
+    /* Step 1: if a new photo was chosen, upload it to a brand-new R2 key FIRST.
+       The DB row is only ever pointed at a key that is already safely stored. */
+    if(state.pendingPhoto){
+      btn.textContent = 'Uploading photo…';
+      var upload = await callProfilePictureFn('create-upload-url', {
+        content_type: state.pendingPhoto.file.type,
+        file_size: state.pendingPhoto.file.size
+      });
+
+      var putRes = await fetch(upload.upload_url, {
+        method: 'PUT',
+        headers: upload.required_headers,
+        body: state.pendingPhoto.file
+      });
+      if(!putRes.ok) throw new Error('Uploading the photo failed. Please try again.');
+
+      uploadedNewKey = upload.key;
+      payload.profile_pic_key = uploadedNewKey;
+    }else if(state.removePhoto){
+      payload.profile_pic_key = null;
+    }else if(!isEdit){
+      payload.profile_pic_key = null; // brand-new student with no photo selected
+    }
+    /* else: editing, no photo change requested — omit the field entirely so the
+       existing profile_pic_key on the row is left untouched. */
+
+    btn.textContent = 'Saving…';
+
+    var query = isEdit
+      ? supabaseClient.from('students_master').update(payload).eq('id', state.activeStudent.id).select().single()
+      : supabaseClient.from('students_master').insert(payload).select().single();
+
+    var res = await query;
 
     if(res.error){
+      /* Step 2 failed: roll back the freshly uploaded object so nothing is orphaned. */
+      if(uploadedNewKey){
+        callProfilePictureFn('delete-object', { key: uploadedNewKey }).catch(function(){});
+      }
       showStudentError(res.error.message);
+      btn.disabled = false; btn.textContent = 'Save student';
       return;
+    }
+
+    /* Step 3: the DB row now safely points at the new key (or null) — only now
+       is it safe to delete whatever the row used to point at. */
+    if(originalKey && originalKey !== uploadedNewKey && (uploadedNewKey || state.removePhoto)){
+      callProfilePictureFn('delete-object', { key: originalKey }).catch(function(err){
+        console.warn('Old profile picture could not be cleaned up:', originalKey, err);
+      });
     }
 
     var saved = res.data;
@@ -1173,7 +1381,17 @@ document.getElementById('student-save').addEventListener('click', function(){
       resetAndLoad();
     }
     state.activeStudent = null;
-  });
+    btn.disabled = false; btn.textContent = 'Save student';
+    resetPhotoState();
+  }catch(err){
+    /* Anything unexpected (network failure, expired session, etc.) — roll back
+       the upload if one had already succeeded, so it doesn't become an orphan. */
+    if(uploadedNewKey){
+      callProfilePictureFn('delete-object', { key: uploadedNewKey }).catch(function(){});
+    }
+    showStudentError(err.message || 'Something went wrong. Please try again.');
+    btn.disabled = false; btn.textContent = 'Save student';
+  }
 });
 
 /* =========================================================
@@ -1215,6 +1433,14 @@ document.getElementById('delete-confirm').addEventListener('click', function(){
     renderCount();
     toast('Student record deleted.');
     state.activeStudent = null;
+    resetPhotoState();
+
+    /* The row is already gone — now clean up its picture in R2, if it had one. */
+    if(student.profile_pic_key){
+      callProfilePictureFn('delete-object', { key: student.profile_pic_key }).catch(function(err){
+        console.warn('Could not clean up profile picture for deleted student:', err);
+      });
+    }
   });
 });
 
