@@ -651,7 +651,9 @@
     <div class="row3">
       <div class="field">
         <label for="f-class">Class <span style="color:var(--danger);">*</span></label>
-        <input type="text" id="f-class" placeholder="e.g. 10-A">
+        <select id="f-class">
+          <option value="">Loading classes…</option>
+        </select>
       </div>
       <div class="field">
         <label for="f-roll">Roll no.</label>
@@ -836,6 +838,67 @@ function escapeOrTerm(str){
   return String(str).replace(/[%,()]/g, '');
 }
 
+/* =========================================================
+   CLASS LIST (from public.classes) — natural pedagogical order
+========================================================= */
+state.classOptions = []; // [{name, created_at}], preloaded once at bootstrap
+
+function classSortKey(name){
+  name = String(name || '');
+  var m = name.match(/(\d+)/); // first number found anywhere in the name
+  if(m){
+    var section = name.slice(m.index + m[0].length).replace(/^[\s\-_.]+/, '').trim().toUpperCase();
+    return { group: 1, num: parseInt(m[1], 10), section: section };
+  }
+  // No number at all (Nursery/LKG/UKG/etc, however currently worded) —
+  // can't be trusted to sort by text, so these go first, ordered by
+  // creation order instead.
+  return { group: 0, num: 0, section: '' };
+}
+
+function compareClasses(a, b){
+  var ka = classSortKey(a.name), kb = classSortKey(b.name);
+  if(ka.group !== kb.group) return ka.group - kb.group;
+  if(ka.group === 0) return new Date(a.created_at) - new Date(b.created_at);
+  if(ka.num !== kb.num) return ka.num - kb.num;
+  if(ka.section !== kb.section) return ka.section < kb.section ? -1 : 1;
+  return 0;
+}
+
+function loadClassOptions(){
+  return supabaseClient
+    .from('classes')
+    .select('name,created_at')
+    .then(function(res){
+      if(res.error){
+        console.error('Could not load classes:', res.error);
+        toast('Could not load class list.', true);
+        return;
+      }
+      state.classOptions = (res.data || []).slice().sort(compareClasses);
+    });
+}
+
+function populateClassSelect(selectedValue){
+  var known = state.classOptions.some(function(c){ return c.name === selectedValue; });
+  fClass.innerHTML = '<option value="">Select class</option>';
+  state.classOptions.forEach(function(c){
+    var opt = document.createElement('option');
+    opt.value = c.name;
+    opt.textContent = c.name;
+    fClass.appendChild(opt);
+  });
+  // Guard against a student whose stored class isn't in the current list
+  // (renamed/deleted class) — keep it selectable so data isn't silently lost.
+  if(selectedValue && !known){
+    var extra = document.createElement('option');
+    extra.value = selectedValue;
+    extra.textContent = selectedValue + ' (not in class list)';
+    fClass.appendChild(extra);
+  }
+  fClass.value = selectedValue || '';
+}
+  
 /* =========================================================
    RENDER STUDENT LIST
 ========================================================= */
@@ -1176,7 +1239,8 @@ var fPhone = document.getElementById('f-phone');
 var fAddress = document.getElementById('f-address');
 
 function clearForm(){
-  fName.value = ''; fClass.value = ''; fRoll.value = ''; fSr.value = '';
+  fName.value = ''; fRoll.value = ''; fSr.value = '';
+  populateClassSelect('');
   fGender.value = ''; fHouse.value = ''; fFather.value = ''; fMother.value = '';
   fPhone.value = ''; fAddress.value = '';
   studentError.classList.remove('show');
@@ -1186,7 +1250,7 @@ function clearForm(){
 
 function fillForm(r){
   fName.value = r.name || '';
-  fClass.value = r.class || '';
+  populateClassSelect(r.class || '');
   fRoll.value = (r.roll_no === null || r.roll_no === undefined) ? '' : r.roll_no;
   fSr.value = (r.sr_no === null || r.sr_no === undefined) ? '' : r.sr_no;
   fGender.value = r.gender || '';
@@ -1459,7 +1523,7 @@ function showDenied(){
 function redirectToAuth(){ window.location.href = AUTH_REDIRECT; }
 
 (async function initAuth(){
-  try{
+  try {
     var sessionResult = await supabaseClient.auth.getSession();
     var session = sessionResult && sessionResult.data ? sessionResult.data.session : null;
     if(!session || !session.user){ redirectToAuth(); return; }
@@ -1473,7 +1537,8 @@ function redirectToAuth(){ window.location.href = AUTH_REDIRECT; }
 
     showApp();
     loadNextPage();
-  }catch(err){
+    loadClassOptions();
+  } catch(err){
     console.error('Auth/bootstrap failed:', err);
     redirectToAuth();
   }
