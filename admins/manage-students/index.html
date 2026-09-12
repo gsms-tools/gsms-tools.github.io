@@ -576,8 +576,9 @@
         </button>
       </div>
       <div class="filter-row">
-        <input type="text" id="filter-class" list="class-list" placeholder="Class">
-        <datalist id="class-list"></datalist>
+        <select id="filter-class">
+          <option value="">Any class</option>
+        </select>
         <select id="filter-gender">
           <option value="">Any gender</option>
           <option value="M">Male</option>
@@ -876,9 +877,22 @@ function loadClassOptions(){
         return;
       }
       state.classOptions = (res.data || []).slice().sort(compareClasses);
+      populateFilterClassSelect();
     });
 }
 
+function populateFilterClassSelect(){
+  var current = filterClassEl.value;
+  filterClassEl.innerHTML = '<option value="">Any class</option>';
+  state.classOptions.forEach(function(c){
+    var opt = document.createElement('option');
+    opt.value = c.name;
+    opt.textContent = c.name;
+    filterClassEl.appendChild(opt);
+  });
+  filterClassEl.value = current; // restore selection if it still exists
+}
+  
 function populateClassSelect(selectedValue){
   var known = state.classOptions.some(function(c){ return c.name === selectedValue; });
   fClass.innerHTML = '<option value="">Select class</option>';
@@ -959,23 +973,6 @@ function renderFreshList(){
 }
 
 /* =========================================================
-   CLASS DATALIST (built cheaply from rows already fetched)
-========================================================= */
-function trackClass(cls){
-  if(cls && state.knownClasses.indexOf(cls) === -1){
-    state.knownClasses.push(cls);
-    state.knownClasses.sort();
-    var dl = document.getElementById('class-list');
-    dl.innerHTML = '';
-    state.knownClasses.forEach(function(c){
-      var opt = document.createElement('option');
-      opt.value = c;
-      dl.appendChild(opt);
-    });
-  }
-}
-
-/* =========================================================
    QUERY BUILDING & LOADING (paginated, bandwidth-conscious)
 ========================================================= */
 function buildQuery(){
@@ -1026,8 +1023,6 @@ function loadNextPage(){
 
     var rows = res.data || [];
     if(typeof res.count === 'number') state.totalCount = res.count;
-
-    rows.forEach(function(r){ trackClass(r.class); });
 
     var startIndex = state.students.length;
     state.students = state.students.concat(rows);
@@ -1093,11 +1088,6 @@ function onFilterChange(){
 filterClassEl.addEventListener('change', onFilterChange);
 filterGenderEl.addEventListener('change', onFilterChange);
 filterHouseEl.addEventListener('change', onFilterChange);
-var filterClassDebounce = null;
-filterClassEl.addEventListener('input', function(){
-  clearTimeout(filterClassDebounce);
-  filterClassDebounce = setTimeout(onFilterChange, 350);
-});
 
 filterClearBtn.addEventListener('click', function(){
   searchInput.value = '';
@@ -1413,7 +1403,6 @@ document.getElementById('student-save').addEventListener('click', async function
 
     var saved = res.data;
     sheetStudent.classList.remove('show');
-    trackClass(saved.class);
 
     if(isEdit){
       /* Patch the row already in memory instead of refetching the list */
