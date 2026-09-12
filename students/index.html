@@ -28,6 +28,11 @@
   :root{
     color-scheme: light;
 
+    /* Live-tracked height of .app-header, kept in sync by JS (ResizeObserver).
+       Used to pin the page-viewer flush under the header regardless of how
+       the header's own height changes (e.g. the search row hiding). */
+    --header-h: 0px;
+
     /* ---------- Brand palette (light) — same as teacher dashboard ---------- */
     --teal-900:#0d3841;
     --teal-800:#124f59;
@@ -439,16 +444,23 @@
   }
 
   /* ---------- In-page iframe viewer ----------
-     No bar, no card chrome — it blends flush into the available space
-     (full width, full height below the header) so it never looks like
-     a separate "page inside a page". */
+     No bar, no card chrome — it blends flush into the available space.
+     It is pinned with position:fixed from the header's live rendered
+     height (--header-h, kept in sync by JS) down to the bottom of the
+     viewport. This sidesteps the nested flex/min-height chain entirely,
+     so the iframe always gets a fully definite height to fill — full
+     width, full height below the header, no blank space, no exceptions. */
   .page-viewer{
     display:none;
     flex-direction:column;
-    flex:1;
-    min-height:0;
+    position:fixed;
+    top:var(--header-h, 0px);
+    left:0;
+    right:0;
+    bottom:0;
     overflow:hidden;
     background:var(--cream);
+    z-index:20;
   }
   .page-viewer.show{ display:flex; }
   .page-viewer-body{
@@ -648,7 +660,7 @@
   /* Push the parent's theme onto a same-origin child iframe */
   function syncThemeToIframe(){
     var frame = document.getElementById('pv-iframe');
-    if(!frame || !frame.src) return;
+    if(!frame || !pvHasContent) return;
     try{
       var doc = frame.contentDocument || frame.contentWindow.document;
       if(doc && doc.documentElement){
@@ -672,6 +684,26 @@
       doc.head.appendChild(style);
     }catch(e){ /* cross-origin: skip */ }
   }
+
+  /* ==========================================================
+     HEADER HEIGHT TRACKING
+     Keeps --header-h (used by .page-viewer's `top`) glued to the
+     header's real rendered height at all times, including the
+     moment it changes (e.g. the search row disappearing when the
+     viewer opens). This is what guarantees the viewer always fills
+     exactly "all the space below the header" with a definite,
+     non-ambiguous size — no more nested flex/min-height guessing.
+  ========================================================== */
+  var appHeaderEl = document.querySelector('.app-header');
+  function updateHeaderHeightVar(){
+    document.documentElement.style.setProperty('--header-h', appHeaderEl.offsetHeight + 'px');
+  }
+  if('ResizeObserver' in window){
+    new ResizeObserver(updateHeaderHeightVar).observe(appHeaderEl);
+  }else{
+    window.addEventListener('resize', updateHeaderHeightVar);
+  }
+  updateHeaderHeightVar();
 
   /* ==========================================================
      REUSABLE PAGE-VIEWER (iframe loader for internal tools/pages)
@@ -705,11 +737,44 @@
 
   var pvHistoryPushed = false;
 
+  // Tracks whether the shared viewer iframe currently holds real tool
+  // content (true) or has been reset to about:blank (false). We use this
+  // instead of inspecting `pvIframe.src`, because navigateIframe() below
+  // moves the iframe via contentWindow.location.replace() rather than the
+  // `.src` attribute — and `.src` does NOT reflect navigations done that
+  // way, so any code checking it (theme sync, the load handler) would
+  // silently stop working otherwise.
+  var pvHasContent = false;
+
+  // Navigate the shared viewer iframe WITHOUT adding a browser history
+  // entry for that navigation. Assigning `.src` directly causes the iframe
+  // to push its own entry into the browser's joint session history —
+  // invisible to our own code, but very real to the back button. Left
+  // unchecked, those hidden entries interleave with our single
+  // history.pushState() entry below, so one press of "back" would
+  // sometimes only unwind the iframe's own internal navigation (leaving a
+  // blank/stale page sitting in the viewer) instead of closing it, and
+  // other times unwind ours instead (correctly reaching the dashboard) —
+  // exactly the inconsistency being fixed. location.replace() on the
+  // iframe's own window swaps its document in place instead of adding a
+  // new entry, so our single top-level pushState() stays the only entry
+  // that represents "viewer open", and back always behaves the same way.
+  function navigateIframe(url){
+    pvHasContent = (url !== 'about:blank');
+    try{
+      if(pvIframe.contentWindow){
+        pvIframe.contentWindow.location.replace(url);
+        return;
+      }
+    }catch(e){ /* cross-origin: fall back to a normal (less clean) navigation */ }
+    pvIframe.src = url;
+  }
+
   // Generic, reusable handler for loading ANY page inside the dashboard.
   // Pass { name, url } — works for tool pages, the sign-in page, the profile page, etc.
   function loadPage(page){
     pvLoading.classList.remove('hidden');
-    pvIframe.src = page.url;
+    navigateIframe(page.url);
 
     tileGrid.style.display = 'none';
     toolsLabel.style.display = 'none';
@@ -734,7 +799,7 @@
   // and the browser's popstate event) — never pushes/pops history itself.
   function closePageInternal(){
     pageViewer.classList.remove('show');
-    pvIframe.src = 'about:blank';
+    navigateIframe('about:blank');
     tileGrid.style.display = '';
     toolsLabel.style.display = '';
     searchWrap.style.display = '';
@@ -769,7 +834,7 @@
 
   pvIframe.addEventListener('load', function(){
     pvLoading.classList.add('hidden');
-    if(pvIframe.src && pvIframe.src !== 'about:blank'){
+    if(pvHasContent){
       try{
         var doc = pvIframe.contentDocument || pvIframe.contentWindow.document;
         doc.documentElement.setAttribute('data-theme', currentTheme());
