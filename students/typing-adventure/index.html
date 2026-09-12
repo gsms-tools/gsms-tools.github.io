@@ -286,9 +286,6 @@
     outline:none;word-wrap:break-word;color:var(--plum);
     transition:border-color .2s ease, box-shadow .2s ease;
   }
-  html[data-theme="dark"] .type-box{
-    color: white;
-  }
   .type-box:focus{border-color:var(--teal-600);box-shadow:0 0 0 5px var(--bg-tint-teal);}
   .type-box:empty::before{content:attr(data-placeholder);color:var(--ink-500);font-weight:600;opacity:.7;}
   .type-box.shake{animation:shake .5s ease;}
@@ -489,7 +486,7 @@
     stars: 0,
     muted: false,
     playerName: '',
-    fmt: {bold:false, italic:false, align:'left', color:'#1c2626', size:26}
+    fmt: {bold:false, italic:false, align:'left', color:'var(--plum)', size:26}
   };
 
   var encourage = [
@@ -646,7 +643,7 @@
     el.typeBox.style.fontSize = state.fmt.size + 'px';
   }
   function resetFormatting(){
-    state.fmt = {bold:false, italic:false, align:'left', color:'#1c2626', size:26};
+    state.fmt = {bold:false, italic:false, align:'left', color:'var(--plum)', size:26};
     applyFormatting();
   }
   function refreshToolbarState(){
