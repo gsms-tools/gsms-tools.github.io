@@ -144,7 +144,7 @@
     -webkit-backdrop-filter:blur(14px);
     backdrop-filter:blur(14px);
     padding:calc(env(safe-area-inset-top) + 14px) 18px 14px;
-    transition:background-color .35s var(--ease), border-color .35s var(--ease);
+    transition:background-color .35s var(--ease), border-color .35s var(--ease), padding .3s var(--ease);
   }
   .app-header-top{
     display:flex;
@@ -153,7 +153,13 @@
     gap:12px;
     max-width:960px;
     margin:0 auto 14px;
+    transition:margin .3s var(--ease);
   }
+  /* When a tool/page is loaded in the viewer, the header tightens up (no search row below it) */
+  body.viewer-open .app-header-top{
+    margin-bottom:0;
+  }
+
   .header-brand{
     display:flex;
     align-items:center;
@@ -165,6 +171,11 @@
     border-radius:10px;
     object-fit:cover;
     flex-shrink:0;
+  }
+  .header-back-btn{
+    display:none;
+    align-items:center;
+    justify-content:center;
   }
   .header-text{ min-width:0; }
   .header-greeting{
@@ -185,6 +196,9 @@
     letter-spacing:.1em;
     text-transform:uppercase;
     color:var(--gold-600);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
 
   .header-actions{
@@ -217,6 +231,8 @@
     position:absolute;
     transition:opacity .3s var(--ease), transform .4s var(--ease);
   }
+  .header-back-btn svg{ position:static; stroke:var(--teal-700); }
+
   .icon-sun{opacity:1; transform:rotate(0deg) scale(1);}
   .icon-moon{opacity:0; transform:rotate(-70deg) scale(.5);}
   html[data-theme="dark"] .icon-sun{opacity:0; transform:rotate(70deg) scale(.5);}
@@ -283,6 +299,15 @@
     display:flex;
     flex-direction:column;
     min-height:0;
+    transition:max-width .3s var(--ease), padding .3s var(--ease);
+  }
+
+  /* When the in-page viewer is open, let it fill the entire available width/height —
+     no max-width column, no padding — so the loaded page truly owns the viewport. */
+  body.viewer-open main.dash{
+    max-width:none;
+    padding:0;
+    margin:0;
   }
 
   .section-label{
@@ -413,51 +438,23 @@
     .bob, .eye-blink, .sparkle, .wiggle{ animation:none; }
   }
 
-  /* ---------- In-page iframe viewer ---------- */
+  /* ---------- In-page iframe viewer ----------
+     No bar, no card chrome — it blends flush into the available space
+     (full width, full height below the header) so it never looks like
+     a separate "page inside a page". */
   .page-viewer{
     display:none;
     flex-direction:column;
     flex:1;
     min-height:0;
-    border-radius:var(--r-lg);
     overflow:hidden;
-    background:var(--white);
-    border:1px solid var(--border-card);
-    box-shadow:var(--shadow-card);
+    background:var(--cream);
   }
   .page-viewer.show{ display:flex; }
-  .page-viewer-bar{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    padding:12px 14px;
-    border-bottom:1px solid var(--border-card);
-    background:linear-gradient(150deg,var(--teal-100),var(--white));
-    flex-shrink:0;
-  }
-  .pv-back{
-    width:34px; height:34px;
-    border-radius:50%;
-    border:none;
-    background:var(--white);
-    display:flex; align-items:center; justify-content:center;
-    cursor:pointer;
-    box-shadow:0 6px 16px -8px rgba(13,56,65,.4);
-    flex-shrink:0;
-    transition:transform .2s var(--ease);
-  }
-  .pv-back:hover{ transform:translateX(-2px) scale(1.05); }
-  .pv-back svg{ width:16px; height:16px; stroke:var(--teal-700); fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
-  .pv-title{
-    font-family:'Fraunces',serif;
-    font-weight:600;
-    font-size:.98rem;
-    color:var(--ink-900);
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  }
   .page-viewer-body{
     flex:1;
     min-height:0;
+    width:100%;
     position:relative;
     background:var(--cream);
   }
@@ -558,7 +555,10 @@
   <header class="app-header">
     <div class="app-header-top">
       <div class="header-brand">
-        <img src="https://gsms-tools.github.io/gsms-logo.png" alt="GSMS crest">
+        <button class="icon-btn header-back-btn" id="header-back" type="button" aria-label="Back to dashboard" title="Back to dashboard" style="display:none;">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+        </button>
+        <img src="https://gsms-tools.github.io/gsms-logo.png" alt="GSMS crest" id="header-logo">
         <div class="header-text">
           <p class="header-greeting" id="greeting">Hello, Student</p>
           <p class="header-sub" id="header-sub">Student Dashboard</p>
@@ -580,7 +580,7 @@
       </div>
     </div>
 
-    <div class="search-wrap">
+    <div class="search-wrap" id="search-wrap">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input type="search" id="search" placeholder="Search tools…" autocomplete="off" aria-label="Search tools">
     </div>
@@ -595,14 +595,9 @@
       <p>No tools match your search.</p>
     </div>
 
-    <!-- Reusable in-page viewer: internal tools & sign-in load here, blended into the dashboard -->
+    <!-- Reusable in-page viewer: internal tools & sign-in load here, blended into the dashboard.
+         No inner header bar — the parent header shows the back button + tool name instead. -->
     <div class="page-viewer" id="page-viewer">
-      <div class="page-viewer-bar">
-        <button class="pv-back" id="pv-back" type="button" aria-label="Back to dashboard" title="Back to dashboard">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
-        </button>
-        <span class="pv-title" id="pv-title">Loading…</span>
-      </div>
       <div class="page-viewer-body">
         <div class="pv-loading" id="pv-loading"><div class="spinner" role="status" aria-label="Loading"></div></div>
         <iframe id="pv-iframe" title="Tool content" scrolling="yes"></iframe>
@@ -680,19 +675,39 @@
 
   /* ==========================================================
      REUSABLE PAGE-VIEWER (iframe loader for internal tools/pages)
+     The viewer fills the full width of the page and the full height
+     below the header. The parent header itself becomes the "bar":
+     it shows a back button and swaps its small label for the tool
+     name, so the loaded page never looks like a separate container.
   ========================================================== */
   var pageViewer   = document.getElementById('page-viewer');
   var pvIframe     = document.getElementById('pv-iframe');
-  var pvTitle      = document.getElementById('pv-title');
   var pvLoading    = document.getElementById('pv-loading');
   var tileGrid     = document.getElementById('tile-grid');
   var toolsLabel   = document.getElementById('tools-label');
-  var searchWrap   = document.querySelector('.search-wrap');
+  var searchWrap   = document.getElementById('search-wrap');
+  var mainDash     = document.querySelector('main.dash');
+
+  var headerBackBtn = document.getElementById('header-back');
+  var headerLogo     = document.getElementById('header-logo');
+  var headerSub       = document.getElementById('header-sub');
+
+  // The header's small label normally shows "who you are" (e.g. "Student
+  // Dashboard" or "Class 5"). We remember that and temporarily swap it for
+  // the loaded tool's name, restoring it when the viewer closes.
+  var currentIdentityLabel = headerSub.textContent;
+  function setIdentityLabel(text){
+    currentIdentityLabel = text;
+    if(!document.body.classList.contains('viewer-open')){
+      headerSub.textContent = text;
+    }
+  }
+
+  var pvHistoryPushed = false;
 
   // Generic, reusable handler for loading ANY page inside the dashboard.
   // Pass { name, url } — works for tool pages, the sign-in page, the profile page, etc.
   function loadPage(page){
-    pvTitle.textContent = page.name || 'Loading…';
     pvLoading.classList.remove('hidden');
     pvIframe.src = page.url;
 
@@ -701,18 +716,56 @@
     searchWrap.style.display = 'none';
     document.getElementById('empty-state').classList.remove('show');
     pageViewer.classList.add('show');
+
+    document.body.classList.add('viewer-open');
+    mainDash.classList.add('viewer-open');
+    headerSub.textContent = page.name || 'Loading…';
+    headerBackBtn.style.display = 'flex';
+    headerLogo.style.display = 'none';
+
+    // Let the browser's own back button close the viewer too.
+    if(!pvHistoryPushed){
+      history.pushState({ gsmsViewer:true }, '', location.href);
+      pvHistoryPushed = true;
+    }
   }
 
-  function closePage(){
+  // Called when the viewer should actually close (shared by header-back click
+  // and the browser's popstate event) — never pushes/pops history itself.
+  function closePageInternal(){
     pageViewer.classList.remove('show');
     pvIframe.src = 'about:blank';
     tileGrid.style.display = '';
     toolsLabel.style.display = '';
     searchWrap.style.display = '';
+
+    document.body.classList.remove('viewer-open');
+    mainDash.classList.remove('viewer-open');
+    headerSub.textContent = currentIdentityLabel;
+    headerBackBtn.style.display = 'none';
+    headerLogo.style.display = '';
+    pvHistoryPushed = false;
+
     renderTiles(filterTools(document.getElementById('search').value));
   }
 
-  document.getElementById('pv-back').addEventListener('click', closePage);
+  // User-initiated close (tap on the header back button): go through the
+  // history entry we pushed so the browser's back button stays in sync.
+  function closePage(){
+    if(pvHistoryPushed){
+      history.back();
+    } else {
+      closePageInternal();
+    }
+  }
+
+  window.addEventListener('popstate', function(){
+    if(document.body.classList.contains('viewer-open')){
+      closePageInternal();
+    }
+  });
+
+  headerBackBtn.addEventListener('click', closePage);
 
   pvIframe.addEventListener('load', function(){
     pvLoading.classList.add('hidden');
@@ -1054,8 +1107,8 @@
       state.name = profileResult.data.name;
       state.gender = profileResult.data.gender;
 
-      document.getElementById('greeting').textContent = 'Hi, ' + state.name.split(' ')[0] + '! 👋';
-      document.getElementById('header-sub').textContent = 'Class ' + profileResult.data.class;
+      document.getElementById('greeting').textContent = 'Hi, ' + state.name.split(' ')[0] + '!';
+      setIdentityLabel('Class ' + profileResult.data.class);
       updateAvatar();
       renderTiles(filterTools(document.getElementById('search').value));
     }catch(err){
