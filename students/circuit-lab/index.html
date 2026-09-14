@@ -25,13 +25,29 @@
     --r-lg:26px; --r-md:18px; --r-sm:14px; --ease:cubic-bezier(.22,1,.36,1);
     --font-display:'Fraunces',Georgia,serif; --font-body:'Manrope',system-ui,sans-serif;
     --mat-line: rgba(13,56,65,.10);
+    --danger-text:#a3272c;
   }
+
+  html[data-theme="dark"]{
+    color-scheme: dark;
+    --teal-900:#092227; --teal-800:#8fe1ec; --teal-700:#5fd0de; --teal-600:#7fdbe6; --teal-100:#173338;
+    --gold-600:#ffb648; --gold-500:#ffc65c; --gold-400:#ffd685; --gold-100:#2b2110;
+    --cream:#0d1517; --ink-900:#eef3f2; --ink-500:#a4b6b7; --white:#182425;
+    --bg-tint-gold: rgba(255,182,72,.08); --bg-tint-teal: rgba(95,208,222,.12);
+    --border-card: rgba(255,255,255,.10); --char-line:#0d1517;
+    --danger-text:#ff9da1;
+    --input-bg: color-mix(in srgb, var(--white) 90%, black 10%);
+    --input-border: color-mix(in srgb, var(--white) 22%, transparent);
+    --edge-shadow: rgba(0,0,0,.5); --edge-shadow-soft: rgba(0,0,0,.35);
+  }
+
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
     min-height:100vh; font-family:var(--font-body); color:var(--plum);
     background:linear-gradient(180deg,var(--bg-tint-teal) 0%, var(--cream) 55%, var(--bg-tint-gold) 100%);
     overflow-x:hidden; position:relative;
+    transition:background .3s var(--ease), color .3s var(--ease);
   }
   .sky-decor{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;}
   .sun-decor{position:absolute;top:-40px;right:6%;width:110px;height:110px;border-radius:50%;
@@ -49,7 +65,7 @@
   .icon-btn:hover{transform:translateY(-2px) scale(1.05);}
   .icon-btn:active{transform:translateY(1px) scale(.97);}
   .status-pill{display:flex;align-items:center;gap:8px;background:var(--white);border:3px solid var(--gold-500);border-radius:999px;padding:8px 16px;font-weight:800;font-size:15px;box-shadow:0 4px 0 var(--edge-shadow-soft);color:var(--plum);}
-  .status-pill.short{border-color:var(--fun-red);color:#a3272c;}
+  .status-pill.short{border-color:var(--fun-red);color:var(--danger-text);}
   .status-pill.on{border-color:var(--fun-green);}
 
   .stage{position:relative;z-index:2;max-width:1100px;margin:0 auto;padding:6px 18px 50px;display:grid;grid-template-columns:220px 1fr;gap:20px;align-items:start;}
@@ -61,7 +77,7 @@
   .mascot-svg-wrap.worried{animation:shake .5s ease-in-out 2;}
   @keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-6px) rotate(-4deg);}75%{transform:translateX(6px) rotate(4deg);}}
   .speech-bubble{margin-top:10px;background:var(--bubble-tint);border-radius:var(--r-md);padding:12px;font-size:14.5px;font-weight:700;color:var(--plum);line-height:1.35;min-height:70px;display:flex;align-items:center;justify-content:center;}
-  .speech-bubble.short{background:rgba(242,85,90,.14);color:#a3272c;}
+  .speech-bubble.short{background:rgba(242,85,90,.14);color:var(--danger-text);}
   .mascot-name{font-family:var(--font-display);font-weight:700;color:var(--teal-700);font-size:14px;margin-top:6px;}
   .legend{margin-top:14px;padding-top:12px;border-top:2px dashed var(--border-card);text-align:left;font-size:12px;color:var(--ink-soft);font-weight:700;line-height:1.7;}
   .legend b{color:var(--plum);}
@@ -83,7 +99,7 @@
     #fbfaf6;
     border:2px solid var(--border-card); touch-action:none;}
   svg.stage-svg{display:block;width:100%;height:auto;touch-action:none;}
-  .trash-zone{position:absolute;right:10px;bottom:10px;background:var(--white);border:3px dashed var(--fun-red);border-radius:16px;padding:8px 12px;font-weight:800;font-size:12px;color:#a3272c;display:flex;align-items:center;gap:6px;box-shadow:0 4px 0 var(--edge-shadow-soft);pointer-events:none;opacity:0;transition:opacity .2s ease;}
+  .trash-zone{position:absolute;right:10px;bottom:10px;background:var(--white);border:3px dashed var(--fun-red);border-radius:16px;padding:8px 12px;font-weight:800;font-size:12px;color:var(--danger-text);display:flex;align-items:center;gap:6px;box-shadow:0 4px 0 var(--edge-shadow-soft);pointer-events:none;opacity:0;transition:opacity .2s ease;}
   .trash-zone.show{opacity:1;pointer-events:auto;}
   .trash-zone.hot{background:#ffe1e2;}
 
