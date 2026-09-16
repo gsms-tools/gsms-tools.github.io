@@ -2,6 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>
+  /* Apply saved/preferred theme immediately to avoid a flash of the wrong theme */
+  (function(){
+    try{
+      var saved = localStorage.getItem('gsms-theme');
+      var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    }catch(e){}
+  })();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>Treasure Quiz 🗝️ — Pick a Card, Win Big!</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -449,7 +459,7 @@
   <div class="top-right">
     <div class="score-counter" id="scoreCounter">🏆 <span id="scoreVal">0</span> pts</div>
     <button class="icon-btn" id="muteBtn" title="Sound on/off">🔊</button>
-    <button class="icon-btn" id="themeBtn" title="Light/Dark mode">🌙</button>
+    <button style="display: none" class="icon-btn" id="themeBtn" title="Light/Dark mode">🌙</button>
   </div>
 </div>
 
