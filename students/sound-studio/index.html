@@ -231,6 +231,10 @@
   .distance-bar-fill{height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,var(--fun-green),var(--gold-500),var(--fun-red));transition:width .12s linear;}
   .distance-label{font-weight:800;font-size:14px;color:var(--ink-soft);min-height:20px;text-align:center;}
 
+  .upload-zone{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:2px;}
+  .upload-divider{font-weight:800;font-size:12.5px;color:var(--ink-soft);letter-spacing:.5px;text-transform:uppercase;opacity:.7;}
+  .upload-hint{font-size:12px;font-weight:600;color:var(--ink-soft);opacity:.75;}
+
   .record-preview{width:100%;display:none;flex-direction:column;align-items:center;gap:12px;margin-top:8px;}
   .record-preview.show{display:flex;}
   .action-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:6px;}
@@ -241,6 +245,7 @@
   }
   .btn-ghost:hover{transform:translateY(-2px);}
   .btn-ghost:active{transform:translateY(1px);}
+  .btn-ghost:disabled{opacity:.5;cursor:not-allowed;transform:none;}
   .btn-big{background:var(--fun-red);color:#fff;font-family:var(--font-body);font-weight:800;font-size:18px;border:none;border-radius:999px;padding:15px 32px;box-shadow:0 5px 0 var(--danger-dark);cursor:pointer;transition:transform .12s ease;}
   .btn-big:hover{transform:translateY(-2px);}
   .btn-big:active{transform:translateY(3px);box-shadow:0 2px 0 var(--danger-dark);}
@@ -286,6 +291,7 @@
     width:26px;height:26px;border-radius:50%;background:var(--white);
     border:4px solid var(--teal-700);cursor:pointer;box-shadow:0 3px 0 var(--edge-shadow-soft);
   }
+  input[type=range]:disabled{opacity:.5;cursor:not-allowed;}
 
   .preset-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;width:100%;max-width:460px;}
   @media (max-width:480px){.preset-grid{grid-template-columns:repeat(2,1fr);}}
@@ -298,6 +304,7 @@
   .preset-btn:hover{transform:translateY(-3px);}
   .preset-btn.selected{border-color:var(--fun-green);background:var(--bg-tint-teal);}
   .preset-btn.none-btn{grid-column:1/-1;}
+  .preset-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
 
   .step-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:6px;}
   .hint-msg{margin-top:10px;font-weight:800;font-size:14.5px;min-height:22px;text-align:center;color:var(--stone-done-dark);}
@@ -383,6 +390,13 @@
           <div class="distance-label" id="distanceLabel">Say something so I can hear you!</div>
         </div>
 
+        <div class="upload-zone" id="uploadZone">
+          <div class="upload-divider">— or —</div>
+          <button class="btn-ghost" id="uploadBtn">⬆️ Upload a Sound File</button>
+          <div class="upload-hint">MP3, WAV, M4A, OGG, FLAC &amp; more</div>
+          <input type="file" id="fileInput" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.oga,.flac,.webm,.opus,.wma,.aiff,.aif" style="display:none;">
+        </div>
+
         <div class="record-preview" id="recordPreview">
           <div class="wave-wrap" id="rawWaveWrap">
             <canvas id="rawWaveCanvas"></canvas>
@@ -429,6 +443,8 @@
       <div class="step-actions">
         <button class="btn-ghost" id="skipBtn">Skip this step ➡️</button>
         <button class="btn-big green" id="applyBtn">Apply ✅</button>
+        <button class="btn-ghost" id="redoBtn" style="display:none;">🔁 Try Again</button>
+        <button class="btn-big" id="continueStepBtn" style="display:none;">Continue ➡️</button>
       </div>
     </div>
 
@@ -499,6 +515,7 @@
     sampleRate: 44100,
     original: null,
     working: null,
+    stepEntryWorking: null,
     musicChoice: null,
     musicVolume: 0.35,
     volumeGain: 1.0,
@@ -892,6 +909,35 @@
       if(!recCtx) return;
       togglePlay(recCtx);
     });
+    $('uploadBtn').addEventListener('click', function(){
+      $('fileInput').click();
+    });
+    $('fileInput').addEventListener('change', function(e){
+      var f = e.target.files && e.target.files[0];
+      if(f) handleFileUpload(f);
+      e.target.value = '';
+    });
+  }
+
+  function handleFileUpload(file){
+    if(!file) return;
+    stopPlayback();
+    setMascot('listening', "Let's take a listen to your file!");
+    $('recordBtnLabel').textContent = 'Tap to start recording';
+    file.arrayBuffer().then(function(ab){
+      return getCtx().decodeAudioData(ab);
+    }).then(function(audioBuffer){
+      state.sampleRate = audioBuffer.sampleRate;
+      var mono = downmix(audioBuffer);
+      state.original = mono;
+      state.working = mono.slice();
+      showRawPreview(mono);
+      setMascot('happy', "Nice pick! I can hear your sound clearly. Ready to make it shine?");
+      playSuccess();
+    }).catch(function(){
+      setMascot('worried', "Hmm, I couldn't read that file. Try a different audio file, like mp3 or wav!");
+      playOops();
+    });
   }
 
   var micAnalyser, micDataArray, micSourceNode;
@@ -994,6 +1040,7 @@
     $('micRing2').classList.toggle('active', isRecording);
     $('recordBtnLabel').textContent = isRecording ? 'Tap to stop' : 'Tap to start recording';
     $('distanceMeterWrap').style.display = isRecording ? 'flex' : 'none';
+    $('uploadZone').style.display = isRecording ? 'none' : 'flex';
     if(isRecording){
       $('recordPreview').classList.remove('show');
       $('recordTimer').textContent = '0:00';
@@ -1052,6 +1099,7 @@
 
   function goToStep(index){
     stopPlayback();
+    stopMusicPreview();
     state.stepIndex = index;
     updatePath();
     if(index >= TOOL_STEPS.length){
@@ -1067,6 +1115,12 @@
     $('hintMsg').textContent = '';
     setMascot('idle', MASCOT_LINES[key]);
     resetTrimUI();
+    state.stepEntryWorking = state.working.slice();
+    $('skipBtn').style.display = 'inline-flex';
+    $('applyBtn').style.display = 'inline-flex';
+    $('applyBtn').disabled = false;
+    $('redoBtn').style.display = 'none';
+    $('continueStepBtn').style.display = 'none';
     renderToolBody(key);
     refreshMainWave();
   }
@@ -1085,6 +1139,16 @@
     state.trimStart = 0; state.trimEnd = 1;
   }
 
+  function disableToolControls(disable){
+    var body = $('toolBody');
+    var inputs = body.querySelectorAll('input, button');
+    for(var i=0;i<inputs.length;i++){
+      inputs[i].disabled = disable;
+    }
+    $('trimHandleL').style.pointerEvents = disable ? 'none' : '';
+    $('trimHandleR').style.pointerEvents = disable ? 'none' : '';
+  }
+
   /* ================= TOOL BODIES ================= */
   function renderToolBody(key){
     var body = $('toolBody');
@@ -1101,8 +1165,8 @@
       $('applyBtn').onclick = function(){
         var strength = parseInt($('cleanSlider').value,10)/100;
         state.denoiseStrength = strength;
-        state.working = denoise(state.working, state.sampleRate, strength);
-        finishStepApply("Nice and clean! ✨");
+        state.working = denoise(state.stepEntryWorking, state.sampleRate, strength);
+        finishStepApply("Nice and clean! ✨ Have a listen below.");
       };
     }
 
@@ -1117,8 +1181,8 @@
           playOops();
           return;
         }
-        state.working = trimAudio(state.working, state.trimStart, state.trimEnd);
-        finishStepApply("Snip snip! Clip trimmed. ✂️");
+        state.working = trimAudio(state.stepEntryWorking, state.trimStart, state.trimEnd);
+        finishStepApply("Snip snip! Clip trimmed. ✂️ Have a listen below.");
       };
     }
 
@@ -1131,10 +1195,10 @@
       $('applyBtn').onclick = function(){
         var sensitivity = parseInt($('gapsSlider').value,10)/100;
         state.silenceSensitivity = sensitivity;
-        var before = state.working.length;
-        state.working = desilence(state.working, state.sampleRate, sensitivity);
+        var before = state.stepEntryWorking.length;
+        state.working = desilence(state.stepEntryWorking, state.sampleRate, sensitivity);
         var savedSec = ((before - state.working.length)/state.sampleRate).toFixed(1);
-        finishStepApply("Removed " + savedSec + "s of quiet gaps! ⏳");
+        finishStepApply("Removed " + savedSec + "s of quiet gaps! ⏳ Have a listen below.");
       };
     }
 
@@ -1177,18 +1241,18 @@
         stopMusicPreview();
         state.musicVolume = parseInt($('musicVolSlider').value,10)/100;
         if(!state.musicChoice){
+          state.working = state.stepEntryWorking.slice();
           finishStepApply("Okay, keeping it plain and simple!");
           return;
         }
         $('applyBtn').disabled = true;
         $('hintMsg').textContent = "Mixing your music in...";
-        var durationSec = state.working.length / state.sampleRate;
+        var durationSec = state.stepEntryWorking.length / state.sampleRate;
         var musicDur = Math.min(8, Math.max(3, durationSec));
         renderMusic(state.musicChoice, musicDur, state.sampleRate).then(function(buf){
           var musicData = buf.getChannelData(0);
-          state.working = mixMusic(state.working, musicData, state.musicVolume);
-          $('applyBtn').disabled = false;
-          finishStepApply("Ta-da! Music added. 🎵");
+          state.working = mixMusic(state.stepEntryWorking, musicData, state.musicVolume);
+          finishStepApply("Ta-da! Music added. 🎵 Have a listen below.");
         });
       };
     }
@@ -1202,8 +1266,8 @@
       $('applyBtn').onclick = function(){
         var gain = parseInt($('volSlider').value,10)/100;
         state.volumeGain = gain;
-        state.working = applyGain(state.working, gain);
-        finishStepApply("Volume adjusted! 🔊");
+        state.working = applyGain(state.stepEntryWorking, gain);
+        finishStepApply("Volume adjusted! 🔊 Have a listen below.");
       };
     }
   }
@@ -1216,14 +1280,42 @@
     setMascot('happy', message);
     burstConfetti(18);
     refreshMainWave();
-    setTimeout(function(){
-      goToStep(state.stepIndex + 1);
-    }, 900);
+    $('skipBtn').style.display = 'none';
+    $('applyBtn').style.display = 'none';
+    $('redoBtn').style.display = 'inline-flex';
+    $('continueStepBtn').style.display = 'inline-flex';
+    disableToolControls(true);
   }
 
   $('skipBtn').addEventListener('click', function(){
     playClink();
     stopMusicPreview();
+    goToStep(state.stepIndex + 1);
+  });
+
+  $('redoBtn').addEventListener('click', function(){
+    playClink();
+    stopPlayback();
+    stopMusicPreview();
+    state.working = state.stepEntryWorking.slice();
+    state.stepsDone = Math.max(0, state.stepsDone - 1);
+    $('stepsDoneCount').textContent = state.stepsDone;
+    $('hintMsg').textContent = '';
+    var key = TOOL_STEPS[state.stepIndex];
+    setMascot('idle', MASCOT_LINES[key]);
+    $('skipBtn').style.display = 'inline-flex';
+    $('applyBtn').style.display = 'inline-flex';
+    $('applyBtn').disabled = false;
+    $('redoBtn').style.display = 'none';
+    $('continueStepBtn').style.display = 'none';
+    disableToolControls(false);
+    resetTrimUI();
+    renderToolBody(key);
+    refreshMainWave();
+  });
+
+  $('continueStepBtn').addEventListener('click', function(){
+    playClink();
     goToStep(state.stepIndex + 1);
   });
 
