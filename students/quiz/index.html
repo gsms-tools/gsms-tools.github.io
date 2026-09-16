@@ -529,71 +529,207 @@
        user can always cut playback short once they know the answer.
      ================================================================= */
   var QUESTIONS = [
-    {
-      id: "q1",
-      difficulty: 10,
-      text: "Which planet is known as the Red Planet?",
-      media: null,
-      choices: ["Mars", "Venus"],
-      correctIndex: 0
+  {
+    id: "q1",
+    difficulty: 10,
+    text: "Which famous personality is the subject of discussion in the audio clip?",
+    media: {
+      type: "audio",
+      url: "https://youtu.be/5HTK6XnX-ns?si=edgAQJLfhr9c4Gws",
+      start: "4:46",
+      end: "5:03"
     },
-    {
-      id: "q2",
-      difficulty: 25,
-      text: "Which country's flag is shown below?",
-      media: { type: "image", url: "https://upload.wikimedia.org/wikipedia/commons/c/c3/Flag_of_France.svg" },
-      choices: ["France", "Italy", "Netherlands", "Ireland"],
-      correctIndex: 0
+    choices: [
+      "Ishwar Chandra Vidyasagar",
+      "Vinoba Bhave",
+      "Jyotiba Phule",
+      "Raja Ram Mohan Roy"
+    ],
+    correctIndex: 3
+  },
+  {
+    id: "q2",
+    difficulty: 25,
+    text: "Which is the longest river in India?",
+    media: null,
+    choices: [
+      "Ganges",
+      "Brahmaputra",
+      "Yamuna",
+      "Godavari"
+    ],
+    correctIndex: 0
+  },
+  {
+    id: "q3",
+    difficulty: 50,
+    text: "Which movie is associated with this song?",
+    media: {
+      type: "video",
+      url: "https://youtu.be/858lvkopFOw?si=yq_o02sclwz0_p_h",
+      start: "0:18",
+      end: "0:58"
     },
-    {
-      id: "q3",
-      difficulty: 50,
-      text: "Listen carefully — what kind of place is being talked about in this clip?",
-      media: { type: "audio", url: "https://www.youtube.com/watch?v=jNQXAC9IVRw", start: "0:00", end: "0:15" },
-      choices: ["A zoo", "An ocean", "A forest", "A city street"],
-      correctIndex: 0
+    choices: [
+      "Bhaag Milkha Bhaag",
+      "Chak De! India",
+      "Mary Kom",
+      "Dangal"
+    ],
+    correctIndex: 2
+  },
+  {
+    id: "q4",
+    difficulty: 75,
+    text: "The largest desert in the world is:",
+    media: null,
+    choices: [
+      "Sahara",
+      "Gobi",
+      "Antarctica",
+      "Kalahari"
+    ],
+    correctIndex: 2
+  },
+  {
+    id: "q5",
+    difficulty: 100,
+    text: "Identify this famous Indian temple from the image.",
+    media: {
+      type: "image",
+      url: "https://images.pexels.com/photos/6040175/pexels-photo-6040175.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
     },
-    {
-      id: "q4",
-      difficulty: 75,
-      text: "Watch the clip — what animal is the main character?",
-      media: { type: "video", url: "https://www.youtube.com/watch?v=aqz-KE-bpKQ", start: "1:25", end: "1:40" },
-      choices: ["Rabbit", "Fox", "Bear", "Deer"],
-      correctIndex: 0
+    choices: [
+      "Somnath Temple",
+      "Vishwanath Temple",
+      "Konark Sun Temple",
+      "Kedarnath Temple"
+    ],
+    correctIndex: 2
+  },
+  {
+    id: "q6",
+    difficulty: 25,
+    text: "The Indian national flower is:",
+    media: null,
+    choices: [
+      "Rose",
+      "Lotus",
+      "Jasmine",
+      "Marigold"
+    ],
+    correctIndex: 1
+  },
+  {
+    id: "q7",
+    difficulty: 50,
+    text: "Which movie is this scene/dialogue associated with?",
+    media: {
+      type: "video",
+      url: "https://youtu.be/lPLhCI3tVo4?si=VaNTNKi8nmHBhuhY",
+      start: "0:01",
+      end: "0:12"
     },
+    choices: [
+      "Veer Zara",
+      "Shershaah",
+      "Border",
+      "URI: The Surgical Strike"
+    ],
+    correctIndex: 3
+  },
+  {
+    id: "q8",
+    difficulty: 75,
+    text: "The first Indian to go into space was:",
+    media: null,
+    choices: [
+      "Kalpana Chawla",
+      "Rakesh Sharma",
+      "Sunita Williams",
+      "Ravish Malhotra"
+    ],
+    correctIndex: 1
+  },
     {
-      id: "q5",
-      difficulty: 100,
-      text: "True or False: The Great Wall of China is visible from space with the naked eye.",
-      media: null,
-      choices: ["True", "False"],
-      correctIndex: 1
+    id: "q9",
+    difficulty: 25,
+    text: "Which popular brand does this radio ad belong to?",
+    media: {
+      type: "audio",
+      url: "https://youtu.be/K5UNz3GVlcE?si=PcYbDvfzGHevYUhs",
+      start: "0:00",
+      end: "0:42"
     },
-    {
-      id: "q6",
-      difficulty: 25,
-      text: "Which country's flag is shown below?",
-      media: { type: "image", url: "https://upload.wikimedia.org/wikipedia/commons/9/9e/Flag_of_Japan.svg" },
-      choices: ["Japan", "China", "South Korea", "Thailand"],
-      correctIndex: 0
+    choices: [
+      "Reid & Taylor",
+      "Cadbury",
+      "Amul",
+      "Nestle"
+    ],
+    correctIndex: 1
+  },
+  {
+    id: "q10",
+    difficulty: 10,
+    text: "Whose poster is this girl holding in her hands?",
+    media: {
+      type: "image",
+      url: "https://images.pexels.com/photos/12249238/pexels-photo-12249238.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
     },
-    {
-      id: "q7",
-      difficulty: 50,
-      text: "Listen carefully — what genre is this music clip?",
-      media: { type: "audio", url: "https://www.youtube.com/watch?v=9bZkp7q19f0" },
-      choices: ["Pop", "Classical", "Heavy metal", "Jazz"],
-      correctIndex: 0
+    choices: [
+      "Abraham Lincoln",
+      "Joe Biden",
+      "Boris Johnson",
+      "Vladimir Putin"
+    ],
+    correctIndex: 3
+  },
+  {
+    id: "q11",
+    difficulty: 50,
+    text: "Which renowned company aired this television advertisement with a societal plea to conserve water?",
+    media: {
+      type: "video",
+      url: "https://youtu.be/2bdvoVr64HI?si=XJutJY2hlmgQSB6R",
+      start: "0:00",
+      end: "1:09"
     },
-    {
-      id: "q8",
-      difficulty: 75,
-      text: "Watch the clip — what kind of creature shows up?",
-      media: { type: "video", url: "https://www.youtube.com/watch?v=eRsGyueVLvQ" },
-      choices: ["A dragon", "A unicorn", "A phoenix", "A griffin"],
-      correctIndex: 0
-    }
-  ];
+    choices: [
+      "Euroka Forbes (Aquaguard)",
+      "Kent",
+      "Havells",
+      "Hindustan Unilever"
+    ],
+    correctIndex: 3
+  },
+  {
+    id: "q12",
+    difficulty: 25,
+    text: "The Indian city known as the \"City of Joy\" is:",
+    media: null,
+    choices: [
+      "Kolkata",
+      "Mumbai",
+      "Delhi",
+      "Bangalore"
+    ],
+    correctIndex: 0
+  },
+  {
+    id: "q13",
+    difficulty: 50,
+    text: "The Indian city known as the \"Silicon Valley of India\" is:",
+    media: null,
+    choices: [
+      "Bangalore",
+      "Hyderabad",
+      "Chennai",
+      "Pune"
+    ],
+    correctIndex: 0
+  }
+];
 
   var TIER_ORDER = [10, 25, 50, 75, 100];
 
