@@ -743,6 +743,8 @@
 
   var activeMediaIframe = null;   // the YouTube iframe currently playing (video or hidden audio), if any
   var activeMediaTimeout = null;  // scheduled auto-stop timer for a clipped start/end range
+  var clipWatchEndSec = null;     // when set, we're watching real playback time for this end second
+  var clipWatchOnEnd = null;      // callback to run once clipWatchEndSec is reached
 
   /* ================= AUDIO (simple beeps, no external files) ================= */
   var audioCtx = null;
@@ -834,10 +836,37 @@
     }catch(e){ /* ignore — iframe may not be ready yet */ }
   }
 
+  function ytStartListening(iframe){
+    if(!iframe || !iframe.contentWindow) return;
+    // Tells YouTube's player to start sending "infoDelivery" status messages,
+    // which include the real current playback time.
+    ytPostMessage(iframe, 'addEventListener', ['onStateChange']);
+    try{
+      iframe.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: iframe.id }), '*');
+    }catch(e){}
+  }
+
+  window.addEventListener('message', function(e){
+    if(clipWatchEndSec === null) return; // we're not watching for an end-time right now
+    var data;
+    try{ data = JSON.parse(e.data); }catch(err){ return; }
+    if(data.event === 'infoDelivery' && data.info && typeof data.info.currentTime === 'number'){
+      if(data.info.currentTime >= clipWatchEndSec){
+        var cb = clipWatchOnEnd;
+        clipWatchEndSec = null;
+        clipWatchOnEnd = null;
+        if(activeMediaIframe) ytPostMessage(activeMediaIframe, 'pauseVideo');
+        if(typeof cb === 'function') cb();
+      }
+    }
+  });
+
   /* Stops whatever media (video or hidden audio) is currently playing, and
      cancels any pending auto-stop timer for a clipped start/end range. */
   function stopActiveMedia(){
     if(activeMediaTimeout){ clearTimeout(activeMediaTimeout); activeMediaTimeout = null; }
+    clipWatchEndSec = null;
+    clipWatchOnEnd = null;
     if(activeMediaIframe){
       ytPostMessage(activeMediaIframe, 'stopVideo');
       activeMediaIframe = null;
@@ -1162,14 +1191,16 @@
     if(startSec !== null) ytParams.start = startSec;
     if(endSec !== null) ytParams.end = endSec;
 
-    if(q.media.type === 'video'){
+      if(q.media.type === 'video'){
       var wrap = document.createElement('div');
       wrap.className = 'video-wrap';
       var iframe = document.createElement('iframe');
+      iframe.id = 'yt-' + q.id;
       iframe.src = buildYouTubeSrc(q.media.url, ytParams);
       iframe.title = 'Question video';
       iframe.setAttribute('allow', 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture');
       iframe.allowFullscreen = true;
+      iframe.addEventListener('load', function(){ ytStartListening(iframe); });
       wrap.appendChild(iframe);
       container.appendChild(wrap);
       activeMediaIframe = iframe;
@@ -1182,23 +1213,21 @@
       Object.keys(ytParams).forEach(function(k){ hiddenParams[k] = ytParams[k]; });
       hiddenParams.controls = 0;
       var hiddenIframe = document.createElement('iframe');
+      hiddenIframe.id = 'yt-' + q.id;
       hiddenIframe.className = 'yt-hidden';
       hiddenIframe.src = buildYouTubeSrc(q.media.url, hiddenParams);
       hiddenIframe.allow = 'autoplay';
       hiddenIframe.title = 'Question audio (player hidden)';
+      hiddenIframe.addEventListener('load', function(){ ytStartListening(hiddenIframe); });
       container.appendChild(hiddenIframe);
       activeMediaIframe = hiddenIframe;
     }
 
-    // If a clipped range was given, auto-pause once it's played through and
-    // flip the button back to "Replay" on its own.
-    if(startSec !== null && endSec !== null && endSec > startSec){
-      var durationMs = (endSec - startSec) * 1000 + 400; // small buffer for load/seek time
-      activeMediaTimeout = setTimeout(function(){
-        activeMediaTimeout = null;
-        if(activeMediaIframe){ ytPostMessage(activeMediaIframe, 'pauseVideo'); }
-        if(typeof onAutoEnd === 'function') onAutoEnd();
-      }, durationMs);
+    // If an end timestamp was given, watch YouTube's real playback time and
+    // auto-pause once it's actually reached — instead of guessing with a timer.
+    if(endSec !== null){
+      clipWatchEndSec = endSec;
+      clipWatchOnEnd = onAutoEnd;
     }
   }
 
