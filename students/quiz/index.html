@@ -520,6 +520,19 @@
     video: "https://sourabhsuneja.github.io/quiz/play/sounds/before-video.mp3"  // TODO: replace with your own "get ready for a video" clue clip
   };
   var PRE_AUDIO_MAX_WAIT_MS = 6000; // cap how long we wait for the clue clip before revealing, in case a placeholder clip runs long
+  var soundCache = {};
+  function preloadAudio(url){
+    var a = new Audio();
+    a.preload = 'auto';
+    a.src = url;
+    a.load();
+    soundCache[url] = a;
+  }
+  [
+    "https://sourabhsuneja.github.io/quiz/play/sounds/correct.wav",
+    "https://sourabhsuneja.github.io/quiz/play/sounds/wrong.wav",
+    PRE_AUDIO.image, PRE_AUDIO.audio, PRE_AUDIO.video
+  ].forEach(preloadAudio);
 
   /* =================================================================
      QUESTION DATA
@@ -743,10 +756,11 @@
   function playSound(url){
   if(state.muted) return;
   try{
-    var a = new Audio(url);
+    var cached = soundCache[url];
+    var a = cached ? cached.cloneNode(true) : new Audio(url);
     a.play().catch(function(){});
   }catch(e){}
-  }
+}
   function beep(freq, dur, delay, vol){
     if(state.muted) return;
     var ctx = getCtx();
@@ -846,7 +860,7 @@
 
     var settled = false;
     var timeoutId = null;
-    var audio = new Audio(src);
+    var audio = soundCache[src] ? soundCache[src].cloneNode(true) : new Audio(src);
     preAudioEl = audio;
 
     function finish(){
