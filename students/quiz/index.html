@@ -1078,6 +1078,8 @@
       revealBtn.textContent = label.replay;
       revealBtn.classList.remove('stop');
       revealBtn.classList.add('replay');
+      contentEl.style.display = 'none';
+      contentEl.innerHTML = '';
     }
 
     revealBtn.addEventListener('click', function(){
