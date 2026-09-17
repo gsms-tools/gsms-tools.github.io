@@ -740,6 +740,13 @@
     }
     return audioCtx;
   }
+  function playSound(url){
+  if(state.muted) return;
+  try{
+    var a = new Audio(url);
+    a.play().catch(function(){});
+  }catch(e){}
+  }
   function beep(freq, dur, delay, vol){
     if(state.muted) return;
     var ctx = getCtx();
@@ -758,8 +765,8 @@
     osc.stop(t0+dur+0.02);
   }
   function playDraw(){ beep(460,0.05,0,0.07); beep(700,0.07,0.06,0.06); beep(940,0.06,0.13,0.045); }
-  function playCorrect(){ beep(523.25,0.14,0); beep(659.25,0.14,0.1); beep(880,0.24,0.2); }
-  function playWrong(){ beep(280,0.18,0,0.09); beep(220,0.22,0.1,0.09); }
+  function playCorrect(){ playSound("https://sourabhsuneja.github.io/quiz/play/sounds/correct.wav"); }
+  function playWrong(){ playSound("https://sourabhsuneja.github.io/quiz/play/sounds/wrong.wav"); }
   function playSkip(){ beep(400,0.1,0,0.06); }
 
   /* ================= HELPERS ================= */
