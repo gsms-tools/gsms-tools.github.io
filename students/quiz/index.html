@@ -449,6 +449,13 @@
 .lifeline-bar{
   display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;
 }
+.lifeline-label{
+  font-family:var(--font-display);font-weight:700;font-size:12.5px;
+  letter-spacing:.4px;text-transform:uppercase;
+  color:var(--ink-500);margin:0 0 8px;
+  display:flex;align-items:center;gap:6px;
+}
+.lifeline-label::before{content:"🎯";font-size:13px;}
 .lifeline-btn{
   display:flex;align-items:center;gap:7px;
   background:var(--panel-tint);border:2px solid var(--input-border);
@@ -511,6 +518,7 @@
   <div class="qpanel" id="qPanel">
     <div class="qpanel-badge" id="qBadge">10 points</div>
     <h2 class="qpanel-title" id="qTitle"></h2>
+    <div class="lifeline-label">Lifelines</div>
     <div class="lifeline-bar" id="lifelineBar"></div>
     <div class="hint-bubble" id="hintBubble"></div>
     <div class="qmedia" id="qMedia" style="display:none;"></div>
