@@ -804,6 +804,7 @@ function useFiftyFiftyLifeline(q, btnEl){
       b.classList.add('removed');
     }
   });
+  playCorrect();
 }
 
 function useHintLifeline(q, btnEl){
@@ -825,6 +826,7 @@ function useHintLifeline(q, btnEl){
     btnEl.innerHTML = '<span class="ll-icon">💡</span><span>Hint</span>';
     el.hintBubble.innerHTML = '<span class="hint-icon">💡</span><span>' + escapeHtml(hintText) + '</span>';
     el.hintBubble.style.display = 'flex';
+    playCorrect();
   }).catch(function(){
     // allow retry on failure instead of burning the lifeline
     state.lifelines.hint = false;
