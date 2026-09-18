@@ -823,7 +823,7 @@ function useHintLifeline(q, btnEl){
   window.reword(prompt).then(function(hintText){
     btnEl.classList.remove('loading');
     btnEl.classList.add('used');
-    btnEl.innerHTML = '<span class="ll-icon">💡</span><span>Hint</span>';
+    btnEl.innerHTML = '<span class="ll-icon">💡</span><span>Hint From AI</span>';
     el.hintBubble.innerHTML = '<span class="hint-icon">💡</span><span>' + escapeHtml(hintText) + '</span>';
     el.hintBubble.style.display = 'flex';
     playCorrect();
