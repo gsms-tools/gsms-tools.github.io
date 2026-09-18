@@ -17,6 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="ai-hint.js"></script>
 <style>
   :root{
     color-scheme: light;
@@ -443,6 +444,35 @@
   .btn-big:active{transform:translateY(3px);box-shadow:0 2px 0 var(--wrong-dark);}
 
   @media (prefers-reduced-motion: reduce){ *{animation:none !important;transition:none !important;} }
+
+  /* ---------- lifelines ---------- */
+.lifeline-bar{
+  display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;
+}
+.lifeline-btn{
+  display:flex;align-items:center;gap:7px;
+  background:var(--panel-tint);border:2px solid var(--input-border);
+  border-radius:999px;padding:8px 14px;
+  font-family:var(--font-body);font-weight:800;font-size:13px;color:var(--teal-700);
+  cursor:pointer;transition:transform .12s ease, opacity .15s ease, border-color .15s ease;
+}
+.lifeline-btn:hover:not(:disabled){transform:translateY(-2px);border-color:var(--gold-500);}
+.lifeline-btn:active:not(:disabled){transform:translateY(1px);}
+.lifeline-btn .ll-icon{font-size:16px;}
+.lifeline-btn:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+.lifeline-btn.used{opacity:.35;text-decoration:line-through;cursor:not-allowed;transform:none;}
+.lifeline-btn.loading{opacity:.8;cursor:wait;}
+
+.hint-bubble{
+  display:none;align-items:flex-start;gap:8px;
+  background:var(--bubble-tint);border:2px dashed var(--gold-500);
+  border-radius:var(--r-sm);padding:12px 14px;margin-bottom:14px;
+  font-weight:700;font-size:14px;color:var(--ink-900);
+  animation:pop .3s cubic-bezier(.34,1.56,.64,1);
+}
+.hint-bubble .hint-icon{font-size:16px;flex:0 0 auto;}
+
+.choice-btn.removed{display:none;}
 </style>
 </head>
 <body>
@@ -481,6 +511,8 @@
   <div class="qpanel" id="qPanel">
     <div class="qpanel-badge" id="qBadge">10 points</div>
     <h2 class="qpanel-title" id="qTitle"></h2>
+    <div class="lifeline-bar" id="lifelineBar"></div>
+    <div class="hint-bubble" id="hintBubble"></div>
     <div class="qmedia" id="qMedia" style="display:none;"></div>
     <div class="choices" id="qChoices"></div>
     <div class="qpanel-footer">
@@ -687,6 +719,115 @@
   }
 ];
 
+  function escapeHtml(str){
+  var d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+var LIFELINES = [
+  {
+    id: 'hint',
+    icon: '💡',
+    label: 'Hint',
+    isAvailable: function(q){ return true; },
+    use: function(q, btnEl){ useHintLifeline(q, btnEl); }
+  },
+  {
+    id: 'fifty',
+    icon: '➗',
+    label: '50-50',
+    isAvailable: function(q){ return q.choices.length >= 4; },
+    use: function(q, btnEl){ useFiftyFiftyLifeline(q, btnEl); }
+  }
+  // Add future lifelines here — same shape: id, icon, label, isAvailable(q), use(q, btnEl)
+];
+
+function renderLifelines(q){
+  el.lifelineBar.innerHTML = '';
+  el.hintBubble.style.display = 'none';
+  el.hintBubble.innerHTML = '';
+
+  LIFELINES.forEach(function(ll){
+    if(!ll.isAvailable(q)) return;
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'lifeline-btn';
+    btn.id = 'lifeline-' + ll.id;
+    btn.innerHTML = '<span class="ll-icon">' + ll.icon + '</span><span>' + ll.label + '</span>';
+
+    if(state.lifelines[ll.id]){
+      btn.classList.add('used');
+      btn.disabled = true;
+    }
+
+    btn.addEventListener('click', function(){
+      if(state.lifelines[ll.id] || answered) return;
+      ll.use(q, btn);
+    });
+
+    el.lifelineBar.appendChild(btn);
+  });
+}
+
+function useFiftyFiftyLifeline(q, btnEl){
+  state.lifelines.fifty = true;
+  btnEl.classList.add('used');
+  btnEl.disabled = true;
+
+  var wrongIndexes = [];
+  q.choices.forEach(function(c, i){ if(i !== q.correctIndex) wrongIndexes.push(i); });
+
+  // shuffle wrong-answer indexes
+  for(var i = wrongIndexes.length - 1; i > 0; i--){
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = wrongIndexes[i]; wrongIndexes[i] = wrongIndexes[j]; wrongIndexes[j] = tmp;
+  }
+
+  var numToRemove = Math.floor(q.choices.length / 2); // "half of the options"
+  var toRemove = wrongIndexes.slice(0, numToRemove);
+
+  var allBtns = el.qChoices.querySelectorAll('.choice-btn');
+  toRemove.forEach(function(idx){
+    var b = allBtns[idx];
+    if(b){
+      b.disabled = true;
+      b.classList.add('removed');
+    }
+  });
+}
+
+function useHintLifeline(q, btnEl){
+  state.lifelines.hint = true;
+  btnEl.classList.add('loading');
+  btnEl.disabled = true;
+  btnEl.innerHTML = '<span class="ll-icon">⏳</span><span>Thinking…</span>';
+
+  var promptObj = {
+    question: q.text,
+    choices: q.choices,
+    answer: q.choices[q.correctIndex]
+  };
+  var prompt = JSON.stringify(promptObj);
+
+  window.reword(prompt).then(function(hintText){
+    btnEl.classList.remove('loading');
+    btnEl.classList.add('used');
+    btnEl.innerHTML = '<span class="ll-icon">💡</span><span>Hint</span>';
+    el.hintBubble.innerHTML = '<span class="hint-icon">💡</span><span>' + escapeHtml(hintText) + '</span>';
+    el.hintBubble.style.display = 'flex';
+  }).catch(function(){
+    // allow retry on failure instead of burning the lifeline
+    state.lifelines.hint = false;
+    btnEl.classList.remove('loading', 'used');
+    btnEl.disabled = false;
+    btnEl.innerHTML = '<span class="ll-icon">💡</span><span>Hint</span>';
+    el.hintBubble.innerHTML = '<span class="hint-icon">⚠️</span><span>Could not fetch a hint — try again.</span>';
+    el.hintBubble.style.display = 'flex';
+  });
+}
+
   var TIER_ORDER = [10, 25, 50, 75, 100];
 
   var TIER_META = {
@@ -712,6 +853,7 @@
     results: {}, // id -> { status: 'correct'|'wrong'|'skipped', chosenIndex, points }
     stacks: {}   // tier -> remaining question objects, in draw order (index 0 = next to draw)
   };
+  state.lifelines = { hint: false, fifty: false }; // true = already used this game
 
   var el = {
     scoreCounter: document.getElementById('scoreCounter'),
@@ -733,7 +875,9 @@
     finalScore: document.getElementById('finalScore'),
     rankTag: document.getElementById('rankTag'),
     summaryList: document.getElementById('summaryList'),
-    restartBtn: document.getElementById('restartBtn')
+    restartBtn: document.getElementById('restartBtn'),
+    lifelineBar: document.getElementById('lifelineBar'),
+    hintBubble: document.getElementById('hintBubble'),
   };
 
   var activeQuestion = null;
@@ -1070,6 +1214,7 @@
     el.continueBtn.classList.remove('show');
     el.skipBtn.disabled = false;
 
+    renderLifelines(q);
     renderMedia(q);
     renderChoices(q);
 
@@ -1363,6 +1508,7 @@
   el.restartBtn.addEventListener('click', function(){
     state.score = 0;
     state.results = {};
+    state.lifelines = { hint: false, fifty: false };
     el.scoreVal.textContent = '0';
     el.summaryOverlay.classList.remove('show');
     buildStacks();
