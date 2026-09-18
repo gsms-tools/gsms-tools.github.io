@@ -465,7 +465,16 @@
 }
 .lifeline-btn:hover:not(:disabled){transform:translateY(-2px);border-color:var(--gold-500);}
 .lifeline-btn:active:not(:disabled){transform:translateY(1px);}
-.lifeline-btn .ll-icon{font-size:16px;}
+.ll-icon-svg{
+  width:18px;height:18px;flex:0 0 auto;
+  display:inline-block;vertical-align:middle;
+}
+.ll-icon-svg svg{display:block;width:100%;height:100%;}
+.ll-spin{
+  transform-origin:center;
+  animation:llSpin .8s linear infinite;
+}
+@keyframes llSpin{ to{ transform:rotate(360deg); } }
 .lifeline-btn:disabled{opacity:.45;cursor:not-allowed;transform:none;}
 .lifeline-btn.used{opacity:.35;text-decoration:line-through;cursor:not-allowed;transform:none;}
 .lifeline-btn.loading{opacity:.8;cursor:wait;}
@@ -747,9 +756,43 @@ var LIFELINES = [
     label: '50-50',
     isAvailable: function(q){ return q.choices.length >= 4; },
     use: function(q, btnEl){ useFiftyFiftyLifeline(q, btnEl); }
+  },
+  {
+    id: 'second',
+    icon: '🔄',
+    label: 'Second Chance',
+    isAvailable: function(q){ return true; },
+    use: function(q, btnEl){ useSecondChanceLifeline(q, btnEl); }
   }
   // Add future lifelines here — same shape: id, icon, label, isAvailable(q), use(q, btnEl)
 ];
+
+var LIFELINE_ICONS = {
+  hint:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M9 18h6"/>' +
+      '<path d="M10 21h4"/>' +
+      '<path d="M12 3a6 6 0 0 0-4 10.5c.6.55 1 1.3 1 2.1V16h6v-.4c0-.8.4-1.55 1-2.1A6 6 0 0 0 12 3Z"/>' +
+      '<path d="M12 3V1.5"/>' +
+      '<path d="M18.5 6.5l1-1"/>' +
+      '<path d="M5.5 6.5l-1-1"/>' +
+    '</svg>',
+  fifty:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+      '<circle cx="7" cy="7" r="2.6"/>' +
+      '<circle cx="17" cy="17" r="2.6"/>' +
+      '<path d="M5 19 19 5"/>' +
+    '</svg>',
+  second:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M3 12a9 9 0 1 0 3-6.7"/>' +
+      '<path d="M3 4v5h5"/>' +
+    '</svg>',
+  loading:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">' +
+      '<path d="M12 3a9 9 0 1 0 9 9" class="ll-spin"/>' +
+    '</svg>'
+};
 
 function renderLifelines(q){
   el.lifelineBar.innerHTML = '';
@@ -763,7 +806,7 @@ function renderLifelines(q){
     btn.type = 'button';
     btn.className = 'lifeline-btn';
     btn.id = 'lifeline-' + ll.id;
-    btn.innerHTML = '<span class="ll-icon">' + ll.icon + '</span><span>' + ll.label + '</span>';
+    btn.innerHTML = '<span class="ll-icon-svg">' + LIFELINE_ICONS[ll.id] + '</span><span>' + ll.label + '</span>';
 
     if(state.lifelines[ll.id]){
       btn.classList.add('used');
@@ -779,6 +822,17 @@ function renderLifelines(q){
   });
 }
 
+function useSecondChanceLifeline(q, btnEl){
+  state.lifelines.second = true;
+  state.secondChanceArmed = true;   // active for the CURRENT question only
+  btnEl.classList.add('used');
+  btnEl.disabled = true;
+
+  el.hintBubble.innerHTML = '<span class="ll-icon-svg">' + LIFELINE_ICONS.second + '</span><span>Second Chance armed — your next wrong pick won\'t count!</span>';
+  el.hintBubble.style.display = 'flex';
+  playCorrect();
+}
+  
 function useFiftyFiftyLifeline(q, btnEl){
   state.lifelines.fifty = true;
   btnEl.classList.add('used');
@@ -811,7 +865,7 @@ function useHintLifeline(q, btnEl){
   state.lifelines.hint = true;
   btnEl.classList.add('loading');
   btnEl.disabled = true;
-  btnEl.innerHTML = '<span class="ll-icon">⏳</span><span>Thinking…</span>';
+  btnEl.innerHTML = '<span class="ll-icon-svg">' + LIFELINE_ICONS.loading + '</span><span>Thinking…</span>';
 
   var promptObj = {
     question: q.text,
@@ -823,8 +877,8 @@ function useHintLifeline(q, btnEl){
   window.reword(prompt).then(function(hintText){
     btnEl.classList.remove('loading');
     btnEl.classList.add('used');
-    btnEl.innerHTML = '<span class="ll-icon">💡</span><span>Hint From AI</span>';
-    el.hintBubble.innerHTML = '<span class="hint-icon">💡</span><span>' + escapeHtml(hintText) + '</span>';
+    btnEl.innerHTML = '<span class="ll-icon-svg">' + LIFELINE_ICONS.hint + '</span><span>Hint</span>';
+    el.hintBubble.innerHTML = '<span class="ll-icon-svg">' + LIFELINE_ICONS.hint + '</span><span>' + escapeHtml(hintText) + '</span>';
     el.hintBubble.style.display = 'flex';
     playCorrect();
   }).catch(function(){
@@ -832,7 +886,7 @@ function useHintLifeline(q, btnEl){
     state.lifelines.hint = false;
     btnEl.classList.remove('loading', 'used');
     btnEl.disabled = false;
-    btnEl.innerHTML = '<span class="ll-icon">💡</span><span>Hint</span>';
+    btnEl.innerHTML = '<span class="ll-icon-svg">' + LIFELINE_ICONS.hint + '</span><span>Hint</span>';
     el.hintBubble.innerHTML = '<span class="hint-icon">⚠️</span><span>Could not fetch a hint — try again.</span>';
     el.hintBubble.style.display = 'flex';
   });
@@ -863,7 +917,7 @@ function useHintLifeline(q, btnEl){
     results: {}, // id -> { status: 'correct'|'wrong'|'skipped', chosenIndex, points }
     stacks: {}   // tier -> remaining question objects, in draw order (index 0 = next to draw)
   };
-  state.lifelines = { hint: false, fifty: false }; // true = already used this game
+  state.lifelines = { hint: false, fifty: false, second: false }; // true = already used this game
 
   var el = {
     scoreCounter: document.getElementById('scoreCounter'),
@@ -1214,6 +1268,7 @@ function useHintLifeline(q, btnEl){
   function showQuestion(q){
     activeQuestion = q;
     answered = false;
+    state.secondChanceArmed = false;
     var meta = TIER_META[q.difficulty];
 
     el.qBadge.textContent = q.difficulty + ' points';
@@ -1399,10 +1454,24 @@ function useHintLifeline(q, btnEl){
 
   function selectAnswer(q, chosenIndex, btnEl){
     if(answered) return;
+
+    var correct = chosenIndex === q.correctIndex;
+
+    // Second Chance: forgive exactly one wrong pick, don't lock the question in yet
+    if(!correct && state.secondChanceArmed){
+      state.secondChanceArmed = false;
+      var wrongBtn = el.qChoices.querySelectorAll('.choice-btn')[chosenIndex];
+      wrongBtn.disabled = true;
+      wrongBtn.classList.add('wrong');
+      el.feedbackLine.textContent = 'Not quite — but Second Chance saved you. Try again!';
+      el.feedbackLine.className = 'feedback-line no';
+      return; // answered stays false — player can pick another option
+    }
+    
     answered = true;
     el.skipBtn.disabled = true;
 
-    var correct = chosenIndex === q.correctIndex;
+    
     var allBtns = el.qChoices.querySelectorAll('.choice-btn');
     allBtns.forEach(function(b, i){
       b.disabled = true;
@@ -1518,7 +1587,7 @@ function useHintLifeline(q, btnEl){
   el.restartBtn.addEventListener('click', function(){
     state.score = 0;
     state.results = {};
-    state.lifelines = { hint: false, fifty: false };
+    state.lifelines = { hint: false, fifty: false, second: false };
     el.scoreVal.textContent = '0';
     el.summaryOverlay.classList.remove('show');
     buildStacks();
