@@ -180,6 +180,41 @@
   .theme-toggle .icon-moon{opacity:0; transform:rotate(-70deg) scale(.5);}
   html[data-theme="dark"] .theme-toggle .icon-sun{opacity:0; transform:rotate(70deg) scale(.5);}
   html[data-theme="dark"] .theme-toggle .icon-moon{opacity:1; transform:rotate(0deg) scale(1);}
+  .quick-link{
+  position:fixed;
+  top:18px;
+  left:18px;
+  z-index:50;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 18px 10px 14px;
+  border-radius:999px;
+  background:var(--toggle-bg);
+  border:1.5px solid var(--toggle-border);
+  box-shadow:var(--toggle-shadow);
+  color:var(--teal-800);
+  text-decoration:none;
+  font-family:'Manrope',sans-serif;
+  font-weight:700;
+  font-size:.8rem;
+  letter-spacing:.01em;
+  -webkit-backdrop-filter:blur(8px);
+  backdrop-filter:blur(8px);
+  transition:background-color .3s var(--ease), border-color .3s var(--ease), box-shadow .3s var(--ease), transform .2s var(--ease), color .3s var(--ease);
+}
+.quick-link:hover{ transform:translateY(-2px) scale(1.03); border-color:var(--border-card-hover); }
+.quick-link:active{ transform:translateY(0) scale(.97); }
+.quick-link:focus-visible{ outline:3px solid var(--gold-500); outline-offset:3px; }
+.quick-link svg{
+  width:17px; height:17px; flex:none;
+  fill:none; stroke:var(--gold-600); stroke-width:2.1; stroke-linecap:round; stroke-linejoin:round;
+}
+
+@media (max-width:480px){
+  .quick-link{ padding:0; width:40px; height:40px; justify-content:center; top:14px; left:14px; }
+  .quick-link span{ display:none; }
+}
 
   /* ---------- Ambient flame-ribbon background (echoes the GSMS mark) ---------- */
   .flame-field{
@@ -433,6 +468,7 @@
   @media (prefers-reduced-motion: reduce){
     .flame-field .ribbon{animation:none;}
     .eyebrow,h1,.subtitle,.role-card{animation:none; opacity:1;}
+    .quick-link{transition:none;}
   }
 </style>
 </head>
@@ -447,6 +483,11 @@
     <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5Z"/>
   </svg>
 </button>
+
+<a class="quick-link" href="teachers/quick-share/" aria-label="Quick Share — send or get a file">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+  <span>Quick Share</span>
+</a>
 
 <div class="flame-field" aria-hidden="true">
   <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
