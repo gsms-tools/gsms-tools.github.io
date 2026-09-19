@@ -512,9 +512,7 @@ var EDGE_BASE = SUPABASE_URL + '/functions/v1/quick-share';
 var MAX_FILE_BYTES = 200 * 1024 * 1024; // 200 MB hard limit
 
 function authHeaders(extra){
-  var h = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY };
-  if (extra) { for (var k in extra) h[k] = extra[k]; }
-  return h;
+  return extra || {};
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
