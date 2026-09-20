@@ -908,6 +908,7 @@ function clearEditFields(){
   ['f-topics','f-classwork','f-homework','f-activity','f-skills'].forEach(function(id){
     document.getElementById(id).value = '';
   });
+  autoResizeAll('#panel-edit textarea');
   document.getElementById('edit-last-modified').textContent = '';
   document.getElementById('edit-existing-chip').style.display = 'none';
   document.getElementById('btn-delete-plan').style.display = 'none';
@@ -934,6 +935,7 @@ function maybeLoadEditEntry(){
         document.getElementById('f-homework').value = res.data.homework || '';
         document.getElementById('f-activity').value = res.data.activity || '';
         document.getElementById('f-skills').value = res.data.skills || '';
+        autoResizeAll('#panel-edit textarea');
         document.getElementById('edit-existing-chip').style.display = 'inline-block';
         document.getElementById('btn-delete-plan').style.display = 'inline-flex';
         document.getElementById('edit-last-modified').textContent = 'Last updated ' + new Date(res.data.last_modified).toLocaleString();
