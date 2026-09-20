@@ -479,6 +479,10 @@
   html[data-theme="dark"] .toast{ color:var(--teal-900); background:var(--gold-400); }
   .toast.show{ opacity:1; transform:translateY(0); }
   .toast.error{ background:var(--danger); color:var(--white); }
+  textarea.auto-resize{
+  overflow:hidden;
+  resize:none; /* height is now automatic, no need for manual drag */
+  }
 </style>
 </head>
 <body>
@@ -692,6 +696,22 @@ var state = {
   editingExists: false,
   subjectOrder: {}
 };
+
+/* =========================================================
+   TEXTAREA AUTO-RESIZE
+========================================================= */
+function autoResizeTextarea(el){
+  el.classList.add('auto-resize');
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+function autoResizeAll(selector){
+  document.querySelectorAll(selector).forEach(autoResizeTextarea);
+}
+document.querySelectorAll('#panel-edit textarea').forEach(function(ta){
+  autoResizeTextarea(ta);
+  ta.addEventListener('input', function(){ autoResizeTextarea(ta); });
+});
 
 /* =========================================================
    THEME TOGGLE
