@@ -30,6 +30,7 @@
      jsPDF is now only used as a thin container that places those page images onto A4 pages — it never draws
      text itself, so its font/glyph limitations (the cause of the Hindi-in-PDF bug) never come into play. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="ai-help.js"></script>
 
 <style>
   :root{
@@ -389,6 +390,14 @@
   .btn-row{ display:flex; gap:10px; margin-top:16px; }
   .btn-row .btn{ flex:1; }
 
+  .ai-gen-row{ margin-top:8px; }
+  .btn-ai{
+    padding:8px 14px;
+    font-size:.78rem;
+    border-radius:10px;
+  }
+  .btn-ai:disabled{ opacity:.6; }
+
   .last-modified{
     font-size:.76rem;
     color:var(--ink-500);
@@ -563,25 +572,40 @@
         <p class="card-title">Lesson plan details <span class="chip" id="edit-existing-chip" style="display:none;">Existing entry</span></p>
 
         <div class="field">
-          <label for="f-topics">Chapter / Topics to be taught</label>
-          <textarea id="f-topics" rows="2" placeholder="e.g. Chapter 4: Fractions — addition &amp; subtraction of like fractions"></textarea>
-        </div>
-        <div class="field">
-          <label for="f-classwork">Classwork</label>
-          <textarea id="f-classwork" rows="2" placeholder="What will be covered / practised in class"></textarea>
-        </div>
-        <div class="field">
-          <label for="f-homework">Homework</label>
-          <textarea id="f-homework" rows="2" placeholder="What students should complete at home"></textarea>
-        </div>
-        <div class="field">
-          <label for="f-activity">Activity</label>
-          <textarea id="f-activity" rows="2" placeholder="Any planned classroom or group activity"></textarea>
-        </div>
-        <div class="field">
-          <label for="f-skills">Skills developed</label>
-          <textarea id="f-skills" rows="2" placeholder="e.g. Critical thinking, collaboration, numeracy"></textarea>
-        </div>
+  <label for="f-topics">Chapter / Topics to be taught</label>
+  <textarea id="f-topics" rows="2" placeholder="e.g. Chapter 4: Fractions — addition &amp; subtraction of like fractions"></textarea>
+  <div class="ai-gen-row">
+    <button class="btn btn-ghost btn-ai" type="button" data-ai-field="f-topics">✨ Generate with AI</button>
+  </div>
+</div>
+<div class="field">
+  <label for="f-classwork">Classwork</label>
+  <textarea id="f-classwork" rows="2" placeholder="What will be covered / practised in class"></textarea>
+  <div class="ai-gen-row">
+    <button class="btn btn-ghost btn-ai" type="button" data-ai-field="f-classwork">✨ Generate with AI</button>
+  </div>
+</div>
+<div class="field">
+  <label for="f-homework">Homework</label>
+  <textarea id="f-homework" rows="2" placeholder="What students should complete at home"></textarea>
+  <div class="ai-gen-row">
+    <button class="btn btn-ghost btn-ai" type="button" data-ai-field="f-homework">✨ Generate with AI</button>
+  </div>
+</div>
+<div class="field">
+  <label for="f-activity">Activity</label>
+  <textarea id="f-activity" rows="2" placeholder="Any planned classroom or group activity"></textarea>
+  <div class="ai-gen-row">
+    <button class="btn btn-ghost btn-ai" type="button" data-ai-field="f-activity">✨ Generate with AI</button>
+  </div>
+</div>
+<div class="field">
+  <label for="f-skills">Skills developed</label>
+  <textarea id="f-skills" rows="2" placeholder="e.g. Critical thinking, collaboration, numeracy"></textarea>
+  <div class="ai-gen-row">
+    <button class="btn btn-ghost btn-ai" type="button" data-ai-field="f-skills">✨ Generate with AI</button>
+  </div>
+</div>
 
         <p class="last-modified" id="edit-last-modified"></p>
 
@@ -711,6 +735,88 @@ function autoResizeAll(selector){
 document.querySelectorAll('#panel-edit textarea').forEach(function(ta){
   autoResizeTextarea(ta);
   ta.addEventListener('input', function(){ autoResizeTextarea(ta); });
+});
+
+/* =========================================================
+   AI "GENERATE WITH AI" FEATURE
+========================================================= */
+var AI_FIELD_LABELS = {
+  'f-topics': 'Chapter / Topics',
+  'f-classwork': 'Classwork',
+  'f-homework': 'Homework',
+  'f-activity': 'Activity',
+  'f-skills': 'Skills developed'
+};
+
+function collectCurrentElements(excludeFieldId){
+  var elements = {};
+  Object.keys(AI_FIELD_LABELS).forEach(function(fieldId){
+    if(fieldId === excludeFieldId) return;
+    var val = document.getElementById(fieldId).value.trim();
+    if(val) elements[AI_FIELD_LABELS[fieldId]] = val;
+  });
+  return elements;
+}
+
+function extractAiText(data){
+  if(typeof data === 'string') return data;
+  if(data && typeof data === 'object'){
+    if(typeof data.text === 'string') return data.text;
+    if(typeof data.result === 'string') return data.result;
+    if(typeof data.response === 'string') return data.response;
+  }
+  return data == null ? '' : String(data);
+}
+
+document.querySelectorAll('.btn-ai').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var fieldId = btn.getAttribute('data-ai-field');
+    var grade = editClassSel.value;
+    var subject = editSubjectSel.value;
+
+    if(!grade || !subject){
+      toast('Select class and subject first.', true);
+      return;
+    }
+
+    var elements = collectCurrentElements(fieldId);
+    if(Object.keys(elements).length === 0){
+      toast('Fill in at least one other field first, so the AI has something to work from.', true);
+      return;
+    }
+
+    var payload = {
+      grade: grade,
+      subject: subject,
+      elements: elements,
+      generate: AI_FIELD_LABELS[fieldId]
+    };
+
+    var originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Generating…';
+
+    window.reword(JSON.stringify(payload))
+      .then(function(data){
+        var text = extractAiText(data).trim();
+        if(!text){
+          toast('AI did not return any content. Please try again.', true);
+          return;
+        }
+        var textarea = document.getElementById(fieldId);
+        textarea.value = text;
+        autoResizeTextarea(textarea);
+        toast(AI_FIELD_LABELS[fieldId] + ' generated.');
+      })
+      .catch(function(err){
+        console.error('AI generation failed:', err);
+        toast('AI generation failed. Please try again.', true);
+      })
+      .finally(function(){
+        btn.disabled = false;
+        btn.textContent = originalText;
+      });
+  });
 });
 
 /* =========================================================
