@@ -23,25 +23,41 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="My GSMS">
 <meta property="og:description" content="One portal for teachers, students and admins of Gopal Sharma Memorial School, Jaipur.">
-<meta property="og:image" content="gsms-logo.png">
+<meta property="og:image" content="gsms-logo-white-bg.png">
 <meta property="og:url" content="https://mygsms.in">
 <meta name="twitter:card" content="summary">
 
-<link rel="icon" type="image/jpeg" href="gsms-logo.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/site.webmanifest">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
 <script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "EducationalOrganization",
-  "name": "Gopal Sharma Memorial School",
-  "alternateName": "GSMS",
-  "logo": "gsms-logo.png",
-  "url": "https://mygsms.in"
-}
+[
+  {
+    "@context": "https://schema.org",
+    "@type": "EducationalOrganization",
+    "@id": "https://gopalsharmaschool.com/#organization",
+    "name": "Gopal Sharma Memorial School",
+    "alternateName": "GSMS",
+    "url": "https://gopalsharmaschool.com",
+    "logo": "https://mygsms.in/gsms-logo-white-bg.png"
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "My GSMS",
+    "url": "https://mygsms.in",
+    "applicationCategory": "EducationalApplication",
+    "isPartOf": {
+      "@id": "https://gopalsharmaschool.com/#organization"
+    }
+  }
+]
 </script>
 
 <style>
