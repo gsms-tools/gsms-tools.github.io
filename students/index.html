@@ -13,10 +13,9 @@
   })();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Student Dashboard | GSMS Tools</title>
-<meta name="description" content="Student dashboard for Gopal Sharma Memorial School. Results, syllabus, quizzes, worksheets and fun learning games.">
-<meta name="robots" content="noindex, nofollow">
-<link rel="icon" type="image/png" href="https://gsms-tools.github.io/gsms-logo.png">
+<title>Student Dashboard</title>
+<meta name="description" content="My GSMS student dashboard for Gopal Sharma Memorial School, featuring results, syllabus, quizzes, worksheets and interactive learning games.">
+<link rel="icon" type="image/png" href="https://mygsms.in/gsms-logo.png">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,7 +32,7 @@
        the header's own height changes (e.g. the search row hiding). */
     --header-h: 0px;
 
-    /* ---------- Brand palette (light) — same as teacher dashboard ---------- */
+    /* ---------- Brand palette (light) â€” same as teacher dashboard ---------- */
     --teal-900:#0d3841;
     --teal-800:#124f59;
     --teal-700:#1b6b78;
@@ -307,8 +306,8 @@
     transition:max-width .3s var(--ease), padding .3s var(--ease);
   }
 
-  /* When the in-page viewer is open, let it fill the entire available width/height —
-     no max-width column, no padding — so the loaded page truly owns the viewport. */
+  /* When the in-page viewer is open, let it fill the entire available width/height â€”
+     no max-width column, no padding â€” so the loaded page truly owns the viewport. */
   body.viewer-open main.dash{
     max-width:none;
     padding:0;
@@ -444,11 +443,11 @@
   }
 
   /* ---------- In-page iframe viewer ----------
-     No bar, no card chrome — it blends flush into the available space.
+     No bar, no card chrome â€” it blends flush into the available space.
      It is pinned with position:fixed from the header's live rendered
      height (--header-h, kept in sync by JS) down to the bottom of the
      viewport. This sidesteps the nested flex/min-height chain entirely,
-     so the iframe always gets a fully definite height to fill — full
+     so the iframe always gets a fully definite height to fill â€” full
      width, full height below the header, no blank space, no exceptions. */
   .page-viewer{
     display:none;
@@ -570,7 +569,7 @@
         <button class="icon-btn header-back-btn" id="header-back" type="button" aria-label="Back to dashboard" title="Back to dashboard" style="display:none;">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
         </button>
-        <img src="https://gsms-tools.github.io/gsms-logo.png" alt="GSMS crest" id="header-logo">
+        <img src="https://mygsms.in/gsms-logo.png" alt="GSMS crest" id="header-logo">
         <div class="header-text">
           <p class="header-greeting" id="greeting">Hello, Student</p>
           <p class="header-sub" id="header-sub">Student Dashboard</p>
@@ -594,7 +593,7 @@
 
     <div class="search-wrap" id="search-wrap">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input type="search" id="search" placeholder="Search tools…" autocomplete="off" aria-label="Search tools">
+      <input type="search" id="search" placeholder="Search toolsâ€¦" autocomplete="off" aria-label="Search tools">
     </div>
   </header>
 
@@ -608,7 +607,7 @@
     </div>
 
     <!-- Reusable in-page viewer: internal tools & sign-in load here, blended into the dashboard.
-         No inner header bar — the parent header shows the back button + tool name instead. -->
+         No inner header bar â€” the parent header shows the back button + tool name instead. -->
     <div class="page-viewer" id="page-viewer">
       <div class="page-viewer-body">
         <div class="pv-loading" id="pv-loading"><div class="spinner" role="status" aria-label="Loading"></div></div>
@@ -634,7 +633,7 @@
         <path d="M32 40v4" stroke="var(--teal-900)" stroke-width="3" stroke-linecap="round"/>
       </svg>
     </div>
-    <h3 id="signin-title">Oops! Sign in first 🔒</h3>
+    <h3 id="signin-title">Oops! Sign in first ðŸ”’</h3>
     <p id="signin-text">This tool is just for our students. Sign in with your student account to use it!</p>
     <div class="modal-actions">
       <button class="btn btn-primary" id="signin-now">Sign in now</button>
@@ -692,7 +691,7 @@
      moment it changes (e.g. the search row disappearing when the
      viewer opens). This is what guarantees the viewer always fills
      exactly "all the space below the header" with a definite,
-     non-ambiguous size — no more nested flex/min-height guessing.
+     non-ambiguous size â€” no more nested flex/min-height guessing.
   ========================================================== */
   var appHeaderEl = document.querySelector('.app-header');
   function updateHeaderHeightVar(){
@@ -741,20 +740,20 @@
   // content (true) or has been reset to about:blank (false). We use this
   // instead of inspecting `pvIframe.src`, because navigateIframe() below
   // moves the iframe via contentWindow.location.replace() rather than the
-  // `.src` attribute — and `.src` does NOT reflect navigations done that
+  // `.src` attribute â€” and `.src` does NOT reflect navigations done that
   // way, so any code checking it (theme sync, the load handler) would
   // silently stop working otherwise.
   var pvHasContent = false;
 
   // Navigate the shared viewer iframe WITHOUT adding a browser history
   // entry for that navigation. Assigning `.src` directly causes the iframe
-  // to push its own entry into the browser's joint session history —
+  // to push its own entry into the browser's joint session history â€”
   // invisible to our own code, but very real to the back button. Left
   // unchecked, those hidden entries interleave with our single
   // history.pushState() entry below, so one press of "back" would
   // sometimes only unwind the iframe's own internal navigation (leaving a
   // blank/stale page sitting in the viewer) instead of closing it, and
-  // other times unwind ours instead (correctly reaching the dashboard) —
+  // other times unwind ours instead (correctly reaching the dashboard) â€”
   // exactly the inconsistency being fixed. location.replace() on the
   // iframe's own window swaps its document in place instead of adding a
   // new entry, so our single top-level pushState() stays the only entry
@@ -771,7 +770,7 @@
   }
 
   // Generic, reusable handler for loading ANY page inside the dashboard.
-  // Pass { name, url } — works for tool pages, the sign-in page, the profile page, etc.
+  // Pass { name, url } â€” works for tool pages, the sign-in page, the profile page, etc.
   function loadPage(page){
     pvLoading.classList.remove('hidden');
     navigateIframe(page.url);
@@ -784,7 +783,7 @@
 
     document.body.classList.add('viewer-open');
     mainDash.classList.add('viewer-open');
-    headerSub.textContent = page.name || 'Loading…';
+    headerSub.textContent = page.name || 'Loadingâ€¦';
     headerBackBtn.style.display = 'flex';
     headerLogo.style.display = 'none';
 
@@ -796,7 +795,7 @@
   }
 
   // Called when the viewer should actually close (shared by header-back click
-  // and the browser's popstate event) — never pushes/pops history itself.
+  // and the browser's popstate event) â€” never pushes/pops history itself.
   function closePageInternal(){
     pageViewer.classList.remove('show');
     navigateIframe('about:blank');
@@ -843,7 +842,7 @@
     }
   });
 
-  /* Open a tool the "standalone" way — a real new tab, not inside our dashboard */
+  /* Open a tool the "standalone" way â€” a real new tab, not inside our dashboard */
   function openStandalone(tool){
     window.open(tool.url, '_blank', 'noopener');
   }
@@ -879,7 +878,7 @@
   });
 
   /* ==========================================================
-     TOOLS — add/edit tools here only
+     TOOLS â€” add/edit tools here only
      - restricted: true  -> requires a signed-in student account
      - standalone: true  -> opens as a real new tab (never in our iframe)
      - url: internal iframe target OR external site (for standalone)
@@ -921,7 +920,7 @@
     },
     {
       name: 'Quiz',
-      url: 'https://gsms-tools.github.io/students/quiz/',
+      url: 'https://mygsms.in/students/quiz/',
       restricted: false,
       standalone: false,
       icon:
@@ -953,7 +952,7 @@
     },
     {
       name: 'Ganesh Pooja',
-      url: 'https://gsms-tools.github.io/students/ganesh-pooja/',
+      url: 'https://mygsms.in/students/ganesh-pooja/',
       restricted: false,
       standalone: false,
       icon:
@@ -972,7 +971,7 @@
     },
     {
   name: 'Quick Share',
-  url: 'https://gsms-tools.github.io/students/quick-share/',
+  url: 'https://mygsms.in/students/quick-share/',
   restricted: false,
   standalone: false,
   icon:
@@ -990,7 +989,7 @@
 },
 {
   name: 'Sheet Lab',
-  url: 'https://gsms-tools.github.io/students/sheet-lab/',
+  url: 'https://mygsms.in/students/sheet-lab/',
   restricted: false,
   standalone: false,
   icon:
@@ -1010,7 +1009,7 @@
 },
     {
       name: 'Typing Town Adventure',
-      url: 'https://gsms-tools.github.io/students/typing-adventure/',
+      url: 'https://mygsms.in/students/typing-adventure/',
       restricted: false,
       standalone: false,
       icon:
@@ -1031,7 +1030,7 @@
     },
 {
   name: 'Snapshot Safari',
-  url: 'https://gsms-tools.github.io/students/snapshot-safari/',
+  url: 'https://mygsms.in/students/snapshot-safari/',
   restricted: false,
   standalone: false,
   icon:
@@ -1052,7 +1051,7 @@
 },
     {
   name: 'Flashcard Memory Game',
-  url: 'https://gsms-tools.github.io/students/flashcard-memory-game/',
+  url: 'https://mygsms.in/students/flashcard-memory-game/',
   restricted: false,
   standalone: false,
   icon:
@@ -1071,7 +1070,7 @@
     },
 {
   name: 'Rangoli Studio',
-  url: 'https://gsms-tools.github.io/students/rangoli-studio/',
+  url: 'https://mygsms.in/students/rangoli-studio/',
   restricted: false,
   standalone: false,
   icon:
@@ -1094,7 +1093,7 @@
 },
 {
   name: 'Sound Studio',
-  url: 'https://gsms-tools.github.io/students/sound-studio/',
+  url: 'https://mygsms.in/students/sound-studio/',
   restricted: false,
   standalone: false,
   icon:
@@ -1114,7 +1113,7 @@
 },
     {
   name: 'Number Line Game',
-  url: 'https://gsms-tools.github.io/students/number-line-game/',
+  url: 'https://mygsms.in/students/number-line-game/',
   restricted: false,
   standalone: false,
   icon:
@@ -1139,7 +1138,7 @@
     },
 {
   name: 'Rupee Game',
-  url: 'https://gsms-tools.github.io/students/rupee-game/',
+  url: 'https://mygsms.in/students/rupee-game/',
   restricted: false,
   standalone: false,
   icon:
@@ -1161,7 +1160,7 @@
 },
 {
   name: 'Pizza Fractions',
-  url: 'https://gsms-tools.github.io/students/pizza-fractions/',
+  url: 'https://mygsms.in/students/pizza-fractions/',
   restricted: false,
   standalone: false,
   icon:
@@ -1178,13 +1177,13 @@
     '<circle class="eye-blink" cx="27" cy="26" r="1.8" fill="#1c2626"/>' +
     '<circle class="eye-blink" cx="37" cy="26" r="1.8" fill="#1c2626"/>' +
     '<path d="M28 32q4 3 8 0" stroke="#1c2626" stroke-width="1.8" fill="none" stroke-linecap="round"/>' +
-    '<text x="46" y="15" font-family="Fraunces, serif" font-size="10" font-weight="700" fill="#a679e0">½</text>' +
+    '<text x="46" y="15" font-family="Fraunces, serif" font-size="10" font-weight="700" fill="#a679e0">Â½</text>' +
     '<path d="M12 17l1.5-3 1.5 3 3 1.5-3 1.5-1.5 3-1.5-3-3-1.5z" fill="#ffd85c" class="sparkle"/>' +
     '</g>'
 },
     {
   name: 'Abacus',
-  url: 'https://gsms-tools.github.io/students/abacus/',
+  url: 'https://mygsms.in/students/abacus/',
   restricted: false,
   standalone: false,
   icon:
@@ -1208,7 +1207,7 @@
     },
 {
   name: 'Clock Quest',
-  url: 'https://gsms-tools.github.io/students/clock-quest/',
+  url: 'https://mygsms.in/students/clock-quest/',
   restricted: false,
   standalone: false,
   icon:
@@ -1232,7 +1231,7 @@
 },
 {
   name: 'Geometry Studio',
-  url: 'https://gsms-tools.github.io/students/geometry-studio/',
+  url: 'https://mygsms.in/students/geometry-studio/',
   restricted: false,
   standalone: false,
   icon:
@@ -1257,7 +1256,7 @@
 },
 {
   name: 'Plant Doctor',
-  url: 'https://gsms-tools.github.io/students/plant-doctor/',
+  url: 'https://mygsms.in/students/plant-doctor/',
   restricted: false,
   standalone: false,
   icon:
@@ -1280,7 +1279,7 @@
 },
 {
   name: 'Circuit Lab',
-  url: 'https://gsms-tools.github.io/students/circuit-lab/',
+  url: 'https://mygsms.in/students/circuit-lab/',
   restricted: false,
   standalone: false,
   icon:
@@ -1306,7 +1305,7 @@
 },
 {
   name: 'Magnet Lab',
-  url: 'https://gsms-tools.github.io/students/magnet-lab/',
+  url: 'https://mygsms.in/students/magnet-lab/',
   restricted: false,
   standalone: false,
   icon:
@@ -1327,7 +1326,7 @@
 },
     {
   name: 'Computer Parts Quest',
-  url: 'https://gsms-tools.github.io/students/computer-parts-quest/',
+  url: 'https://mygsms.in/students/computer-parts-quest/',
   restricted: false,
   standalone: false,
   icon:
@@ -1350,7 +1349,7 @@
 },
     {
       name: 'Code Quest',
-      url: 'https://gsms-tools.github.io/students/code-quest/',
+      url: 'https://mygsms.in/students/code-quest/',
       restricted: false,
       standalone: false,
       icon:
@@ -1368,7 +1367,7 @@
     },
     {
       name: 'Shape Draw',
-      url: 'https://gsms-tools.github.io/students/shape-draw/',
+      url: 'https://mygsms.in/students/shape-draw/',
       restricted: false,
       standalone: false,
       icon:
@@ -1386,7 +1385,7 @@
     },
 {
   name: 'Balance Scale',
-  url: 'https://gsms-tools.github.io/students/balance-scale/',
+  url: 'https://mygsms.in/students/balance-scale/',
   restricted: false,
   standalone: false,
   icon:
@@ -1442,7 +1441,7 @@
   ];
 
   /* ==========================================================
-     STATE — resolved asynchronously, doesn't block tile rendering
+     STATE â€” resolved asynchronously, doesn't block tile rendering
   ========================================================== */
   var state = {
     isStudent: false,
@@ -1463,7 +1462,7 @@
       openSigninModal({ name: 'Profile' });
       return;
     }
-    loadPage({ name: 'My Profile', url: 'https://gsms-tools.github.io/students/profile/' });
+    loadPage({ name: 'My Profile', url: 'https://mygsms.in/students/profile/' });
   });
 
   /* ==========================================================
@@ -1516,11 +1515,11 @@
     renderTiles(filterTools(e.target.value));
   });
 
-  // Render immediately — the dashboard is open to everyone.
+  // Render immediately â€” the dashboard is open to everyone.
   renderTiles(TOOLS);
 
   /* ==========================================================
-     SUPABASE — background auth check (does not block the page)
+     SUPABASE â€” background auth check (does not block the page)
   ========================================================== */
   var SUPABASE_URL = 'https://ctuqlmdunhdhhholsqco.supabase.co';
   var SUPABASE_ANON_KEY = 'sb_publishable_jaogFl0uiNQW_3kkPakSrw_uVTwohtY';
@@ -1531,7 +1530,7 @@
       var sessionResult = await supabaseClient.auth.getSession();
       var session = sessionResult && sessionResult.data ? sessionResult.data.session : null;
       if(!session || !session.user){
-        return; // guest — tiles already shown, restricted ones will prompt sign-in
+        return; // guest â€” tiles already shown, restricted ones will prompt sign-in
       }
 
       var studentCheck = await supabaseClient.rpc('is_student');
