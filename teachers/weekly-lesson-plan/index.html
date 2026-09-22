@@ -390,13 +390,18 @@
   .btn-row{ display:flex; gap:10px; margin-top:16px; }
   .btn-row .btn{ flex:1; }
 
-  .ai-gen-row{ margin-top:8px; }
-  .btn-ai{
-    padding:8px 14px;
-    font-size:.78rem;
-    border-radius:10px;
-  }
-  .btn-ai:disabled{ opacity:.6; }
+  .ai-gen-row{
+  margin-top:8px;
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.btn-ai{
+  padding:8px 14px;
+  font-size:.78rem;
+  border-radius:10px;
+}
+.btn-ai:disabled{ opacity:.6; }
 
   .last-modified{
     font-size:.76rem;
@@ -576,6 +581,7 @@
   <textarea id="f-topics" rows="2" placeholder="e.g. Chapter 4: Fractions — addition &amp; subtraction of like fractions"></textarea>
   <div class="ai-gen-row">
     <button class="btn btn-ghost btn-ai" type="button" data-ai-field="f-topics">✨ Generate with AI</button>
+    <button class="btn btn-ghost btn-ai-correct" type="button" data-correct-field="f-topics">🩹 Auto-correct</button>
   </div>
 </div>
 <div class="field">
@@ -583,6 +589,7 @@
   <textarea id="f-classwork" rows="2" placeholder="What will be covered / practised in class"></textarea>
   <div class="ai-gen-row">
     <button class="btn btn-ghost btn-ai" type="button" data-ai-field="f-classwork">✨ Generate with AI</button>
+    <button class="btn btn-ghost btn-ai-correct" type="button" data-correct-field="f-classwork">🩹 Auto-correct</button>
   </div>
 </div>
 <div class="field">
@@ -590,6 +597,7 @@
   <textarea id="f-homework" rows="2" placeholder="What students should complete at home"></textarea>
   <div class="ai-gen-row">
     <button class="btn btn-ghost btn-ai" type="button" data-ai-field="f-homework">✨ Generate with AI</button>
+    <button class="btn btn-ghost btn-ai-correct" type="button" data-correct-field="f-homework">🩹 Auto-correct</button>
   </div>
 </div>
 <div class="field">
@@ -597,6 +605,7 @@
   <textarea id="f-activity" rows="2" placeholder="Any planned classroom or group activity"></textarea>
   <div class="ai-gen-row">
     <button class="btn btn-ghost btn-ai" type="button" data-ai-field="f-activity">✨ Generate with AI</button>
+    <button class="btn btn-ghost btn-ai-correct" type="button" data-correct-field="f-activity">🩹 Auto-correct</button>
   </div>
 </div>
 <div class="field">
@@ -604,6 +613,7 @@
   <textarea id="f-skills" rows="2" placeholder="e.g. Critical thinking, collaboration, numeracy"></textarea>
   <div class="ai-gen-row">
     <button class="btn btn-ghost btn-ai" type="button" data-ai-field="f-skills">✨ Generate with AI</button>
+    <button class="btn btn-ghost btn-ai-correct" type="button" data-correct-field="f-skills">🩹 Auto-correct</button>
   </div>
 </div>
 
@@ -811,6 +821,46 @@ document.querySelectorAll('.btn-ai').forEach(function(btn){
       .catch(function(err){
         console.error('AI generation failed:', err);
         toast('AI generation failed. Please try again.', true);
+      })
+      .finally(function(){
+        btn.disabled = false;
+        btn.textContent = originalText;
+      });
+  });
+});
+
+/* =========================================================
+   AI "AUTO-CORRECT" FEATURE
+========================================================= */
+document.querySelectorAll('.btn-ai-correct').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var fieldId = btn.getAttribute('data-correct-field');
+    var textarea = document.getElementById(fieldId);
+    var currentText = textarea.value.trim();
+
+    if(!currentText){
+      toast('Nothing to correct — this field is empty.', true);
+      return;
+    }
+
+    var originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Correcting…';
+
+    window.correct(currentText)
+      .then(function(data){
+        var corrected = extractAiText(data).trim();
+        if(!corrected){
+          toast('AI did not return any content. Please try again.', true);
+          return;
+        }
+        textarea.value = corrected;
+        autoResizeTextarea(textarea);
+        toast(AI_FIELD_LABELS[fieldId] + ' corrected.');
+      })
+      .catch(function(err){
+        console.error('AI auto-correct failed:', err);
+        toast('Auto-correct failed. Please try again.', true);
       })
       .finally(function(){
         btn.disabled = false;
