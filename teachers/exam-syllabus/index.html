@@ -13,10 +13,10 @@
   })();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Exam Syllabus | GSMS Tools</title>
+<title>Exam Syllabus | My GSMS</title>
 <meta name="description" content="Exam syllabus tracking tool for Gopal Sharma Memorial School teachers.">
 <meta name="robots" content="noindex, nofollow">
-<link rel="icon" type="image/png" href="https://gsms-tools.github.io/gsms-logo.png">
+<link rel="icon" type="image/png" href="https://mygsms.in/gsms-logo.png">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -739,8 +739,8 @@
 ========================================================= */
 var SUPABASE_URL = 'https://ctuqlmdunhdhhholsqco.supabase.co';
 var SUPABASE_ANON_KEY = 'sb_publishable_jaogFl0uiNQW_3kkPakSrw_uVTwohtY';
-var AUTH_REDIRECT = 'https://gsms-tools.github.io/auth.html';
-var DASHBOARD_URL = 'https://gsms-tools.github.io/teachers/';
+var AUTH_REDIRECT = 'https://mygsms.in/auth.html';
+var DASHBOARD_URL = 'https://mygsms.in/teachers/';
 
 var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -1507,7 +1507,7 @@ function generatePdfFlow(afterBuild){
     var originalHtml = btn.innerHTML;
     btn.textContent = 'Preparing PDF…';
     try{
-      var logoDataUrl = await loadImageAsDataURL('https://gsms-tools.github.io/gsms-logo.png');
+      var logoDataUrl = await loadImageAsDataURL('https://mygsms.in/gsms-logo.png');
       var result = await buildPdf(logoDataUrl, selectedFields);
       afterBuild.onDone(result);
     }catch(e){
