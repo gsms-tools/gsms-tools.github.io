@@ -13,10 +13,10 @@
   })();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Weekly Lesson Plan | GSMS Tools</title>
-<meta name="description" content="Weekly lesson plan tool for Gopal Sharma Memorial School teachers.">
+<title>Weekly Lesson Plan | My GSMS</title>
+<meta name="description" content="Weekly lesson plan tool for Gopal Sharma Memorial School teachers. The tool is intended for internal school use only.">
 <meta name="robots" content="noindex, nofollow">
-<link rel="icon" type="image/png" href="https://gsms-tools.github.io/gsms-logo.png">
+<link rel="icon" type="image/png" href="https://mygsms.in/gsms-logo.png">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -715,8 +715,8 @@
 ========================================================= */
 var SUPABASE_URL = 'https://ctuqlmdunhdhhholsqco.supabase.co';
 var SUPABASE_ANON_KEY = 'sb_publishable_jaogFl0uiNQW_3kkPakSrw_uVTwohtY';
-var AUTH_REDIRECT = 'https://gsms-tools.github.io/auth.html';
-var DASHBOARD_URL = 'https://gsms-tools.github.io/teachers/';
+var AUTH_REDIRECT = 'https://mygsms.in/teachers/auth.html';
+var DASHBOARD_URL = 'https://mygsms.in/teachers/';
 
 var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -1503,7 +1503,7 @@ document.getElementById('btn-share-pdf').addEventListener('click', async functio
   btn.textContent = 'Preparing PDF…';
 
   try{
-    var logoDataUrl = await loadImageAsDataURL('https://gsms-tools.github.io/gsms-logo.png');
+    var logoDataUrl = await loadImageAsDataURL('https://mygsms.in/gsms-logo.png');
     var result = await buildPdf(logoDataUrl);
     shareOrDownloadBlob(result.blob, result.fileName);
   }catch(e){
@@ -1526,7 +1526,7 @@ document.getElementById('btn-download-pdf').addEventListener('click', async func
   btn.textContent = 'Preparing PDF…';
 
   try{
-    var logoDataUrl = await loadImageAsDataURL('https://gsms-tools.github.io/gsms-logo.png');
+    var logoDataUrl = await loadImageAsDataURL('https://mygsms.in/gsms-logo.png');
     var result = await buildPdf(logoDataUrl);
     downloadBlob(result.blob, result.fileName);
     toast('PDF downloaded.');
