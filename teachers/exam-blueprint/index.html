@@ -294,6 +294,11 @@
   .panel{ display:none; flex-direction:column; gap:16px; }
   .panel.active{ display:flex; }
 
+  .edit-form-wrap{ flex-direction:column; gap:16px; }
+  @media (max-width:480px){
+    .edit-form-wrap{ gap:14px; }
+  }
+
   .card{
     background:var(--white);
     border:1px solid var(--border-card);
@@ -311,6 +316,8 @@
     display:flex;
     align-items:center;
     justify-content:space-between;
+    flex-wrap:wrap;
+    row-gap:8px;
     gap:10px;
   }
   .chip{
@@ -322,11 +329,15 @@
     padding:5px 11px;
     border-radius:999px;
     white-space:nowrap;
+    max-width:100%;
   }
   .chip.level-low{ color:var(--danger); background:var(--danger-bg); }
   .chip.level-mid{ color:var(--gold-600); background:var(--bg-tint-gold); }
   .chip.level-high{ color:var(--teal-700); background:var(--bg-tint-teal); }
   .chip.level-done{ color:var(--success); background:var(--success-bg); }
+  @media (max-width:480px){
+    .card-title .chip{ white-space:normal; line-height:1.35; }
+  }
 
   .field{ margin-bottom:14px; }
   .field:last-child{ margin-bottom:0; }
@@ -342,6 +353,7 @@
   .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   .row3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
   @media (max-width:480px){ .row2{ grid-template-columns:1fr; } .row3{ grid-template-columns:1fr 1fr; } }
+  @media (max-width:360px){ .row3{ grid-template-columns:1fr; } }
 
   input[type="date"], input[type="number"], input[type="text"], select, textarea{
     width:100%;
@@ -390,6 +402,9 @@
   .btn-row{ display:flex; gap:10px; margin-top:16px; }
   .btn-row .btn{ flex:1; }
   .btn-sm{ padding:8px 14px; font-size:.78rem; border-radius:10px; }
+  @media (max-width:360px){
+    .btn-row{ flex-direction:column-reverse; }
+  }
 
   .ai-gen-row{ margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; }
   .btn-ai{ padding:8px 14px; font-size:.78rem; border-radius:10px; }
@@ -411,27 +426,35 @@
      stay readable either way, and the inputs get a solid white field for real
      contrast instead of a translucent overlay. */
   .marks-bar{
-    display:flex; align-items:center; justify-content:space-between; gap:14px;
+    display:flex; align-items:flex-end; justify-content:flex-start; gap:16px 22px;
     flex-wrap:wrap;
     background:var(--teal-900);
     color:#ffffff;
     border-radius:var(--r-sm);
-    padding:14px 18px;
+    padding:16px 18px;
     position:sticky; top:calc(env(safe-area-inset-top) + 118px); z-index:10;
     box-shadow:0 14px 30px -16px rgba(13,56,65,.55);
     border:1.5px solid var(--gold-500);
   }
-  .marks-bar-item{ display:flex; flex-direction:column; gap:5px; }
+  .marks-bar-item{ display:flex; flex-direction:column; gap:6px; flex:1 1 100px; min-width:100px; }
   .marks-bar-item.is-hidden{ display:none; }
   .marks-bar-label{ font-size:.68rem; font-weight:800; letter-spacing:.09em; text-transform:uppercase; color:var(--gold-400); }
   .marks-bar-value{ font-family:'Fraunces',serif; font-weight:700; font-size:1.2rem; color:#ffffff; }
   .marks-bar input{
-    width:86px; text-align:center; padding:9px 6px; background:#ffffff;
+    width:100%; max-width:110px; text-align:center; padding:9px 6px; background:#ffffff;
     border:1.5px solid var(--gold-400); color:var(--teal-900); font-weight:800;
   }
   .marks-bar input:focus{ border-color:var(--gold-600); box-shadow:0 0 0 4px rgba(245,166,35,.4); }
   .marks-bar-reset{ font-size:.72rem; text-decoration:underline; cursor:pointer; background:none; border:none; color:var(--gold-400); padding:0; font-weight:800; }
   .marks-bar-reset:hover{ color:var(--gold-100); }
+  @media (max-width:480px){
+    .marks-bar{ padding:14px 16px; gap:14px 18px; position:static; }
+    .marks-bar-item{ flex:1 1 42%; min-width:0; }
+    .marks-bar input{ max-width:none; }
+  }
+  @media (max-width:360px){
+    .marks-bar-item{ flex:1 1 100%; }
+  }
 
   /* ---------- Blueprint mode switch (builder vs. freehand text) ---------- */
   .mode-toggle{
@@ -450,10 +473,13 @@
     transition:background-color .2s var(--ease), border-color .2s var(--ease);
   }
   .mode-toggle-btn strong{ font-size:.86rem; font-weight:800; color:var(--ink-900); }
-  .mode-toggle-btn span{ display:block; font-size:.72rem; font-weight:600; color:var(--ink-500); margin-top:1px; }
+  .mode-toggle-btn span{ display:block; font-size:.72rem; font-weight:600; color:var(--ink-500); margin-top:1px; line-height:1.4; }
   .mode-toggle-btn.active{ background:var(--white); border-color:var(--border-card-hover); box-shadow:0 8px 18px -10px rgba(13,56,65,.35); }
   .mode-toggle-btn.active strong{ color:var(--teal-700); }
   html[data-theme="dark"] .mode-toggle-btn.active strong{ color:var(--gold-400); }
+  @media (max-width:520px){
+    .mode-toggle{ flex-direction:column; }
+  }
   .mode-note{
     display:flex; gap:9px; align-items:flex-start;
     font-size:.78rem; color:var(--ink-900); line-height:1.5;
@@ -483,8 +509,8 @@
     margin-bottom:14px;
     background:var(--bg-tint-gold);
   }
-  .section-block-head{ display:flex; gap:10px; align-items:flex-end; margin-bottom:12px; }
-  .section-block-head .field{ flex:1; margin-bottom:0; }
+  .section-block-head{ display:flex; gap:10px; align-items:flex-end; margin-bottom:12px; flex-wrap:wrap; }
+  .section-block-head .field{ flex:1 1 200px; margin-bottom:0; min-width:0; }
   .section-remove-btn{ flex-shrink:0; }
 
   .group-block{
@@ -496,7 +522,7 @@
     position:relative;
   }
   .group-block:last-of-type{ margin-bottom:0; }
-  .group-block-top{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; }
+  .group-block-top{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px 10px; margin-bottom:10px; }
   .group-block-title{ font-weight:700; font-size:.82rem; color:var(--teal-700); }
   .group-marks-pill{
     font-size:.72rem; font-weight:700; color:var(--gold-600); background:var(--bg-tint-gold);
@@ -509,11 +535,12 @@
   .remove-x svg{ width:12px; height:12px; stroke:var(--danger); fill:none; stroke-width:2.4; stroke-linecap:round; }
 
   .parts-wrap{ margin-top:10px; padding-top:10px; border-top:1px dashed var(--border-card); }
-  .part-row{ display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+  .part-row{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px; }
   .part-row:last-child{ margin-bottom:0; }
-  .part-row input[type="text"]{ flex:0 0 64px; text-align:center; }
-  .part-row input[type="number"]{ flex:0 0 90px; }
-  .part-row .part-label-tag{ flex:1; font-size:.8rem; color:var(--ink-500); }
+  .part-row input[type="text"]{ flex:0 0 60px; text-align:center; }
+  .part-row input[type="number"]{ flex:0 0 84px; }
+  .part-row .part-label-tag{ flex:1 1 auto; min-width:110px; font-size:.8rem; color:var(--ink-500); }
+  .part-row .remove-x{ margin-left:auto; }
 
   .toggle-row{ display:flex; align-items:center; gap:9px; margin:10px 0; }
   .toggle-row input[type="checkbox"]{ width:18px; height:18px; accent-color:var(--teal-700); flex-shrink:0; }
@@ -527,7 +554,17 @@
   html[data-theme="dark"] .add-dashed-btn{ color:var(--gold-400); }
   .add-dashed-btn:hover{ background:var(--bg-tint-teal); }
 
-  .helper-text{ font-size:.74rem; color:var(--ink-500); margin:-6px 0 10px; }
+  .helper-text{ font-size:.74rem; color:var(--ink-500); margin:-6px 0 10px; line-height:1.5; }
+
+  @media (max-width:600px){
+    main.dash{ padding-left:14px; padding-right:14px; }
+    .card{ padding:15px; }
+    .section-block{ padding:13px; }
+    .group-block{ padding:12px; }
+  }
+  @media (max-width:420px){
+    .part-row .part-label-tag{ order:3; flex-basis:100%; margin-top:2px; }
+  }
 
   /* ---------- Browse results / blueprint preview ---------- */
   .results-header{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:2px; flex-wrap:wrap; }
@@ -692,7 +729,7 @@
         </div>
       </div>
 
-      <div id="edit-form-wrap" style="display:none; flex-direction:column; gap:16px;">
+      <div class="edit-form-wrap" id="edit-form-wrap" style="display:none;">
 
         <div class="marks-bar">
           <div class="marks-bar-item" id="calc-marks-item">
