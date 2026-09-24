@@ -404,26 +404,76 @@
   .placeholder-note svg{ width:36px; height:36px; stroke:var(--ink-500); fill:none; stroke-width:1.6; }
   .placeholder-note p{ margin:0; font-size:.88rem; }
 
-  /* ---------- Marks summary bar ---------- */
+  /* ---------- Marks summary bar ----------
+     Intentionally a solid, always-dark teal panel (not the old teal-700→teal-900
+     gradient, and not theme-inverted): --teal-900 stays a dark navy-teal in both
+     light and dark mode, so the light-gold labels and white values on top of it
+     stay readable either way, and the inputs get a solid white field for real
+     contrast instead of a translucent overlay. */
   .marks-bar{
     display:flex; align-items:center; justify-content:space-between; gap:14px;
-    background:linear-gradient(150deg,var(--teal-700),var(--teal-900));
-    color:var(--white);
+    flex-wrap:wrap;
+    background:var(--teal-900);
+    color:#ffffff;
     border-radius:var(--r-sm);
-    padding:14px 16px;
+    padding:14px 18px;
     position:sticky; top:calc(env(safe-area-inset-top) + 118px); z-index:10;
     box-shadow:0 14px 30px -16px rgba(13,56,65,.55);
+    border:1.5px solid var(--gold-500);
   }
-  html[data-theme="dark"] .marks-bar{ color:var(--teal-900); }
-  .marks-bar-item{ display:flex; flex-direction:column; gap:2px; }
-  .marks-bar-label{ font-size:.66rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.75; }
-  .marks-bar-value{ font-family:'Fraunces',serif; font-weight:600; font-size:1.15rem; }
+  .marks-bar-item{ display:flex; flex-direction:column; gap:5px; }
+  .marks-bar-item.is-hidden{ display:none; }
+  .marks-bar-label{ font-size:.68rem; font-weight:800; letter-spacing:.09em; text-transform:uppercase; color:var(--gold-400); }
+  .marks-bar-value{ font-family:'Fraunces',serif; font-weight:700; font-size:1.2rem; color:#ffffff; }
   .marks-bar input{
-    width:80px; text-align:center; padding:8px 6px; background:rgba(255,255,255,.14);
-    border:1.5px solid rgba(255,255,255,.3); color:inherit; font-weight:700;
+    width:86px; text-align:center; padding:9px 6px; background:#ffffff;
+    border:1.5px solid var(--gold-400); color:var(--teal-900); font-weight:800;
   }
-  html[data-theme="dark"] .marks-bar input{ background:rgba(9,34,39,.14); border-color:rgba(9,34,39,.3); }
-  .marks-bar-reset{ font-size:.7rem; text-decoration:underline; cursor:pointer; opacity:.85; background:none; border:none; color:inherit; padding:0; font-weight:700; }
+  .marks-bar input:focus{ border-color:var(--gold-600); box-shadow:0 0 0 4px rgba(245,166,35,.4); }
+  .marks-bar-reset{ font-size:.72rem; text-decoration:underline; cursor:pointer; background:none; border:none; color:var(--gold-400); padding:0; font-weight:800; }
+  .marks-bar-reset:hover{ color:var(--gold-100); }
+
+  /* ---------- Blueprint mode switch (builder vs. freehand text) ---------- */
+  .mode-toggle{
+    display:flex; gap:8px;
+    background:var(--cream);
+    border:1.5px solid var(--border-card);
+    border-radius:16px;
+    padding:6px;
+  }
+  .mode-toggle-btn{
+    flex:1; text-align:left;
+    display:flex; flex-direction:column; gap:3px;
+    padding:12px 14px;
+    border-radius:12px; border:1.5px solid transparent;
+    background:transparent; cursor:pointer;
+    transition:background-color .2s var(--ease), border-color .2s var(--ease);
+  }
+  .mode-toggle-btn strong{ font-size:.86rem; font-weight:800; color:var(--ink-900); }
+  .mode-toggle-btn span{ display:block; font-size:.72rem; font-weight:600; color:var(--ink-500); margin-top:1px; }
+  .mode-toggle-btn.active{ background:var(--white); border-color:var(--border-card-hover); box-shadow:0 8px 18px -10px rgba(13,56,65,.35); }
+  .mode-toggle-btn.active strong{ color:var(--teal-700); }
+  html[data-theme="dark"] .mode-toggle-btn.active strong{ color:var(--gold-400); }
+  .mode-note{
+    display:flex; gap:9px; align-items:flex-start;
+    font-size:.78rem; color:var(--ink-900); line-height:1.5;
+    background:var(--bg-tint-teal);
+    border-radius:var(--r-sm);
+    padding:11px 13px;
+    margin-top:12px;
+  }
+  .mode-note.mode-note-freehand{ background:var(--bg-tint-gold); }
+  .mode-note svg{ width:16px; height:16px; flex-shrink:0; margin-top:1px; stroke:var(--teal-700); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .mode-note.mode-note-freehand svg{ stroke:var(--gold-600); }
+  .freehand-wrap textarea{ min-height:220px; line-height:1.65; }
+  .sync-row{ display:flex; justify-content:flex-end; margin-top:6px; }
+  .sync-btn{ font-size:.76rem; font-weight:700; color:var(--teal-700); background:none; border:none; cursor:pointer; text-decoration:underline; padding:0; }
+  html[data-theme="dark"] .sync-btn{ color:var(--gold-400); }
+  .preview-freehand{
+    white-space:pre-wrap; font-size:.86rem; line-height:1.6; color:var(--ink-900);
+    background:var(--cream); border:1px dashed var(--border-card); border-radius:var(--r-sm);
+    padding:12px 14px;
+  }
 
   /* ---------- Section & question-group builder ---------- */
   .section-block{
@@ -645,7 +695,7 @@
       <div id="edit-form-wrap" style="display:none; flex-direction:column; gap:16px;">
 
         <div class="marks-bar">
-          <div class="marks-bar-item">
+          <div class="marks-bar-item" id="calc-marks-item">
             <span class="marks-bar-label">Calculated</span>
             <span class="marks-bar-value" id="calc-marks-display">0 marks</span>
           </div>
@@ -672,7 +722,29 @@
           </div>
         </div>
 
-        <div class="card">
+        <div class="card" id="mode-select-card">
+          <p class="card-title">How do you want to write this blueprint?</p>
+          <div class="mode-toggle">
+            <button class="mode-toggle-btn active" id="mode-btn-structured" type="button" data-mode="structured">
+              <strong>🧩 Use the builder</strong>
+              <span>Fill in simple fields — questions, marks, choices — and we lay it out for you.</span>
+            </button>
+            <button class="mode-toggle-btn" id="mode-btn-freehand" type="button" data-mode="freehand">
+              <strong>✍️ Write it myself</strong>
+              <span>Type out the whole blueprint in your own words, exactly as you want it.</span>
+            </button>
+          </div>
+          <div class="mode-note" id="mode-note-structured">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+            <span>The builder adds up marks for you automatically as you fill in each question group below.</span>
+          </div>
+          <div class="mode-note mode-note-freehand" id="mode-note-freehand" style="display:none;">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+            <span><strong>Heads up:</strong> here you type the entire blueprint yourself, including any marks and instructions — we won't calculate or check anything. Saving in this mode will replace the builder version below with your plain text.</span>
+          </div>
+        </div>
+
+        <div class="card" id="structured-builder-card">
           <p class="card-title">
             Paper pattern
             <span class="chip">Add sections only if your paper uses them</span>
@@ -682,6 +754,21 @@
           <div id="sections-container"></div>
 
           <button class="add-dashed-btn" id="btn-add-section" type="button" style="margin-top:6px;">+ Add another section (e.g. Section B)</button>
+        </div>
+
+        <div class="card" id="freehand-card" style="display:none;">
+          <p class="card-title">Write your blueprint</p>
+          <p class="helper-text">Type it exactly how you'd like it to appear on the paper, one line per question type — for example:<br>"MCQs: 10 x 1 = 10 marks"<br>"Short Answer (attempt any 2 out of 3): 3 marks each"<br>We save this exactly as you type it, with no calculations of our own.</p>
+          <div class="field freehand-wrap" style="margin-bottom:0;">
+            <label for="f-freehand-text">Blueprint text</label>
+            <textarea id="f-freehand-text" rows="10" placeholder="e.g.&#10;Section A – MCQs: 10 x 1 = 10 marks&#10;Section B – Short Answer (attempt any 2 out of 3): 3 marks each&#10;Section C – Long Answer: 2 x 5 = 10 marks"></textarea>
+            <div class="ai-gen-row">
+              <button class="btn btn-ghost btn-ai-correct" type="button" data-correct-field="f-freehand-text">🩹 Auto-correct</button>
+            </div>
+          </div>
+          <div class="sync-row">
+            <button class="sync-btn" id="btn-sync-from-builder" type="button">↻ Refill this text from the builder</button>
+          </div>
         </div>
 
         <p class="last-modified" id="edit-last-modified"></p>
@@ -1153,6 +1240,66 @@ document.getElementById('btn-reset-total').addEventListener('click', function(){
 });
 document.getElementById('f-duration').addEventListener('input', function(){});
 
+/* =========================================================
+   BLUEPRINT MODE — "use the builder" vs. "write it myself"
+   Both modes are stored in the SAME blueprint_json column; we just
+   tag the object with { mode: 'structured' | 'freehand' } so the
+   backend schema never has to change.
+========================================================= */
+var blueprintMode = 'structured';
+var freehandManuallyEdited = false;
+var freehandTextEl = document.getElementById('f-freehand-text');
+
+function generateFreehandFromBuilder(data){
+  var lines = [];
+  (data && data.sections ? data.sections : []).forEach(function(section){
+    if(section.name){ lines.push(section.name.toUpperCase()); }
+    if(section.instructions){ lines.push(section.instructions); }
+    (section.groups || []).forEach(function(group){
+      var d = groupDescription(group);
+      lines.push(d.desc + ' — ' + groupMarks(group) + ' marks');
+      if(d.note){ lines.push('  (' + d.note + ')'); }
+    });
+    lines.push('');
+  });
+  return lines.join('\n').trim();
+}
+
+function syncFreehandFromBuilder(){
+  freehandTextEl.value = generateFreehandFromBuilder(builderData);
+  autoResizeTextarea(freehandTextEl);
+}
+
+function setBlueprintMode(mode, opts){
+  opts = opts || {};
+  blueprintMode = mode;
+
+  document.getElementById('mode-btn-structured').classList.toggle('active', mode === 'structured');
+  document.getElementById('mode-btn-freehand').classList.toggle('active', mode === 'freehand');
+  document.getElementById('structured-builder-card').style.display = mode === 'structured' ? 'flex' : 'none';
+  document.getElementById('freehand-card').style.display = mode === 'freehand' ? 'flex' : 'none';
+  document.getElementById('mode-note-structured').style.display = mode === 'structured' ? 'flex' : 'none';
+  document.getElementById('mode-note-freehand').style.display = mode === 'freehand' ? 'flex' : 'none';
+
+  document.getElementById('calc-marks-item').classList.toggle('is-hidden', mode === 'freehand');
+  document.getElementById('btn-reset-total').style.display = mode === 'freehand' ? 'none' : 'inline';
+
+  if(mode === 'freehand' && !freehandManuallyEdited && !opts.skipSync){
+    syncFreehandFromBuilder();
+  }
+}
+
+document.getElementById('mode-btn-structured').addEventListener('click', function(){ setBlueprintMode('structured'); });
+document.getElementById('mode-btn-freehand').addEventListener('click', function(){ setBlueprintMode('freehand'); });
+
+freehandTextEl.addEventListener('input', function(){ freehandManuallyEdited = true; });
+
+document.getElementById('btn-sync-from-builder').addEventListener('click', function(){
+  syncFreehandFromBuilder();
+  freehandManuallyEdited = false;
+  toast('Refilled from the builder.');
+});
+
 /* ---------- Rendering ---------- */
 function typeSelectHtml(group){
   var opts = QUESTION_TYPE_PRESETS.map(function(t){
@@ -1423,6 +1570,9 @@ function clearEditFields(){
   document.getElementById('btn-delete-blueprint').style.display = 'none';
   state.editingExists = false;
   resetBuilder(null, null, null, '');
+  freehandTextEl.value = '';
+  freehandManuallyEdited = false;
+  setBlueprintMode('structured', { skipSync: true });
 }
 
 function maybeLoadEditEntry(){
@@ -1439,7 +1589,21 @@ function maybeLoadEditEntry(){
     .then(function(res){
       if(res.error){ toast('Could not load existing entry.', true); return; }
       if(res.data){
-        resetBuilder(res.data.blueprint_json, res.data.total_marks, res.data.duration_minutes, res.data.general_instructions);
+        var bp = res.data.blueprint_json || {};
+        var savedMode = bp.mode === 'freehand' ? 'freehand' : 'structured';
+
+        resetBuilder({ sections: bp.sections }, res.data.total_marks, res.data.duration_minutes, res.data.general_instructions);
+
+        if(savedMode === 'freehand'){
+          freehandTextEl.value = bp.text || '';
+          autoResizeTextarea(freehandTextEl);
+          freehandManuallyEdited = true;
+        } else {
+          freehandTextEl.value = '';
+          freehandManuallyEdited = false;
+        }
+        setBlueprintMode(savedMode, { skipSync: true });
+
         document.getElementById('edit-existing-chip').style.display = 'inline-block';
         document.getElementById('btn-delete-blueprint').style.display = 'inline-flex';
         document.getElementById('edit-last-modified').textContent = 'Last updated ' + new Date(res.data.last_modified).toLocaleString();
@@ -1452,16 +1616,25 @@ document.getElementById('btn-save-blueprint').addEventListener('click', function
   var cls = editClassSel.value, exam = editExamSel.value, subj = editSubjectSel.value;
   if(!cls || !exam || !subj){ toast('Please select class, exam and subject first.', true); return; }
 
-  var hasAnyGroup = builderData.sections.some(function(s){ return s.groups.length > 0; });
-  if(!hasAnyGroup){ toast('Add at least one question group before saving.', true); return; }
+  var blueprintJson;
+  if(blueprintMode === 'freehand'){
+    var freehandVal = freehandTextEl.value.trim();
+    if(!freehandVal){ toast('Please type out the blueprint before saving.', true); return; }
+    blueprintJson = { mode: 'freehand', text: freehandVal };
+  } else {
+    var hasAnyGroup = builderData.sections.some(function(s){ return s.groups.length > 0; });
+    if(!hasAnyGroup){ toast('Add at least one question group before saving.', true); return; }
+    blueprintJson = { mode: 'structured', sections: builderData.sections };
+  }
 
+  var enteredTotal = parseInt(document.getElementById('f-total-marks').value, 10);
   var payload = {
     exam: exam, class: cls, subject: subj,
     teacher_id: state.user.id,
     duration_minutes: parseInt(document.getElementById('f-duration').value, 10) || null,
-    total_marks: parseInt(document.getElementById('f-total-marks').value, 10) || calcTotalMarks(),
+    total_marks: !isNaN(enteredTotal) ? enteredTotal : (blueprintMode === 'freehand' ? null : calcTotalMarks()),
     general_instructions: document.getElementById('f-general-instructions').value.trim(),
-    blueprint_json: builderData
+    blueprint_json: blueprintJson
   };
 
   var btn = document.getElementById('btn-save-blueprint');
@@ -1550,10 +1723,23 @@ function groupDescription(group){
   return { desc: desc, note: partsNote };
 }
 
+function displayTotalMarksText(row){
+  var data = row.blueprint_json || {};
+  if(row.total_marks != null) return row.total_marks + ' marks';
+  if(data.mode === 'freehand') return 'As written above';
+  return calcSectionsMarks(data) + ' marks';
+}
+
 function renderBlueprintPreviewHtml(row){
   var data = row.blueprint_json || { sections: [] };
+
+  if(data.mode === 'freehand'){
+    return '<div class="preview-freehand">' + escapeHtml(data.text || '') + '</div>' +
+      '<div class="preview-totals"><span>Total</span><span>' + displayTotalMarksText(row) + (row.duration_minutes ? ' · ' + row.duration_minutes + ' mins' : '') + '</span></div>';
+  }
+
   var html = '';
-  data.sections.forEach(function(section){
+  (data.sections || []).forEach(function(section){
     html += '<div class="preview-section">';
     if(section.name){ html += '<div class="preview-section-name">' + escapeHtml(section.name) + '</div>'; }
     if(section.instructions){ html += '<div class="preview-section-instr">' + escapeHtml(section.instructions) + '</div>'; }
@@ -1563,7 +1749,7 @@ function renderBlueprintPreviewHtml(row){
     });
     html += '</div>';
   });
-  html += '<div class="preview-totals"><span>Total</span><span>' + (row.total_marks != null ? row.total_marks : calcSectionsMarks(data)) + ' marks' + (row.duration_minutes ? ' · ' + row.duration_minutes + ' mins' : '') + '</span></div>';
+  html += '<div class="preview-totals"><span>Total</span><span>' + displayTotalMarksText(row) + (row.duration_minutes ? ' · ' + row.duration_minutes + ' mins' : '') + '</span></div>';
   return html;
 }
 function calcSectionsMarks(data){
@@ -1683,7 +1869,7 @@ function buildSubjectCardEl(p, selectedFields){
 
   var badge = document.createElement('div');
   badge.style.cssText = 'font-family:Helvetica,Arial,sans-serif; font-weight:700; font-size:9pt; padding:4px 10px; border-radius:999px; color:#ffffff; background:#227d8b;';
-  badge.textContent = (p.total_marks != null ? p.total_marks : calcSectionsMarks(p.blueprint_json)) + ' marks' + (selectedFields.indexOf('duration') !== -1 && p.duration_minutes ? ' • ' + p.duration_minutes + ' mins' : '');
+  badge.textContent = displayTotalMarksText(p) + (selectedFields.indexOf('duration') !== -1 && p.duration_minutes ? ' • ' + p.duration_minutes + ' mins' : '');
   titleRow.appendChild(badge);
   card.appendChild(titleRow);
 
@@ -1706,7 +1892,16 @@ function buildSubjectCardEl(p, selectedFields){
   }
 
   var data = p.blueprint_json || { sections: [] };
-  data.sections.forEach(function(section){
+
+  if(data.mode === 'freehand'){
+    var freehandEl = document.createElement('div');
+    freehandEl.style.cssText = 'font-family:"Noto Sans",Manrope,Helvetica,Arial,sans-serif; font-size:9.8pt; color:#1c2626; white-space:pre-wrap; line-height:1.55; margin-top:8px;';
+    freehandEl.textContent = data.text || '';
+    card.appendChild(freehandEl);
+    return card;
+  }
+
+  (data.sections || []).forEach(function(section){
     var secWrap = document.createElement('div');
     secWrap.style.cssText = 'margin-top:10px;';
 
