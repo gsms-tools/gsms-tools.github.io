@@ -557,9 +557,98 @@
   }
   .modal-close svg{ width:13px; height:13px; stroke:var(--ink-500); fill:none; stroke-width:2.4; stroke-linecap:round; }
   .modal-card{ position:relative; }
+  /* ---------- Full-screen lock ---------- */
+body.locked{ overflow:hidden; }
+
+.lock-screen{
+  position:fixed; inset:0; z-index:9999;
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
+  background:
+    radial-gradient(1100px 700px at 82% -10%, var(--bg-tint-gold), transparent 60%),
+    radial-gradient(900px 600px at -10% 110%, var(--bg-tint-teal), transparent 60%),
+    var(--cream);
+  transition:opacity .35s var(--ease), visibility .35s var(--ease);
+}
+.lock-screen.hidden{ opacity:0; visibility:hidden; pointer-events:none; }
+
+.lock-card{
+  width:100%; max-width:340px;
+  text-align:center;
+  background:var(--white);
+  border:1px solid var(--border-card);
+  border-radius:28px;
+  padding:28px 22px 24px;
+  box-shadow:var(--shadow-card);
+}
+.lock-card.shake{ animation:lock-shake .4s var(--ease); }
+@keyframes lock-shake{
+  0%,100%{ transform:translateX(0); }
+  20%{ transform:translateX(-10px); }
+  40%{ transform:translateX(10px); }
+  60%{ transform:translateX(-6px); }
+  80%{ transform:translateX(6px); }
+}
+.lock-card h3{
+  font-family:'Fraunces',serif;
+  font-size:1.15rem;
+  margin:0 0 8px;
+  color:var(--ink-900);
+}
+.lock-card p{
+  margin:0 0 18px;
+  color:var(--ink-500);
+  font-size:.9rem;
+  line-height:1.5;
+}
+#lock-input{
+  width:100%;
+  padding:13px 16px;
+  margin-bottom:8px;
+  border-radius:999px;
+  border:1.5px solid var(--border-card);
+  background:var(--cream);
+  color:var(--ink-900);
+  font-family:'Manrope',sans-serif;
+  font-size:1rem;
+  text-align:center;
+  outline:none;
+  transition:border-color .25s var(--ease), box-shadow .25s var(--ease);
+}
+#lock-input:focus{
+  border-color:var(--border-card-hover);
+  box-shadow:0 0 0 4px var(--bg-tint-gold);
+}
+.lock-error{
+  min-height:1.2em;
+  margin:0 0 12px !important;
+  color:var(--fun-red) !important;
+  font-size:.82rem !important;
+  font-weight:700;
+}
+.lock-card .btn{ width:100%; }
 </style>
 </head>
 <body>
+<!-- Full-screen lock -->
+<div class="lock-screen" id="lock-screen" role="dialog" aria-modal="true" aria-label="Locked">
+  <div class="lock-card" id="lock-card">
+    <div class="modal-icon">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="30" fill="var(--gold-100)"/>
+        <rect x="20" y="28" width="24" height="20" rx="5" fill="var(--gold-500)"/>
+        <path d="M25 28v-6a7 7 0 0 1 14 0v6" fill="none" stroke="var(--teal-900)" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="32" cy="37" r="3" fill="var(--teal-900)"/>
+        <path d="M32 40v4" stroke="var(--teal-900)" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <h3>Ask a grown-up 🔒</h3>
+    <p>This dashboard is locked. Enter the password to continue.</p>
+    <input type="password" id="lock-input" placeholder="Password" autocomplete="off" aria-label="Password">
+    <p class="lock-error" id="lock-error" role="alert"></p>
+    <button class="btn btn-primary" id="lock-btn" type="button">Unlock</button>
+  </div>
+</div>
 
 <div id="app">
 
@@ -642,6 +731,49 @@
   </div>
 </div>
 
+<script>
+  /* ==========================================================
+     LOCK SCREEN — change the password here
+  ========================================================== */
+  var LOCK_PASSWORD = 'star100';
+
+  (function(){
+    var lockScreen = document.getElementById('lock-screen');
+    var lockCard   = document.getElementById('lock-card');
+    var lockInput  = document.getElementById('lock-input');
+    var lockBtn    = document.getElementById('lock-btn');
+    var lockError  = document.getElementById('lock-error');
+    var appRoot    = document.getElementById('app');
+
+    // Locked state: block scrolling, and make the dashboard unreachable
+    // by mouse, touch, keyboard Tab and screen readers.
+    document.body.classList.add('locked');
+    appRoot.inert = true;
+    setTimeout(function(){ lockInput.focus(); }, 100);
+
+    function tryUnlock(){
+      if(lockInput.value === LOCK_PASSWORD){
+        lockScreen.classList.add('hidden');
+        document.body.classList.remove('locked');
+        appRoot.inert = false;
+        lockInput.value = '';
+        lockError.textContent = '';
+      }else{
+        lockError.textContent = 'Wrong password. Try again!';
+        lockInput.value = '';
+        lockCard.classList.remove('shake');
+        void lockCard.offsetWidth;          // restart the animation
+        lockCard.classList.add('shake');
+        lockInput.focus();
+      }
+    }
+
+    lockBtn.addEventListener('click', tryUnlock);
+    lockInput.addEventListener('keydown', function(e){
+      if(e.key === 'Enter') tryUnlock();
+    });
+  })();
+</script>  
 <script>
   /* ==========================================================
      THEME
