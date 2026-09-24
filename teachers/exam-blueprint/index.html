@@ -660,6 +660,318 @@
   .toast.show{ opacity:1; transform:translateY(0); }
   .toast.error{ background:var(--danger); color:var(--white); }
   textarea.auto-resize{ overflow:hidden; resize:none; }
+
+  /* =====================================================================
+   EXAM BLUEPRINT — layout, spacing & responsiveness refresh
+   HOW TO USE: paste this whole block immediately BEFORE the closing </style>
+   tag of blueprint.html. It only overrides; no HTML or JS needs to change,
+   and all branding, themes (light/dark) and features stay exactly as they are.
+   ===================================================================== */
+
+/* ---- Root cause of the "squashed" look ----------------------------------
+   The JS sets display:flex on these two cards, which lays their children
+   (title, helper text, sections, buttons) out side by side in a ROW.
+   Stack them vertically instead. */
+#structured-builder-card,
+#freehand-card{ flex-direction:column; }
+
+/* ---------- Page rhythm ---------- */
+main.dash{
+  padding:clamp(18px,3vw,32px) clamp(12px,4vw,28px) calc(env(safe-area-inset-bottom) + 64px);
+}
+.app-header{
+  padding-left:clamp(12px,4vw,28px);
+  padding-right:clamp(12px,4vw,28px);
+}
+.panel{ gap:22px; }
+.edit-form-wrap{ gap:22px; }
+.tab-btn{ padding:12px 10px; font-size:.9rem; }
+
+/* ---------- Cards ---------- */
+.card{
+  padding:clamp(18px,3.4vw,30px);
+  border-radius:22px;
+}
+.card-title{
+  font-size:1.12rem;
+  line-height:1.3;
+  margin-bottom:clamp(16px,2.6vw,22px);
+}
+.chip{ font-size:.76rem; padding:6px 12px; }
+
+/* ---------- Fields & inputs ---------- */
+.field{ margin-bottom:20px; }
+.field label{ font-size:.78rem; line-height:1.35; margin-bottom:9px; }
+.row2{ gap:18px; }
+.row2 > .field,
+.row3 > .field{ margin-bottom:0 !important; }
+
+input[type="date"],
+input[type="number"],
+input[type="text"],
+select,
+textarea{
+  min-height:50px;
+  padding:13px 16px;
+  font-size:1rem;            /* 16px: stops iOS zooming in on focus */
+  line-height:1.4;
+  border-radius:14px;
+}
+textarea{ min-height:96px; padding:14px 16px; line-height:1.6; }
+textarea[rows="1"]{ min-height:56px; }
+select{ background-position:right 16px center; padding-right:44px; }
+
+/* ---------- Buttons ---------- */
+.btn{ min-height:50px; padding:14px 22px; font-size:.94rem; border-radius:14px; }
+.btn-sm{ min-height:40px; padding:9px 16px; font-size:.82rem; border-radius:12px; }
+.btn-ai{ min-height:40px; padding:9px 16px; font-size:.82rem; border-radius:12px; }
+.ai-gen-row{ margin-top:12px; }
+
+.helper-text{
+  font-size:.84rem;
+  line-height:1.65;
+  margin:0 0 20px;
+  max-width:70ch;
+}
+
+/* ---------- Marks / duration bar ---------- */
+.marks-bar{
+  position:static;
+  align-items:flex-start;
+  gap:18px 26px;
+  padding:clamp(16px,3vw,22px) clamp(16px,3.4vw,26px);
+  border-radius:20px;
+}
+.marks-bar-item{ flex:1 1 170px; min-width:0; gap:8px; }
+.marks-bar-label{ font-size:.72rem; }
+.marks-bar-value{
+  display:flex; align-items:center;
+  min-height:50px;
+  font-size:1.55rem; line-height:1;
+}
+.marks-bar input{
+  max-width:none;
+  min-height:50px;
+  padding:10px 12px;
+  font-size:1.1rem;
+}
+.marks-bar-reset{ align-self:flex-start; font-size:.78rem; padding:4px 0; }
+@media (min-width:720px){
+  .marks-bar{ position:sticky; top:calc(env(safe-area-inset-top) + 144px); }
+}
+@media (max-width:520px){
+  .marks-bar-item{ flex:1 1 calc(50% - 10px); }
+}
+
+/* ---------- Mode switch: two roomy option cards ---------- */
+.mode-toggle{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+  background:transparent;
+  border:0;
+  padding:0;
+}
+.mode-toggle-btn{
+  position:relative;
+  gap:6px;
+  padding:18px 18px 18px 56px;
+  border:1.5px solid var(--border-card);
+  border-radius:16px;
+  background:var(--cream);
+}
+.mode-toggle-btn::before{
+  content:"";
+  position:absolute; left:20px; top:20px;
+  width:20px; height:20px;
+  border-radius:50%;
+  border:2px solid var(--ink-500);
+  background:var(--white);
+  transition:border-color .2s var(--ease), background .2s var(--ease);
+}
+.mode-toggle-btn:hover{ border-color:var(--border-card-hover); }
+.mode-toggle-btn strong{ font-size:1rem; line-height:1.3; }
+.mode-toggle-btn span{ font-size:.82rem; line-height:1.55; margin-top:0; }
+.mode-toggle-btn.active{
+  background:var(--bg-tint-gold);
+  border-color:var(--gold-500);
+  box-shadow:0 12px 24px -16px rgba(226,148,26,.6);
+}
+.mode-toggle-btn.active::before{
+  border-color:var(--teal-700);
+  background:radial-gradient(circle, var(--teal-700) 0 4.5px, transparent 5.5px), var(--white);
+}
+@media (max-width:560px){
+  .mode-toggle{ grid-template-columns:1fr; }
+}
+.mode-note{
+  gap:12px;
+  margin-top:18px;
+  padding:14px 16px;
+  font-size:.86rem;
+  line-height:1.6;
+  border-radius:14px;
+}
+.mode-note svg{ width:18px; height:18px; margin-top:2px; }
+
+/* ---------- Builder: sections ---------- */
+.section-block{
+  counter-reset:grp;
+  padding:clamp(14px,3vw,24px);
+  margin-bottom:20px;
+  border-radius:22px;
+}
+.section-block-head{
+  flex-wrap:nowrap;          /* keep the remove button beside the name field */
+  align-items:flex-end;
+  gap:14px;
+  margin-bottom:18px;
+}
+.section-block-head .field{ flex:1 1 0; min-width:0; }
+.section-remove-btn{ width:46px; height:46px; margin-bottom:2px; }
+
+/* ---------- Builder: question groups ---------- */
+.group-block{
+  counter-increment:grp;
+  padding:clamp(14px,3vw,22px);
+  margin-bottom:16px;
+  border-radius:18px;
+  box-shadow:0 10px 24px -18px rgba(13,56,65,.35);
+}
+.group-block-top{
+  padding-bottom:14px;
+  margin-bottom:18px;
+  border-bottom:1px solid var(--border-card);
+}
+.group-block-title{ font-size:.95rem; font-weight:800; }
+.group-block-title::after{ content:" " counter(grp); }
+.group-marks-pill{ font-size:.78rem; padding:6px 12px; }
+
+.group-block .row2{
+  grid-template-columns:repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap:16px;
+  margin-bottom:18px;
+}
+.group-block .row2 > div:empty{ display:none; }
+.group-block .row3{
+  grid-template-columns:repeat(3, minmax(0,1fr));
+  gap:16px;
+}
+.group-block .row3 > .field{
+  display:flex; flex-direction:column; justify-content:flex-end;
+}
+.group-block .field label{ font-size:.72rem; letter-spacing:.03em; }
+.group-block input[type="number"]{ text-align:center; font-weight:700; }
+.group-block > .field:last-child{ margin-top:22px !important; }
+.group-block .helper-text{ margin:12px 0 0; }
+@media (max-width:520px){
+  .group-block .row3{ grid-template-columns:1fr 1fr; }
+  .group-block .row3 > .field:nth-child(3){ grid-column:1 / -1; }
+}
+
+/* Tappable option rows for the checkboxes */
+.toggle-row{
+  gap:12px;
+  margin:14px 0;
+  padding:12px 14px;
+  border:1.5px solid var(--border-card);
+  border-radius:12px;
+  background:var(--cream);
+  transition:border-color .2s var(--ease), background-color .2s var(--ease);
+}
+.toggle-row:has(input:checked){
+  border-color:var(--border-card-hover);
+  background:var(--bg-tint-gold);
+}
+.toggle-row input[type="checkbox"]{ width:20px; height:20px; }
+.toggle-row label{ flex:1; font-size:.86rem; line-height:1.45; padding:2px 0; }
+
+/* Parts (a), (b), (c) */
+.parts-wrap{
+  margin-top:22px;
+  padding-top:22px;
+  border-top:1px dashed var(--border-card-hover);
+}
+.part-row{
+  display:grid;
+  grid-template-columns:64px minmax(0,1fr) auto 38px;
+  gap:10px 12px;
+  align-items:center;
+  margin-bottom:12px;
+}
+.part-row input[type="text"],
+.part-row input[type="number"]{ width:100%; }
+.part-row .part-label-tag{ order:0; min-width:0; font-size:0; }
+.part-row .part-label-tag::before{ content:"marks"; font-size:.84rem; color:var(--ink-500); }
+.part-row .remove-x{ margin-left:0; }
+
+.remove-x{ width:36px; height:36px; transition:background-color .2s var(--ease); }
+.remove-x:hover{ background:var(--danger-bg); }
+.remove-x svg{ width:14px; height:14px; }
+
+.add-dashed-btn{ min-height:48px; padding:13px 16px; font-size:.9rem; border-radius:14px; }
+
+/* ---------- Freehand mode ---------- */
+.freehand-wrap textarea{
+  min-height:clamp(240px, 42vh, 420px);
+  padding:18px 20px;
+  font-size:1rem;
+  line-height:1.75;
+}
+.sync-row{ justify-content:flex-end; margin-top:16px; }
+.sync-btn{
+  min-height:42px;
+  padding:9px 18px;
+  font-size:.82rem;
+  border:1.5px dashed var(--border-card-hover);
+  border-radius:999px;
+  text-decoration:none;
+  transition:background-color .2s var(--ease);
+}
+.sync-btn:hover{ background:var(--bg-tint-teal); }
+@media (max-width:520px){
+  .sync-btn{ width:100%; }
+}
+
+/* ---------- Save / delete bar (stays within reach on long forms) ---------- */
+.last-modified{ margin:0; font-size:.8rem; }
+.btn-row{
+  flex-direction:row;        /* cancels the old ≤360px column-reverse */
+  gap:12px;
+  margin-top:0;
+  padding:12px;
+  position:sticky;
+  bottom:calc(env(safe-area-inset-bottom) + 12px);
+  z-index:20;
+  background:var(--header-bg);
+  border:1px solid var(--header-border);
+  border-radius:20px;
+  box-shadow:var(--shadow-card);
+  -webkit-backdrop-filter:blur(14px);
+  backdrop-filter:blur(14px);
+}
+.btn-row .btn{ min-height:52px; }
+.btn-row .btn-danger{ flex:0 0 auto; padding-inline:24px; }
+
+/* ---------- Compact nesting on phones (card › section › group) ---------- */
+@media (max-width:600px){
+  .card{ padding:18px 16px; border-radius:20px; }
+  #structured-builder-card{ padding-left:12px; padding-right:12px; }
+  #structured-builder-card > .card-title,
+  #structured-builder-card > .helper-text{ padding-left:4px; padding-right:4px; }
+  .section-block{ padding:12px; border-radius:18px; }
+  .group-block{ padding:14px; }
+  .btn-row{ padding:10px; gap:10px; border-radius:18px; }
+}
+
+/* ---------- Keyboard focus ---------- */
+.mode-toggle-btn:focus-visible,
+.add-dashed-btn:focus-visible,
+.sync-btn:focus-visible,
+.remove-x:focus-visible{
+  outline:3px solid var(--gold-500);
+  outline-offset:3px;
+}
 </style>
 </head>
 <body>
