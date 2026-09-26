@@ -1503,7 +1503,7 @@ document.getElementById('btn-share-pdf').addEventListener('click', async functio
   btn.textContent = 'Preparing PDF…';
 
   try{
-    var logoDataUrl = await loadImageAsDataURL('https://mygsms.in/gsms-logo.png');
+    var logoDataUrl = await loadImageAsDataURL('https://sourabhsuneja.github.io/gsms-logo.png');
     var result = await buildPdf(logoDataUrl);
     shareOrDownloadBlob(result.blob, result.fileName);
   }catch(e){
