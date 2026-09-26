@@ -1526,7 +1526,7 @@ document.getElementById('btn-download-pdf').addEventListener('click', async func
   btn.textContent = 'Preparing PDF…';
 
   try{
-    var logoDataUrl = await loadImageAsDataURL('https://mygsms.in/gsms-logo.png');
+    var logoDataUrl = await loadImageAsDataURL('https://sourabhsuneja.github.io/gsms-logo.png');
     var result = await buildPdf(logoDataUrl);
     downloadBlob(result.blob, result.fileName);
     toast('PDF downloaded.');
