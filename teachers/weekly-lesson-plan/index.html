@@ -938,7 +938,9 @@ var tabBrowseBtn = document.getElementById('tab-browse-btn');
 var panelEdit = document.getElementById('panel-edit');
 var panelBrowse = document.getElementById('panel-browse');
 tabEditBtn.addEventListener('click', function(){ setTab('edit'); });
-tabBrowseBtn.addEventListener('click', function(){ setTab('browse'); });
+tabBrowseBtn.addEventListener('click', function(){
+  window.location.href = 'generate-pdf.html';
+});
 function setTab(which){
   var isEdit = which === 'edit';
   tabEditBtn.classList.toggle('active', isEdit);
