@@ -172,13 +172,15 @@
   .marks-count{ font-size:.78rem; color:var(--ink-500); font-weight:600; }
   .marks-grid{ display:flex; flex-direction:column; gap:8px; }
   .marks-row{
-    display:grid; grid-template-columns:38px 1fr auto auto 34px; align-items:center; gap:10px;
+    display:grid; grid-template-columns:34px minmax(0,1fr) auto auto 30px; align-items:center; gap:8px 10px;
     background:var(--cream); border:1.5px solid var(--border-card); border-radius:var(--r-sm); padding:10px 12px;
     transition:border-color .2s var(--ease);
   }
   .marks-row:focus-within{ border-color:var(--border-card-hover); }
   .mr-roll{ font-size:.82rem; font-weight:800; color:var(--ink-500); text-align:center; }
+  .mr-identity{ min-width:0; display:flex; flex-direction:column; gap:4px; }
   .mr-name{ font-size:.9rem; font-weight:700; color:var(--ink-900); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mr-remark{ font-size:.72rem; font-weight:700; line-height:1.35; white-space:normal; overflow-wrap:anywhere; }
   .mr-inputs{ display:flex; gap:6px; align-items:center; }
   .mr-input-wrap{ display:flex; flex-direction:column; gap:2px; }
   .mr-input-label{ font-size:.62rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-500); text-align:center; }
@@ -191,7 +193,6 @@
   .status-pill.active[data-status="AB"]{ background:var(--danger-bg); border-color:var(--danger); color:var(--danger); }
   .status-pill.active[data-status="L"]{ background:var(--warn-bg); border-color:var(--warn); color:var(--warn); }
   .status-pill.active[data-status="ML"]{ background:var(--bg-tint-teal); border-color:var(--teal-700); color:var(--teal-700); }
-  .mr-remark{ font-size:.72rem; font-weight:700; white-space:nowrap; }
   .remark-outstanding{ color:var(--success); }
   .remark-verygood{ color:var(--teal-700); }
   .remark-good{ color:var(--warn); }
@@ -200,8 +201,12 @@
   .mr-clear{ width:30px; height:30px; border-radius:9px; border:1.5px solid var(--border-card); background:var(--white); display:flex; align-items:center; justify-content:center; cursor:pointer; }
   .mr-clear svg{ width:14px; height:14px; stroke:var(--danger); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
   @media (max-width:640px){
-    .marks-row{ grid-template-columns:1fr; grid-template-areas:"name" "inputs" "status" "remark"; row-gap:8px; }
+    .marks-row{ grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"identity clear" "inputs inputs" "status status"; row-gap:8px; }
     .mr-roll{ display:none; }
+    .mr-identity{ grid-area:identity; }
+    .mr-inputs{ grid-area:inputs; }
+    .mr-status{ grid-area:status; }
+    .mr-clear{ grid-area:clear; align-self:start; }
     .mr-name::before{ content:attr(data-roll) ' • '; color:var(--ink-500); font-weight:600; }
   }
 
@@ -530,6 +535,7 @@ var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KE
 
 var STATUS_LABELS = { P: 'Present', AB: 'Absent', L: 'On leave', ML: 'Medical leave' };
 var STATUS_ORDER = ['P', 'AB', 'L', 'ML'];
+var DEFAULT_STATUS = 'P';
 
 var state = {
   user: null, teacherName: '', isAdmin: false,
@@ -968,7 +974,7 @@ function renderMarksGrid(examObj){
 
   state.entry.students.forEach(function(student){
     var existing = state.entry.marksByStudent[student.id];
-    var status = existing ? existing.status : 'AB';
+    var status = existing ? existing.status : DEFAULT_STATUS;
 
     var row = document.createElement('div');
     row.className = 'marks-row';
@@ -988,7 +994,10 @@ function renderMarksGrid(examObj){
 
     row.innerHTML =
       '<div class="mr-roll">' + (student.roll_no != null ? student.roll_no : '—') + '</div>' +
-      '<div class="mr-name" data-roll="Roll ' + (student.roll_no != null ? student.roll_no : '—') + '">' + escapeHtml(student.name) + '</div>' +
+      '<div class="mr-identity">' +
+        '<div class="mr-name" data-roll="Roll ' + (student.roll_no != null ? student.roll_no : '—') + '">' + escapeHtml(student.name) + '</div>' +
+        '<span class="mr-remark"></span>' +
+      '</div>' +
       '<div class="mr-inputs">' + inputsHtml + '</div>' +
       '<div class="mr-status">' + STATUS_ORDER.map(function(s){
         return '<button type="button" class="status-pill' + (s === status ? ' active' : '') + '" data-status="' + s + '">' + s + '</button>';
@@ -1036,8 +1045,8 @@ function wireMarksRow(row, examObj, hasComponents){
     var studentId = row.dataset.studentId;
     var existing = state.entry.marksByStudent[studentId];
     function resetRowUI(){
-      row.querySelectorAll('.mr-mark-input').forEach(function(inp){ inp.value = ''; inp.disabled = true; });
-      row.querySelectorAll('.status-pill').forEach(function(p){ p.classList.toggle('active', p.dataset.status === 'AB'); });
+      row.querySelectorAll('.mr-mark-input').forEach(function(inp){ inp.value = ''; inp.disabled = false; });
+      row.querySelectorAll('.status-pill').forEach(function(p){ p.classList.toggle('active', p.dataset.status === DEFAULT_STATUS); });
       delete state.entry.marksByStudent[studentId];
       updateRowRemark(row, examObj, hasComponents);
     }
@@ -1056,7 +1065,7 @@ function wireMarksRow(row, examObj, hasComponents){
 }
 
 function updateRowRemark(row, examObj, hasComponents){
-  var status = row.querySelector('.status-pill.active') ? row.querySelector('.status-pill.active').dataset.status : 'AB';
+  var status = row.querySelector('.status-pill.active') ? row.querySelector('.status-pill.active').dataset.status : DEFAULT_STATUS;
   var total = null;
   if(status === 'P'){
     if(hasComponents){
@@ -1073,12 +1082,9 @@ function updateRowRemark(row, examObj, hasComponents){
     }
   }
   var r = remarkFor(status, total, examObj.mm);
-  var existingRemark = row.querySelector('.mr-remark');
-  if(existingRemark) existingRemark.remove();
-  var span = document.createElement('span');
-  span.className = 'mr-remark ' + r.cls;
-  span.textContent = r.label + (r.pct != null ? ' (' + Math.round(r.pct) + '%)' : '');
-  row.querySelector('.mr-status').insertAdjacentElement('afterend', span);
+  var remarkEl = row.querySelector('.mr-remark');
+  remarkEl.className = 'mr-remark ' + r.cls;
+  remarkEl.textContent = r.label + (r.pct != null ? ' (' + Math.round(r.pct) + '%)' : '');
 }
 
 /* =========================================================
@@ -1093,7 +1099,7 @@ document.getElementById('btn-save-marks').addEventListener('click', function(){
 
   var payload = rows.map(function(row){
     var studentId = parseInt(row.dataset.studentId, 10);
-    var status = row.querySelector('.status-pill.active') ? row.querySelector('.status-pill.active').dataset.status : 'AB';
+    var status = row.querySelector('.status-pill.active') ? row.querySelector('.status-pill.active').dataset.status : DEFAULT_STATUS;
     var rec = {
       student_id: studentId, class: cls, subject: subj,
       status: status, entered_by: state.user.id
