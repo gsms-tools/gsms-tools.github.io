@@ -340,7 +340,7 @@
     margin-bottom:7px;
   }
 
-  input[type="text"], select{
+  input[type="text"], input[type="number"], select{
     width:100%;
     padding:12px 14px;
     border-radius:var(--r-sm);
@@ -354,13 +354,14 @@
     transition:border-color .25s var(--ease), box-shadow .25s var(--ease), background-color .3s var(--ease), color .3s var(--ease);
   }
   input.has-icon{ padding-left:40px; }
-  input[type="text"]:focus, select:focus{
+  input[type="text"]:focus, input[type="number"]:focus, select:focus{
     border-color:var(--border-card-hover);
     box-shadow:0 0 0 4px var(--bg-tint-gold);
   }
   .field-hint{ font-size:.74rem; color:var(--ink-500); margin-top:6px; }
   .field-error{ font-size:.78rem; color:var(--danger); margin-top:12px; display:none; }
   .field-error.show{ display:block; }
+  .field-error.ok{ color:var(--success); }
 
   .btn{
     padding:13px 18px;
@@ -400,6 +401,9 @@
   .name-edit-row input{ flex:1; }
   .name-display-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:6px; }
   .name-display-row h3{ margin:0; }
+
+  /* ---------- Max marks / components editor (exam-level, mirrors class chip spacing) ---------- */
+  .comp-row{ display:grid; grid-template-columns:1fr 90px 34px; gap:8px; margin-bottom:8px; align-items:center; }
 
   /* ---------- Chip toggle list (exam-class mapping) ---------- */
   .chip-toggle-list{ display:flex; flex-wrap:wrap; gap:8px; max-height:38svh; overflow-y:auto; padding:2px; }
@@ -598,6 +602,35 @@
       </div>
     </div>
 
+    <div class="sub-divider"></div>
+
+    <p class="section-label">Maximum marks &amp; components</p>
+
+    <!-- Admin: editable max marks + components -->
+    <div id="es-mm-editable" style="display:none;">
+      <div class="field">
+        <label for="es-mm-input">Maximum marks</label>
+        <input type="number" id="es-mm-input" min="1" step="1" placeholder="e.g. 100" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Components (optional)</label>
+        <div id="es-components"></div>
+        <button class="btn btn-ghost btn-tiny" id="es-add-component" type="button" style="margin-top:4px;">+ Add component</button>
+        <p class="field-error" id="es-comp-sum-note"></p>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary btn-sm" id="es-save-marks-details" type="button">Save details</button>
+      </div>
+    </div>
+
+    <!-- Teacher: read-only max marks + components -->
+    <div id="es-mm-readonly" style="display:none;">
+      <span class="chip-static" id="es-mm-chip">Max marks: —</span>
+      <div class="chip-static-list" id="es-components-readonly" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="sub-divider"></div>
+
     <p>Classes this exam applies to.</p>
 
     <p class="section-label" id="es-classes-label">Classes</p>
@@ -630,6 +663,16 @@
       <label for="new-exam-name">Exam name</label>
       <input type="text" id="new-exam-name" placeholder="e.g. Mid Term" autocomplete="off">
       <p class="field-error" id="new-exam-error">Please enter an exam name.</p>
+    </div>
+    <div class="field">
+      <label for="new-exam-mm">Maximum marks</label>
+      <input type="number" id="new-exam-mm" min="1" step="1" placeholder="e.g. 100" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Components (optional)</label>
+      <div id="new-exam-components"></div>
+      <button class="btn btn-ghost btn-tiny" id="new-exam-add-component" type="button" style="margin-top:4px;">+ Add component</button>
+      <p class="field-error" id="new-exam-comp-sum-note"></p>
     </div>
     <div class="field">
       <label>Map to classes (optional)</label>
@@ -697,7 +740,8 @@ var state = {
   isAdmin: false,
   isTeacher: false,
 
-  exams: [],                 // [{name, added_at}, ...] sorted by added_at asc
+  exams: [],                 // [{name, added_at, mm, components}, ...] sorted by added_at asc
+  examsByName: {},            // { examName: examRow } — quick lookup for mm/components
   classes: [],                // [name, ...] sorted alphabetically
   examClasses: [],            // [{exam, class}, ...]
   classesByExam: {},          // { examName: [className, ...] }
@@ -782,6 +826,52 @@ function setAdminVisibility(){
   });
 }
 
+/* ---- Components editor (shared by the exam detail sheet and the add-exam sheet) ---- */
+function addComponentRow(container, name, mm){
+  var row = document.createElement('div');
+  row.className = 'comp-row';
+  row.innerHTML =
+    '<input type="text" class="comp-name" placeholder="Component name (e.g. Subjective)" value="' + escapeHtml(name || '') + '">' +
+    '<input type="number" class="comp-mm" placeholder="Max" min="1" step="1" value="' + (mm != null ? mm : '') + '">' +
+    '<button type="button" class="btn-icon-sm comp-remove" aria-label="Remove component"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>';
+  container.appendChild(row);
+  row.querySelector('.comp-remove').addEventListener('click', function(){
+    row.remove();
+    container.dispatchEvent(new Event('comp-changed'));
+  });
+  row.querySelectorAll('input').forEach(function(inp){
+    inp.addEventListener('input', function(){ container.dispatchEvent(new Event('comp-changed')); });
+  });
+  return row;
+}
+function collectComponents(container){
+  var comps = [];
+  container.querySelectorAll('.comp-row').forEach(function(row){
+    var name = row.querySelector('.comp-name').value.trim();
+    var mm = parseFloat(row.querySelector('.comp-mm').value);
+    if(name && mm > 0) comps.push({ name: name, mm: mm });
+  });
+  return comps;
+}
+function wireComponentSumNote(container, mmInput, noteEl){
+  function recompute(){
+    var comps = collectComponents(container);
+    if(comps.length === 0){ noteEl.classList.remove('show', 'ok'); noteEl.textContent = ''; return; }
+    var sum = comps.reduce(function(s, c){ return s + c.mm; }, 0);
+    var mm = parseFloat(mmInput.value) || 0;
+    noteEl.classList.add('show');
+    if(sum === mm){
+      noteEl.textContent = 'Components add up to ' + sum + ' — matches maximum marks.';
+      noteEl.classList.add('ok');
+    }else{
+      noteEl.textContent = 'Components add up to ' + sum + ', but maximum marks is ' + (mm || 0) + '.';
+      noteEl.classList.remove('ok');
+    }
+  }
+  container.addEventListener('comp-changed', recompute);
+  mmInput.addEventListener('input', recompute);
+}
+
 /* =========================================================
    RENDER EXAM LIST
 ========================================================= */
@@ -815,6 +905,8 @@ function renderExamList(){
 
   filtered.forEach(function(ex, i){
     var classCount = (state.classesByExam[ex.name] || []).length;
+    var mmText = ex.mm != null ? ('Max marks ' + ex.mm) : 'No max marks set';
+    var classText = classCount ? (classCount + (classCount === 1 ? ' class' : ' classes')) : 'Not mapped to any class';
 
     var card = document.createElement('div');
     card.className = 'row-card';
@@ -823,7 +915,7 @@ function renderExamList(){
       '<div class="row-badge">' + escapeHtml(examInitials(ex.name)) + '</div>' +
       '<div class="row-info">' +
         '<p class="row-name">' + escapeHtml(ex.name) + '</p>' +
-        '<p class="row-sub' + (classCount ? '' : ' unassigned') + '">' + (classCount ? (classCount + (classCount === 1 ? ' class' : ' classes')) : 'Not mapped to any class') + '</p>' +
+        '<p class="row-sub' + (classCount ? '' : ' unassigned') + '">' + mmText + ' • ' + classText + '</p>' +
       '</div>' +
       '<div class="row-right">' +
         '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
@@ -843,7 +935,7 @@ document.getElementById('exam-search').addEventListener('input', function(e){
 ========================================================= */
 function loadAllData(isRefresh){
   return Promise.all([
-    supabaseClient.from('exams').select('name, added_at').order('added_at', { ascending: true }),
+    supabaseClient.from('exams').select('name, added_at, mm, components').order('added_at', { ascending: true }),
     supabaseClient.from('classes').select('name').order('name', { ascending: true }),
     supabaseClient.from('exam_classes').select('exam, class')
   ]).then(function(results){
@@ -871,13 +963,15 @@ function loadAllData(isRefresh){
 
 function rebuildMappingIndexes(){
   var byExam = {};
-  state.exams.forEach(function(ex){ byExam[ex.name] = []; });
+  var byName = {};
+  state.exams.forEach(function(ex){ byExam[ex.name] = []; byName[ex.name] = ex; });
   state.examClasses.forEach(function(row){
     if(!byExam[row.exam]) byExam[row.exam] = [];
     byExam[row.exam].push(row.class);
   });
   Object.keys(byExam).forEach(function(ex){ byExam[ex].sort(function(a,b){ return a.localeCompare(b); }); });
   state.classesByExam = byExam;
+  state.examsByName = byName;
 }
 
 function refetchExamClasses(){
@@ -923,8 +1017,76 @@ function renderExamSheetContent(){
   document.getElementById('es-exam-name-admin').textContent = name;
   document.getElementById('exam-delete-btn').style.display = state.isAdmin ? 'inline-flex' : 'none';
 
+  renderExamSheetMarksDetails();
   renderExamSheetClasses();
 }
+
+function renderExamSheetMarksDetails(){
+  var exam = state.examsByName[state.activeExam];
+  if(!exam) return;
+
+  var mmEditable = document.getElementById('es-mm-editable');
+  var mmReadonly = document.getElementById('es-mm-readonly');
+
+  if(state.isAdmin){
+    mmEditable.style.display = 'block';
+    mmReadonly.style.display = 'none';
+
+    document.getElementById('es-mm-input').value = exam.mm != null ? exam.mm : '';
+
+    var compContainer = document.getElementById('es-components');
+    compContainer.innerHTML = '';
+    (exam.components || []).forEach(function(c){ addComponentRow(compContainer, c.name, c.mm); });
+
+    var noteEl = document.getElementById('es-comp-sum-note');
+    noteEl.classList.remove('show', 'ok');
+    noteEl.textContent = '';
+  }else{
+    mmEditable.style.display = 'none';
+    mmReadonly.style.display = 'block';
+
+    document.getElementById('es-mm-chip').textContent = exam.mm != null ? ('Max marks: ' + exam.mm) : 'No maximum marks set';
+
+    var roWrap = document.getElementById('es-components-readonly');
+    roWrap.innerHTML = '';
+    (exam.components || []).forEach(function(c){
+      var chip = document.createElement('span');
+      chip.className = 'chip-static';
+      chip.textContent = c.name + ' / ' + c.mm;
+      roWrap.appendChild(chip);
+    });
+  }
+}
+
+document.getElementById('es-add-component').addEventListener('click', function(){
+  addComponentRow(document.getElementById('es-components'));
+});
+wireComponentSumNote(document.getElementById('es-components'), document.getElementById('es-mm-input'), document.getElementById('es-comp-sum-note'));
+
+document.getElementById('es-save-marks-details').addEventListener('click', function(){
+  var name = state.activeExam;
+  var mmVal = parseFloat(document.getElementById('es-mm-input').value);
+  if(!(mmVal > 0)){ toast('Please enter a valid maximum marks.', true); return; }
+
+  var comps = collectComponents(document.getElementById('es-components'));
+  if(comps.length > 0){
+    var sum = comps.reduce(function(s, c){ return s + c.mm; }, 0);
+    if(sum !== mmVal){ toast('Component marks must add up to the maximum marks.', true); return; }
+  }
+
+  var btn = this; btn.disabled = true; btn.textContent = 'Saving…';
+  supabaseClient.from('exams').update({ mm: mmVal, components: comps.length ? comps : null }).eq('name', name).then(function(res){
+    btn.disabled = false; btn.textContent = 'Save details';
+    if(res.error){
+      toast('Could not save: ' + res.error.message, true);
+      return;
+    }
+    loadAllData(false).then(function(){
+      if(state.activeExam) renderExamSheetContent();
+      toast('Exam details updated.');
+    });
+  });
+});
 
 function renderExamSheetClasses(){
   var chipsWrap = document.getElementById('es-class-chips');
@@ -1166,9 +1328,18 @@ document.getElementById('new-exam-clear-all').addEventListener('click', function
   renderAddExamClassChips();
 });
 
+document.getElementById('new-exam-add-component').addEventListener('click', function(){
+  addComponentRow(document.getElementById('new-exam-components'));
+});
+wireComponentSumNote(document.getElementById('new-exam-components'), document.getElementById('new-exam-mm'), document.getElementById('new-exam-comp-sum-note'));
+
 document.getElementById('add-exam-btn').addEventListener('click', function(){
   document.getElementById('new-exam-name').value = '';
   document.getElementById('new-exam-error').classList.remove('show');
+  document.getElementById('new-exam-mm').value = '';
+  document.getElementById('new-exam-components').innerHTML = '';
+  var compNote = document.getElementById('new-exam-comp-sum-note');
+  compNote.classList.remove('show', 'ok'); compNote.textContent = '';
   document.getElementById('new-exam-class-search').value = '';
   state.addExamSelectedClasses = {};
   state.addExamClassSearchTerm = '';
@@ -1188,13 +1359,31 @@ document.getElementById('add-exam-confirm').addEventListener('click', function()
     errorEl.classList.add('show');
     return;
   }
+
+  var mmVal = parseFloat(document.getElementById('new-exam-mm').value);
+  if(!(mmVal > 0)){
+    errorEl.textContent = 'Please enter a valid maximum marks.';
+    errorEl.classList.add('show');
+    return;
+  }
+
+  var comps = collectComponents(document.getElementById('new-exam-components'));
+  if(comps.length > 0){
+    var sum = comps.reduce(function(s, c){ return s + c.mm; }, 0);
+    if(sum !== mmVal){
+      errorEl.textContent = 'Component marks must add up to the maximum marks.';
+      errorEl.classList.add('show');
+      return;
+    }
+  }
+
   errorEl.classList.remove('show');
 
   var selectedClasses = Object.keys(state.addExamSelectedClasses);
   var btn = document.getElementById('add-exam-confirm');
   btn.disabled = true; btn.textContent = 'Adding…';
 
-  supabaseClient.from('exams').insert([{ name: name }]).then(function(res){
+  supabaseClient.from('exams').insert([{ name: name, mm: mmVal, components: comps.length ? comps : null }]).then(function(res){
     if(res.error){
       btn.disabled = false; btn.textContent = 'Add exam';
       errorEl.textContent = 'Could not add exam: ' + res.error.message;
