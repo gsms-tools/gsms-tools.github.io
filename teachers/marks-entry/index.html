@@ -314,6 +314,7 @@
             <label for="sel-exam-custom">Custom exam</label>
             <div class="inline-add-row">
               <select id="sel-exam-custom"><option value="">Select custom exam…</option></select>
+              <button class="btn btn-ghost btn-sm" id="btn-edit-custom-exam" type="button" style="display:none;">Edit</button>
               <button class="btn btn-teal btn-sm" id="btn-new-custom-exam" type="button">+ New</button>
             </div>
           </div>
@@ -346,6 +347,7 @@
         <p class="last-modified" style="font-size:.76rem;color:var(--ink-500);margin-top:12px;text-align:right;" id="entry-last-saved"></p>
         <div class="btn-row">
           <button class="btn btn-primary btn-block" id="btn-save-marks" type="button">Save all marks</button>
+          <button class="btn btn-danger btn-block" id="btn-delete-all-marks" type="button" style="display:none;">Delete all marks</button>
         </div>
       </div>
 
@@ -448,18 +450,18 @@
   </div>
 </div>
 
-<!-- New custom exam sheet -->
+<!-- New / edit custom exam sheet -->
 <div class="sheet-backdrop" id="sheet-custom-exam">
-  <div class="sheet" role="dialog" aria-label="New custom exam">
+  <div class="sheet" role="dialog" aria-label="Custom exam">
     <div class="sheet-handle"></div>
-    <h3>New custom exam</h3>
-    <p class="sheet-desc">Specific to one class and subject — only you (and admins) can use it to enter marks.</p>
+    <h3 id="ce-title">New custom exam</h3>
+    <p class="sheet-desc" id="ce-desc">Specific to one class and subject — only you (and admins) can use it to enter marks.</p>
 
     <div class="field">
       <label for="ce-name">Exam name</label>
       <input type="text" id="ce-name" placeholder="e.g. Class Test 1">
     </div>
-    <div class="row2">
+    <div class="row2" id="ce-class-row">
       <div class="field">
         <label for="ce-class">Class</label>
         <select id="ce-class"><option value="">Select class…</option></select>
@@ -474,7 +476,7 @@
       <input type="number" id="ce-mm" min="1" step="1" placeholder="e.g. 20">
     </div>
 
-    <div class="field">
+    <div class="field" id="ce-comp-field">
       <label>Split into components? (optional)</label>
       <div id="ce-components"></div>
       <button class="btn btn-ghost btn-sm" id="ce-add-component" type="button" style="margin-top:4px;">+ Add component</button>
@@ -569,6 +571,7 @@ function currentEntryCombos(){ return state.isAdmin ? state.allCombos : state.my
 function activeExamObj(){
   return state.entry.type === 'common' ? state.examsByName[state.entry.examName] : state.customExamsById[state.entry.customExamId];
 }
+function canManageCustom(ce){ return !!ce && (state.isAdmin || ce.created_by === state.user.id); }
 function remarkFor(status, marksObtained, mm){
   if(status !== 'P') return { label: STATUS_LABELS[status] || '—', cls: 'remark-na' };
   if(marksObtained == null || !mm){ return { label: '—', cls: 'remark-na' }; }
@@ -706,6 +709,7 @@ function resetEntryDownstream(hideExamMeta){
   state.entry.examName = null; state.entry.customExamId = null;
   state.entry.cls = null; state.entry.subject = null;
   if(hideExamMeta) document.getElementById('exam-meta-chips').innerHTML = '';
+  document.getElementById('btn-edit-custom-exam').style.display = 'none';
   document.getElementById('card-class-subject').style.display = 'none';
   hideMarksGrid();
 }
@@ -790,6 +794,12 @@ function populateCustomExamDropdown(){
     }).join('');
 }
 
+/* Re-populate every custom-exam dropdown (Enter tab + View tab) from state */
+function refreshCustomUI(){
+  populateCustomExamDropdown();
+  populateViewCustomExamDropdown();
+}
+
 selExamCustom.addEventListener('change', function(){
   resetEntryDownstream(false);
   var id = selExamCustom.value;
@@ -803,19 +813,29 @@ selExamCustom.addEventListener('change', function(){
   selEntryClass.innerHTML = '<option value="' + escapeHtml(ce.class) + '" selected>' + escapeHtml(ce.class) + '</option>';
   selEntrySubject.innerHTML = '<option value="' + escapeHtml(ce.subject) + '" selected>' + escapeHtml(ce.subject) + '</option>';
   selEntryClass.disabled = true; selEntrySubject.disabled = true;
+  if(canManageCustom(ce)) document.getElementById('btn-edit-custom-exam').style.display = 'inline-flex';
   loadStudentsAndMarksForEntry();
 });
 
 /* =========================================================
-   NEW CUSTOM EXAM SHEET
+   NEW / EDIT CUSTOM EXAM SHEET
 ========================================================= */
 var sheetCustomExam = document.getElementById('sheet-custom-exam');
 var ceClass = document.getElementById('ce-class');
 var ceSubject = document.getElementById('ce-subject');
 var ceComponents = document.getElementById('ce-components');
 var ceMm = document.getElementById('ce-mm');
+var editingCustomId = null;   // null = creating a new exam, otherwise id of the exam being edited
 
 document.getElementById('btn-new-custom-exam').addEventListener('click', function(){
+  editingCustomId = null;
+  document.getElementById('ce-title').textContent = 'New custom exam';
+  document.getElementById('ce-desc').textContent = 'Specific to one class and subject — only you (and admins) can use it to enter marks.';
+  document.getElementById('ce-class-row').style.display = '';
+  document.getElementById('ce-comp-field').style.display = '';
+  ceMm.disabled = false;
+  document.getElementById('ce-save').textContent = 'Create exam';
+
   document.getElementById('ce-name').value = '';
   ceMm.value = '';
   ceComponents.innerHTML = '';
@@ -828,6 +848,26 @@ document.getElementById('btn-new-custom-exam').addEventListener('click', functio
   ceSubject.disabled = true;
   sheetCustomExam.classList.add('show');
 });
+
+document.getElementById('btn-edit-custom-exam').addEventListener('click', function(){
+  var ce = state.customExamsById[state.entry.customExamId];
+  if(!ce) return;
+  if(!canManageCustom(ce)){ toast('Only the exam creator or an admin can edit this exam.', true); return; }
+  editingCustomId = ce.id;
+  var hasComp = !!(ce.components && ce.components.length);
+  document.getElementById('ce-title').textContent = 'Edit custom exam';
+  document.getElementById('ce-desc').textContent = hasComp
+    ? 'You can rename this exam. Maximum marks is fixed because the exam is split into components.'
+    : 'Change the exam name or maximum marks. Class and subject cannot be changed.';
+  document.getElementById('ce-name').value = ce.name;
+  ceMm.value = ce.mm;
+  ceMm.disabled = hasComp;
+  document.getElementById('ce-class-row').style.display = 'none';
+  document.getElementById('ce-comp-field').style.display = 'none';
+  document.getElementById('ce-save').textContent = 'Save changes';
+  sheetCustomExam.classList.add('show');
+});
+
 document.getElementById('ce-cancel').addEventListener('click', function(){ sheetCustomExam.classList.remove('show'); });
 sheetCustomExam.addEventListener('click', function(e){ if(e.target === sheetCustomExam) sheetCustomExam.classList.remove('show'); });
 
@@ -843,6 +883,37 @@ document.getElementById('ce-add-component').addEventListener('click', function()
 wireComponentSumNote(ceComponents, ceMm, document.getElementById('ce-comp-sum-note'));
 
 document.getElementById('ce-save').addEventListener('click', function(){
+  /* ----- EDIT MODE ----- */
+  if(editingCustomId){
+    var ceEdit = state.customExamsById[editingCustomId];
+    var newName = document.getElementById('ce-name').value.trim();
+    var newMm = ceMm.disabled ? ceEdit.mm : parseFloat(ceMm.value);
+    if(!newName || !(newMm > 0)){ toast('Enter a valid name and maximum marks.', true); return; }
+    var editBtn = this; editBtn.disabled = true; editBtn.textContent = 'Saving…';
+    supabaseClient.from('custom_exams')
+      .update({ name: newName, mm: newMm })
+      .eq('id', ceEdit.id)
+      .select('id,name,class,subject,mm,components,created_by')
+      .then(function(res){
+        editBtn.disabled = false; editBtn.textContent = 'Save changes';
+        if(res.error){ toast('Could not update exam: ' + res.error.message, true); return; }
+        if(!res.data || !res.data.length){ toast('You are not allowed to edit this exam.', true); return; }
+        Object.assign(ceEdit, res.data[0]);
+        refreshCustomUI();
+        selExamCustom.value = ceEdit.id;
+        renderExamMetaChips('exam-meta-chips', ceEdit.mm, ceEdit.components);
+        if(state.view.customExamId === ceEdit.id){
+          document.getElementById('view-results-wrap').style.display = 'none';
+          document.getElementById('view-placeholder').style.display = 'flex';
+        }
+        sheetCustomExam.classList.remove('show');
+        loadStudentsAndMarksForEntry();
+        toast('Exam updated.');
+      });
+    return;
+  }
+
+  /* ----- CREATE MODE ----- */
   var name = document.getElementById('ce-name').value.trim();
   var cls = ceClass.value, subj = ceSubject.value;
   var mm = parseFloat(ceMm.value);
@@ -855,14 +926,14 @@ document.getElementById('ce-save').addEventListener('click', function(){
   var btn = this; btn.disabled = true; btn.textContent = 'Creating…';
   supabaseClient.from('custom_exams')
     .insert({ name: name, class: cls, subject: subj, mm: mm, components: comps.length ? comps : null, created_by: state.user.id })
-    .select('id,name,class,subject,mm,components')
+    .select('id,name,class,subject,mm,components,created_by')
     .then(function(res){
       btn.disabled = false; btn.textContent = 'Create exam';
       if(res.error){ toast('Could not create exam: ' + res.error.message, true); return; }
       var ce = res.data[0];
       state.customExams.push(ce);
       state.customExamsById[ce.id] = ce;
-      populateCustomExamDropdown();
+      refreshCustomUI();   // updates BOTH the Enter-tab and the View-tab custom exam lists
       selExamCustom.value = ce.id;
       selExamCustom.dispatchEvent(new Event('change'));
       sheetCustomExam.classList.remove('show');
@@ -1008,6 +1079,7 @@ function renderMarksGrid(examObj){
     wireMarksRow(row, examObj, hasComponents);
     updateRowRemark(row, examObj, hasComponents);
   });
+  refreshDeleteAllBtn();
 }
 
 function wireMarksRow(row, examObj, hasComponents){
@@ -1049,6 +1121,7 @@ function wireMarksRow(row, examObj, hasComponents){
       row.querySelectorAll('.status-pill').forEach(function(p){ p.classList.toggle('active', p.dataset.status === DEFAULT_STATUS); });
       delete state.entry.marksByStudent[studentId];
       updateRowRemark(row, examObj, hasComponents);
+      refreshDeleteAllBtn();
     }
     if(existing && existing.id){
       askConfirm('Clear this entry?', 'This removes the saved mark for this student in this exam.', function(){
@@ -1136,6 +1209,65 @@ document.getElementById('btn-save-marks').addEventListener('click', function(){
 });
 
 /* =========================================================
+   DELETE ALL MARKS OF THE CHOSEN EXAM
+   - common exam: deletes saved marks for the selected class + subject
+   - custom exam: deletes all its marks AND the custom_exams entry
+========================================================= */
+function refreshDeleteAllBtn(){
+  var btn = document.getElementById('btn-delete-all-marks');
+  var has = Object.keys(state.entry.marksByStudent).length > 0;
+  btn.style.display = has ? 'inline-flex' : 'none';
+  btn.textContent = state.entry.type === 'custom' ? 'Delete all marks & this exam' : 'Delete all marks for this exam';
+}
+
+document.getElementById('btn-delete-all-marks').addEventListener('click', function(){
+  var examObj = activeExamObj();
+  if(!examObj) return;
+  var isCustom = state.entry.type === 'custom';
+  var ce = isCustom ? state.customExamsById[state.entry.customExamId] : null;
+  if(isCustom && !canManageCustom(ce)){ toast('Only the exam creator or an admin can remove this custom exam.', true); return; }
+  var cls = state.entry.cls, subj = state.entry.subject;
+  var msg = isCustom
+    ? 'This permanently deletes all saved marks for \u201c' + ce.name + '\u201d and removes the custom exam itself.'
+    : 'This permanently deletes all saved marks of ' + state.entry.examName + ' for ' + cls + ' \u2022 ' + subj + '.';
+
+  askConfirm('Delete all marks?', msg, function(){
+    var q = supabaseClient.from('marks').delete();
+    q = isCustom
+      ? q.eq('custom_exam_id', ce.id)
+      : q.eq('exam_name', state.entry.examName).eq('class', cls).eq('subject', subj);
+    q.select('id').then(function(res){
+      if(res.error){ toast('Delete failed: ' + res.error.message, true); return; }
+
+      if(!isCustom){
+        toast('All marks deleted.');
+        loadStudentsAndMarksForEntry();
+        return;
+      }
+
+      supabaseClient.from('custom_exams').delete().eq('id', ce.id).select('id').then(function(res2){
+        if(res2.error || !res2.data || !res2.data.length){
+          toast('Marks deleted, but the exam entry could not be removed.', true);
+          loadStudentsAndMarksForEntry();
+          return;
+        }
+        state.customExams = state.customExams.filter(function(x){ return x.id !== ce.id; });
+        delete state.customExamsById[ce.id];
+        if(state.view.customExamId === ce.id){
+          state.view.customExamId = null;
+          document.getElementById('view-results-wrap').style.display = 'none';
+          document.getElementById('view-placeholder').style.display = 'flex';
+        }
+        refreshCustomUI();
+        selExamCustom.value = '';
+        resetEntryDownstream(true);
+        toast('Marks and custom exam deleted.');
+      });
+    });
+  });
+});
+
+/* =========================================================
    VIEW & STATEMENT PANEL
 ========================================================= */
 var vsegCommon = document.getElementById('vseg-common');
@@ -1167,10 +1299,13 @@ vselExamCommon.addEventListener('change', function(){
   vselSubject.innerHTML = '<option value="">Select class first…</option>'; vselSubject.disabled = true;
 });
 
+/* Rebuilds the View-tab custom exam list from state, keeping the current selection if it still exists */
 function populateViewCustomExamDropdown(){
+  var prev = vselExamCustom.value;
   var list = state.customExams.slice().sort(function(a, b){ return a.name.localeCompare(b.name); });
   vselExamCustom.innerHTML = '<option value="">Select custom exam…</option>' +
     list.map(function(ce){ return '<option value="' + ce.id + '">' + escapeHtml(ce.name) + ' — ' + escapeHtml(ce.class) + ' / ' + escapeHtml(ce.subject) + '</option>'; }).join('');
+  vselExamCustom.value = prev;
 }
 vselExamCustom.addEventListener('change', function(){
   var id = vselExamCustom.value;
