@@ -317,7 +317,7 @@
   .tile:focus-visible{ outline:3px solid var(--gold-500); outline-offset:3px; }
 
   .tile-icon{
-    width:52px; height:52px;
+    width:56px; height:56px;
     border-radius:16px;
     display:flex; align-items:center; justify-content:center;
     background:linear-gradient(150deg,var(--teal-100),var(--white));
@@ -328,13 +328,14 @@
     background:linear-gradient(150deg,var(--gold-100),var(--white));
     transform:scale(1.06) rotate(-4deg);
   }
-  .tile-icon svg{ width:30px; height:30px; display:block; overflow:visible; }
+  .tile-icon svg{ width:32px; height:32px; display:block; overflow:visible; }
 
   .tile-name{
-    font-family:'Fraunces',serif;
-    font-weight:600;
-    font-size:.86rem;
+    font-family:'Manrope',sans-serif;
+    font-weight:800;
+    font-size:.92rem;
     line-height:1.25;
+    letter-spacing:-.01em;
     color:var(--ink-900);
     transition:color .3s var(--ease);
   }
@@ -379,8 +380,8 @@
       width:46px; height:46px;
       border-radius:14px;
     }
-    .tile-icon svg{ width:26px; height:26px; }
-    .tile-name{ font-size:.92rem; }
+    .tile-icon svg{ width:27px; height:27px; }
+    .tile-name{ font-size:1rem; }
     .tile:hover .tile-icon{ transform:scale(1.04) rotate(-3deg); }
   }
 
