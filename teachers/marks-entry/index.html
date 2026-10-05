@@ -200,31 +200,52 @@
   .remark-na{ color:var(--ink-500); font-style:italic; }
   .mr-clear{ width:30px; height:30px; border-radius:9px; border:1.5px solid var(--border-card); background:var(--white); display:flex; align-items:center; justify-content:center; cursor:pointer; }
   .mr-clear svg{ width:14px; height:14px; stroke:var(--danger); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
-  @media (max-width:640px){
-    .marks-row{ grid-template-columns:minmax(0,1fr) 30px; grid-template-areas:"identity clear" "inputs inputs" "status status"; row-gap:8px; }
-    .mr-roll{ display:none; }
-    .mr-identity{ grid-area:identity; }
-    .mr-inputs{ grid-area:inputs; }
-    .mr-status{ grid-area:status; }
-    .mr-clear{ grid-area:clear; align-self:start; }
-    .mr-name::before{ content:attr(data-roll) ' • '; color:var(--ink-500); font-weight:600; }
-    .mr-inputs{
+  /* ---------- Mobile & tablet: name + remark above, inputs below ---------- */
+@media (max-width:900px){
+  .marks-row{
+    grid-template-columns:minmax(0,1fr) 30px;
+    grid-template-areas:
+      "identity clear"
+      "inputs   inputs"
+      "status   status";
+    gap:10px;
+  }
+  .mr-roll{ display:none; }
+
+  .mr-identity{
+    grid-area:identity;
+    min-width:0;
+    width:100%;
+  }
+  .mr-name{
+    white-space:normal;
+    overflow-wrap:anywhere;
+    font-size:.95rem;
+  }
+  .mr-name::before{
+    content:attr(data-roll) ' • ';
+    color:var(--ink-500);
+    font-weight:600;
+  }
+  .mr-remark{
+    white-space:normal;
+    overflow-wrap:anywhere;
+  }
+
+  .mr-inputs{
+    grid-area:inputs;
     display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(96px, 1fr));
+    grid-template-columns:repeat(auto-fit, minmax(min(96px, 100%), 1fr));
     gap:8px;
     width:100%;
     min-width:0;
   }
-  .mr-identity{ grid-area:identity; min-width:0; }
-  .mr-remark{ white-space:normal; overflow-wrap:anywhere; }
   .mr-input-wrap{ min-width:0; }
   .mr-mark-input{ width:100%; }
   .mr-total{ align-self:end; min-width:0; padding-bottom:8px; }
-  }
 
-@media (min-width:641px) and (max-width:900px){
-  .mr-inputs{ gap:10px; }
-  .mr-mark-input{ width:80px; }
+  .mr-status{ grid-area:status; }
+  .mr-clear{ grid-area:clear; align-self:start; }
 }
 
   /* ---------- Stats row (view panel) ---------- */
