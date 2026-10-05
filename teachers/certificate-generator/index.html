@@ -23,6 +23,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <style>
   :root{
@@ -178,6 +179,22 @@
 
   .helper-text{ font-size:.78rem; color:var(--ink-500); margin-top:6px; }
 
+  /* ---------- Recipient autosuggest + chips ---------- */
+  .suggest-dropdown{ position:absolute; left:0; right:0; top:calc(100% + 6px); z-index:30; background:var(--white); border:1.5px solid var(--border-card); border-radius:var(--r-sm); box-shadow:var(--shadow-card-hover); max-height:260px; overflow-y:auto; padding:6px; }
+  .suggest-item{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:9px 10px; border-radius:10px; cursor:pointer; font-size:.86rem; }
+  .suggest-item:hover, .suggest-item.active{ background:var(--bg-tint-gold); }
+  .suggest-item .s-name{ font-weight:700; color:var(--ink-900); }
+  .suggest-item .s-meta{ font-size:.72rem; color:var(--ink-500); white-space:nowrap; }
+  .suggest-empty{ padding:10px; font-size:.78rem; color:var(--ink-500); text-align:center; }
+  .suggest-loading{ padding:10px; font-size:.78rem; color:var(--ink-500); text-align:center; }
+
+  .chip-list{ display:flex; flex-wrap:wrap; gap:8px; }
+  .chip-item{ display:inline-flex; align-items:center; gap:7px; background:var(--bg-tint-teal); color:var(--teal-700); font-size:.82rem; font-weight:700; padding:7px 8px 7px 13px; border-radius:999px; }
+  html[data-theme="dark"] .chip-item{ color:var(--teal-700); }
+  .chip-item .chip-remove{ width:19px; height:19px; border-radius:50%; border:none; background:rgba(0,0,0,.08); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; color:inherit; font-size:.72rem; line-height:1; padding:0; }
+  .chip-item .chip-remove:hover{ background:rgba(0,0,0,.18); }
+  .chip-list-empty{ font-size:.82rem; color:var(--ink-500); font-style:italic; }
+
   #toast-wrap{ position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 20px); z-index:150; display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:none; }
   .toast{ background:var(--teal-900); color:var(--white); font-size:.84rem; font-weight:600; padding:12px 18px; border-radius:999px; box-shadow:0 14px 30px -12px rgba(0,0,0,.4); opacity:0; transform:translateY(10px); transition:opacity .3s var(--ease), transform .3s var(--ease); max-width:88vw; }
   html[data-theme="dark"] .toast{ color:var(--teal-900); background:var(--gold-400); }
@@ -245,9 +262,24 @@
             <option value="staff">Staff member</option>
           </select>
         </div>
-        <div class="field">
+        <div class="field" style="position:relative;">
           <label for="f-recipient-name">Recipient name</label>
-          <input type="text" id="f-recipient-name" placeholder="Full name">
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="f-recipient-name" placeholder="Type a name…" autocomplete="off" style="flex:1;">
+            <button class="btn btn-ghost btn-sm" id="btn-add-recipient" type="button" title="Queue this name" style="flex-shrink:0;">Add</button>
+          </div>
+          <div id="recipient-suggestions" class="suggest-dropdown" style="display:none;"></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Recipients queued <span class="chip" id="recipient-count-chip">0 added</span></label>
+        <div id="recipient-chips" class="chip-list"><span class="chip-list-empty">No recipients queued yet — the name above will be used for a single certificate.</span></div>
+        <p class="helper-text">Start typing to see matching students or staff, or type a name freehand. Press <strong>Add</strong> (or Enter) to queue it, then repeat for everyone who needs a certificate.</p>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-bulk-toggle" style="margin-top:8px;">+ Paste multiple names at once</button>
+        <div id="bulk-add-wrap" style="display:none; margin-top:10px;">
+          <textarea id="bulk-add-text" rows="4" placeholder="Paste names here — one per line or separated by commas"></textarea>
+          <button type="button" class="btn btn-teal btn-sm" id="btn-bulk-add" style="margin-top:8px;">Add all to queue</button>
         </div>
       </div>
 
@@ -322,12 +354,27 @@
     </div>
 
     <div class="card">
-      <p class="card-title">Finish up</p>
+      <p class="card-title">Finish up <span class="chip">Single recipient (name above)</span></p>
       <div class="action-row">
         <button class="btn btn-teal" id="btn-print" type="button">Print certificate</button>
         <button class="btn btn-primary" id="btn-download-pdf" type="button">Download as PDF</button>
         <button class="btn btn-ghost" id="btn-download-png" type="button">Download as image</button>
       </div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">Generate for everyone queued <span class="chip" id="batch-count-chip">0 recipients</span></p>
+      <div class="field">
+        <label>Output format</label>
+        <div class="pill-group" id="batch-format-group">
+          <button class="pill-opt active" data-value="pdf-single" type="button">One combined PDF</button>
+          <button class="pill-opt" data-value="pdf-multi" type="button">Separate PDFs</button>
+          <button class="pill-opt" data-value="img-multi" type="button">Separate images</button>
+        </div>
+        <p class="helper-text" id="batch-format-help">All certificates will be combined into a single multi-page PDF, one page per recipient.</p>
+      </div>
+      <button class="btn btn-primary btn-block" id="btn-batch-generate" type="button">Generate certificates</button>
+      <p class="helper-text">Separate PDFs or images for more than one recipient are bundled into a single .zip download for convenience.</p>
     </div>
 
   </main>
@@ -1068,6 +1115,7 @@ var certData = {
   title: 'Certificate of Achievement',
   recipientType: 'student',
   recipientName: '',
+  recipients: [],
   body: 'for outstanding performance and dedication throughout the academic year',
   school: 'Gopal Sharma Memorial School',
   dateStr: '',
@@ -1237,8 +1285,19 @@ document.getElementById('btn-add-sig').addEventListener('click', function(){
 });
 
 document.getElementById('f-title').addEventListener('input', function(e){ certData.title = e.target.value; scheduleRender(); });
-document.getElementById('f-recipient-type').addEventListener('change', function(e){ certData.recipientType = e.target.value; scheduleRender(); });
-document.getElementById('f-recipient-name').addEventListener('input', function(e){ certData.recipientName = e.target.value; scheduleRender(); });
+document.getElementById('f-recipient-type').addEventListener('change', function(e){
+  certData.recipientType = e.target.value;
+  scheduleRender();
+  var nameEl = document.getElementById('f-recipient-name');
+  if(nameEl.value.trim().length >= 2) fetchRecipientSuggestions(nameEl.value.trim());
+  else hideSuggestions();
+});
+document.getElementById('f-recipient-name').addEventListener('input', function(e){
+  certData.recipientName = e.target.value;
+  scheduleRender();
+  scheduleSuggestionFetch(e.target.value);
+  updateBatchCountChip();
+});
 document.getElementById('f-body').addEventListener('input', function(e){ certData.body = e.target.value; scheduleRender(); });
 document.getElementById('f-date').addEventListener('change', function(e){ certData.dateStr = formatDisplayDate(e.target.value); scheduleRender(); });
 document.getElementById('f-certno').addEventListener('input', function(e){ certData.certNo = e.target.value; scheduleRender(); });
@@ -1263,6 +1322,293 @@ function wirePillGroup(id, onChange){
 }
 wirePillGroup('orientation-group', function(v){ certData.orientation = v; scheduleRender(); });
 wirePillGroup('pagesize-group', function(v){ certData.pageSize = v; scheduleRender(); });
+
+/* =========================================================
+   RECIPIENT QUEUE (chips)
+========================================================= */
+function renderRecipientChips(){
+  var wrap = document.getElementById('recipient-chips');
+  wrap.innerHTML = '';
+  if(certData.recipients.length === 0){
+    var empty = document.createElement('span');
+    empty.className = 'chip-list-empty';
+    empty.textContent = 'No recipients queued yet — the name above will be used for a single certificate.';
+    wrap.appendChild(empty);
+  } else {
+    certData.recipients.forEach(function(name, idx){
+      var chip = document.createElement('span');
+      chip.className = 'chip-item';
+      var label = document.createElement('span');
+      label.textContent = name;
+      var rm = document.createElement('button');
+      rm.type = 'button'; rm.className = 'chip-remove'; rm.title = 'Remove'; rm.textContent = '✕';
+      rm.addEventListener('click', function(){
+        certData.recipients.splice(idx, 1);
+        renderRecipientChips();
+      });
+      chip.appendChild(label); chip.appendChild(rm);
+      wrap.appendChild(chip);
+    });
+  }
+  document.getElementById('recipient-count-chip').textContent = certData.recipients.length + ' added';
+  updateBatchCountChip();
+}
+function updateBatchCountChip(){
+  var batchChip = document.getElementById('batch-count-chip');
+  var effectiveCount = getEffectiveRecipients().length;
+  batchChip.textContent = effectiveCount + ' recipient' + (effectiveCount === 1 ? '' : 's');
+}
+function addRecipientToQueue(rawName){
+  var name = (rawName || '').trim();
+  if(!name){ toast('Type a name first.', true); return; }
+  certData.recipients.push(name);
+  renderRecipientChips();
+  var input = document.getElementById('f-recipient-name');
+  input.value = '';
+  certData.recipientName = '';
+  hideSuggestions();
+  input.focus();
+}
+document.getElementById('btn-add-recipient').addEventListener('click', function(){
+  addRecipientToQueue(document.getElementById('f-recipient-name').value);
+});
+document.getElementById('f-recipient-name').addEventListener('keydown', function(e){
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    var active = document.querySelector('#recipient-suggestions .suggest-item.active');
+    if(active){ selectSuggestion(active.dataset.name); }
+    else { addRecipientToQueue(e.target.value); }
+  } else if(e.key === 'Escape'){
+    hideSuggestions();
+  }
+});
+
+document.getElementById('btn-bulk-toggle').addEventListener('click', function(){
+  var wrap = document.getElementById('bulk-add-wrap');
+  wrap.style.display = (wrap.style.display === 'none') ? 'block' : 'none';
+});
+document.getElementById('btn-bulk-add').addEventListener('click', function(){
+  var raw = document.getElementById('bulk-add-text').value;
+  var names = raw.split(/[\n,]/).map(function(s){ return s.trim(); }).filter(Boolean);
+  if(names.length === 0){ toast('Paste at least one name.', true); return; }
+  names.forEach(function(n){ certData.recipients.push(n); });
+  renderRecipientChips();
+  document.getElementById('bulk-add-text').value = '';
+  document.getElementById('bulk-add-wrap').style.display = 'none';
+  toast(names.length + ' recipient' + (names.length === 1 ? '' : 's') + ' added to the queue.');
+});
+
+/* =========================================================
+   AUTOSUGGEST (bandwidth-efficient: debounced, small column set,
+   capped results, cancels stale requests)
+========================================================= */
+var suggestDebounceTimer = null;
+var suggestRequestToken = 0;
+function scheduleSuggestionFetch(term){
+  clearTimeout(suggestDebounceTimer);
+  var t = (term || '').trim();
+  if(t.length < 2){ hideSuggestions(); return; }
+  suggestDebounceTimer = setTimeout(function(){ fetchRecipientSuggestions(t); }, 280);
+}
+function hideSuggestions(){
+  var box = document.getElementById('recipient-suggestions');
+  box.style.display = 'none';
+  box.innerHTML = '';
+}
+async function fetchRecipientSuggestions(term){
+  var box = document.getElementById('recipient-suggestions');
+  var myToken = ++suggestRequestToken;
+  box.style.display = 'block';
+  box.innerHTML = '<div class="suggest-loading">Searching…</div>';
+  try{
+    var rows = [];
+    if(certData.recipientType === 'staff'){
+      var r = await supabaseClient
+        .from('teachers')
+        .select('name,email')
+        .ilike('name', '%' + term + '%')
+        .order('name', { ascending: true })
+        .limit(8);
+      if(!r.error && r.data){
+        rows = r.data.map(function(row){ return { name: row.name, meta: row.email || '' }; });
+      }
+    } else {
+      var r2 = await supabaseClient
+        .from('students_master')
+        .select('name,class,roll_no')
+        .ilike('name', '%' + term + '%')
+        .order('name', { ascending: true })
+        .limit(8);
+      if(!r2.error && r2.data){
+        rows = r2.data.map(function(row){
+          var meta = row.class || '';
+          if(row.roll_no !== null && row.roll_no !== undefined) meta += (meta ? ' · ' : '') + 'Roll ' + row.roll_no;
+          return { name: row.name, meta: meta };
+        });
+      }
+    }
+    if(myToken !== suggestRequestToken) return; // stale response, ignore
+    renderSuggestions(rows);
+  }catch(err){
+    if(myToken !== suggestRequestToken) return;
+    hideSuggestions();
+  }
+}
+function renderSuggestions(rows){
+  var box = document.getElementById('recipient-suggestions');
+  if(!rows || rows.length === 0){
+    box.innerHTML = '<div class="suggest-empty">No matches — you can still use this name as typed.</div>';
+    box.style.display = 'block';
+    return;
+  }
+  box.innerHTML = '';
+  rows.forEach(function(row){
+    var item = document.createElement('div');
+    item.className = 'suggest-item';
+    item.dataset.name = row.name;
+    var nameEl = document.createElement('span'); nameEl.className = 's-name'; nameEl.textContent = row.name;
+    var metaEl = document.createElement('span'); metaEl.className = 's-meta'; metaEl.textContent = row.meta || '';
+    item.appendChild(nameEl); item.appendChild(metaEl);
+    item.addEventListener('mousedown', function(e){ e.preventDefault(); selectSuggestion(row.name); });
+    box.appendChild(item);
+  });
+  box.style.display = 'block';
+}
+function selectSuggestion(name){
+  var input = document.getElementById('f-recipient-name');
+  input.value = name;
+  certData.recipientName = name;
+  hideSuggestions();
+  scheduleRender();
+  input.focus();
+}
+document.getElementById('f-recipient-name').addEventListener('blur', function(){
+  setTimeout(hideSuggestions, 120);
+});
+document.addEventListener('click', function(e){
+  var box = document.getElementById('recipient-suggestions');
+  var input = document.getElementById('f-recipient-name');
+  if(e.target !== input && !box.contains(e.target)){ hideSuggestions(); }
+});
+
+/* =========================================================
+   BATCH GENERATION (all queued recipients, one go)
+========================================================= */
+var batchFormat = 'pdf-single';
+var BATCH_FORMAT_HELP = {
+  'pdf-single': 'All certificates will be combined into a single multi-page PDF, one page per recipient.',
+  'pdf-multi': 'Each recipient gets their own PDF file. For more than one recipient these are bundled into a single .zip.',
+  'img-multi': 'Each recipient gets their own PNG image. For more than one recipient these are bundled into a single .zip.'
+};
+wirePillGroup('batch-format-group', function(v){
+  batchFormat = v;
+  document.getElementById('batch-format-help').textContent = BATCH_FORMAT_HELP[v];
+});
+
+function getEffectiveRecipients(){
+  if(certData.recipients.length > 0) return certData.recipients.slice();
+  var typed = document.getElementById('f-recipient-name').value.trim();
+  return typed ? [typed] : [];
+}
+
+function sanitizeFileName(name){
+  return (name || 'Recipient').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') || 'Recipient';
+}
+
+function renderCertificateFor(name){
+  var savedName = certData.recipientName;
+  certData.recipientName = name;
+  renderMainCanvas();
+  var canvas = document.getElementById('cert-canvas');
+  var dataUrl = canvas.toDataURL('image/png');
+  certData.recipientName = savedName;
+  return dataUrl;
+}
+
+document.getElementById('btn-batch-generate').addEventListener('click', async function(){
+  var recipients = getEffectiveRecipients();
+  if(recipients.length === 0){
+    toast('Add at least one recipient name first.', true);
+    return;
+  }
+  var btn = document.getElementById('btn-batch-generate');
+  btn.disabled = true;
+  var originalLabel = btn.textContent;
+  var dims = pageDimsMM(certData.pageSize, certData.orientation);
+  var jsPDF = window.jspdf.jsPDF;
+  var usedNames = {};
+
+  function uniqueFileBase(name){
+    var base = sanitizeFileName(name);
+    if(!usedNames[base]){ usedNames[base] = 1; return base; }
+    usedNames[base] += 1;
+    return base + '_' + usedNames[base];
+  }
+
+  try{
+    if(recipients.length === 1){
+      // Single recipient: no zip needed regardless of mode chosen.
+      var only = recipients[0];
+      var dataUrl = renderCertificateFor(only);
+      if(batchFormat === 'img-multi'){
+        var a = document.createElement('a');
+        a.href = dataUrl; a.download = 'Certificate_' + uniqueFileBase(only) + '.png';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      } else {
+        var doc = new jsPDF({ unit:'mm', format:[dims.w, dims.h], orientation: certData.orientation === 'landscape' ? 'landscape' : 'portrait' });
+        doc.addImage(dataUrl, 'PNG', 0, 0, dims.w, dims.h);
+        doc.save('Certificate_' + uniqueFileBase(only) + '.pdf');
+      }
+      toast('Certificate generated.');
+    } else if(batchFormat === 'pdf-single'){
+      btn.textContent = 'Generating 1 / ' + recipients.length + '…';
+      var combined = new jsPDF({ unit:'mm', format:[dims.w, dims.h], orientation: certData.orientation === 'landscape' ? 'landscape' : 'portrait' });
+      for(var i=0;i<recipients.length;i++){
+        btn.textContent = 'Generating ' + (i+1) + ' / ' + recipients.length + '…';
+        var du = renderCertificateFor(recipients[i]);
+        if(i > 0) combined.addPage([dims.w, dims.h], certData.orientation === 'landscape' ? 'landscape' : 'portrait');
+        combined.addImage(du, 'PNG', 0, 0, dims.w, dims.h);
+        await new Promise(function(res){ requestAnimationFrame(res); });
+      }
+      combined.save('Certificates_' + recipients.length + '_recipients.pdf');
+      toast('Combined PDF with ' + recipients.length + ' certificates downloaded.');
+    } else {
+      // pdf-multi or img-multi, multiple recipients -> zip
+      var zip = new JSZip();
+      for(var j=0;j<recipients.length;j++){
+        btn.textContent = 'Generating ' + (j+1) + ' / ' + recipients.length + '…';
+        var name = recipients[j];
+        var durl = renderCertificateFor(name);
+        var base = uniqueFileBase(name);
+        if(batchFormat === 'img-multi'){
+          var b64 = durl.split(',')[1];
+          zip.file('Certificate_' + base + '.png', b64, { base64: true });
+        } else {
+          var pdoc = new jsPDF({ unit:'mm', format:[dims.w, dims.h], orientation: certData.orientation === 'landscape' ? 'landscape' : 'portrait' });
+          pdoc.addImage(durl, 'PNG', 0, 0, dims.w, dims.h);
+          var pdfBlob = pdoc.output('blob');
+          zip.file('Certificate_' + base + '.pdf', pdfBlob);
+        }
+        await new Promise(function(res){ requestAnimationFrame(res); });
+      }
+      btn.textContent = 'Packaging zip…';
+      var zipBlob = await zip.generateAsync({ type: 'blob' });
+      var url = URL.createObjectURL(zipBlob);
+      var a2 = document.createElement('a');
+      a2.href = url; a2.download = 'Certificates_' + recipients.length + '_recipients.zip';
+      document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+      toast(recipients.length + ' certificates packaged into a zip.');
+    }
+  }catch(err){
+    console.error(err);
+    toast('Could not generate certificates (a logo image may be blocked). Try uploading the logo instead.', true);
+  } finally {
+    scheduleRender();
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+});
 
 /* =========================================================
    RENDER MAIN PREVIEW
@@ -1359,16 +1705,28 @@ function redirectToAuth(){ window.location.href = AUTH_REDIRECT; }
       .eq('id', userId)
       .maybeSingle();
 
-    if(teacherResult.error || !teacherResult.data){ redirectToAuth(); return; }
-
-    state.user = { id: userId };
-    state.teacherName = teacherResult.data.name;
-
     var adminResult = await supabaseClient.rpc('is_admin');
     state.isAdmin = !!(adminResult && adminResult.data === true);
 
+    var isTeacher = !teacherResult.error && !!teacherResult.data;
+    state.isTeacher = isTeacher;
+
+    // Any of the three is enough to use this page: teacher, admin, or a
+    // teacher who is also an admin. Only someone with neither role (a
+    // student, a guardian, or an unauthenticated visitor) is redirected
+    // back to the login page.
+    if(!isTeacher && !state.isAdmin){ redirectToAuth(); return; }
+
+    state.user = { id: userId };
+    state.teacherName = isTeacher
+      ? teacherResult.data.name
+      : (session.user.email ? session.user.email.split('@')[0] : 'Administrator');
+
     var badge = document.getElementById('role-badge');
-    if(state.isAdmin){
+    if(isTeacher && state.isAdmin){
+      badge.textContent = state.teacherName.split(' ')[0] + ' • Teacher & Admin access';
+      badge.classList.add('admin-badge');
+    }else if(state.isAdmin){
       badge.textContent = 'Admin access — all templates';
       badge.classList.add('admin-badge');
     }else{
@@ -1388,6 +1746,7 @@ function redirectToAuth(){ window.location.href = AUTH_REDIRECT; }
     renderTitlePresets();
     renderAccentSwatches();
     renderSignatories();
+    renderRecipientChips();
     tryLoadDefaultLogo();
 
     await preloadFonts();
