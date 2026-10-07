@@ -21,7 +21,7 @@
     }catch(e){}
   })();
 </script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>My GSMS — Gamified School Management System</title>
 <meta name="description" content="My GSMS is an independent Gamified School Management System offering smart classroom resources and fun learning tools.">
 <meta name="keywords" content="GSMS, Gamified School Management System, school portal, student login, teacher login, school management system">
@@ -159,6 +159,7 @@
     overflow-x:hidden;
     position:relative;
     transition:background-color .35s var(--ease), color .35s var(--ease);
+    -webkit-tap-highlight-color:transparent;
   }
 
   ::selection{background:var(--gold-400); color:var(--teal-900);}
@@ -484,6 +485,120 @@
     .flame-field .ribbon{animation:none;}
     .eyebrow,h1,.subtitle,.role-card{animation:none; opacity:1;}
     .quick-link{transition:none;}
+  }
+
+  /* =====================================================================
+     NATIVE APP LAYOUT — mobile & tablet (handheld / WebView) only.
+     Nothing in this block touches desktop: it is entirely scoped inside
+     @media (max-width:900px) and only restyles existing elements.
+     ===================================================================== */
+  @media (max-width:900px){
+
+    html, body{ height:100%; }
+
+    body{
+      min-height:100dvh;
+      justify-content:space-between;
+      overflow-y:auto;
+      overflow-x:hidden;
+      scrollbar-width:none;
+      -ms-overflow-style:none;
+      padding-top:env(safe-area-inset-top,0px);
+      padding-bottom:env(safe-area-inset-bottom,0px);
+    }
+    body::-webkit-scrollbar{ display:none; }
+
+    /* Drop the decorative ribbon artwork — a native app screen reads
+       cleaner without a webby background flourish. */
+    .flame-field{ display:none; }
+
+    .theme-toggle,
+    .quick-link,
+    .role-card{ -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+
+    .theme-toggle{
+      top:calc(env(safe-area-inset-top,0px) + 14px);
+      right:14px;
+    }
+    .quick-link{
+      bottom:calc(env(safe-area-inset-bottom,0px) + 14px);
+    }
+
+    /* App splash-style header: centered mark instead of a left-aligned
+       website logo lockup. */
+    .brand{
+      flex-direction:column;
+      justify-content:center;
+      text-align:center;
+      gap:10px;
+      padding:calc(env(safe-area-inset-top,0px) + 30px) 24px 0;
+    }
+    .brand img{
+      width:76px;
+      height:76px;
+      border-radius:20px;
+    }
+    .brand-name{ font-size:1.1rem; }
+    .brand-name span{ font-size:.6rem; }
+
+    main.hero{
+      flex:1;
+      justify-content:center;
+      padding:28px 22px calc(env(safe-area-inset-bottom,0px) + 24px);
+      animation:none;
+    }
+
+    h1{
+      font-size:1.55rem;
+      line-height:1.18;
+      margin-bottom:8px;
+    }
+    .subtitle{
+      font-size:.92rem;
+      margin-bottom:28px;
+    }
+
+    /* Role chooser becomes a native-style selection list: full-width
+       rows, icon + label + chevron, no card copy or hover chrome. */
+    .role-grid{
+      grid-template-columns:1fr !important;
+      width:100%;
+      max-width:420px;
+      gap:12px;
+    }
+    .role-card{
+      flex-direction:row;
+      align-items:center;
+      text-align:left;
+      gap:16px;
+      padding:14px 16px;
+      border-radius:var(--r-md);
+    }
+    .role-card:hover,
+    .role-card:active{
+      transform:none;
+    }
+    .role-card:active{
+      background:var(--teal-100);
+    }
+    .role-icon{
+      width:46px;
+      height:46px;
+      flex:none;
+    }
+    .role-icon svg{ width:21px; height:21px; }
+    .role-title{ font-size:1rem; }
+    .role-desc{ display:none; }
+    .role-go{
+      margin-top:0;
+      margin-left:auto;
+      font-size:0;
+      gap:0;
+    }
+    .role-go svg{ width:15px; height:15px; }
+
+    /* A website credit line doesn't belong on an app's launch screen. */
+    footer{ display:none; }
   }
 </style>
 </head>
