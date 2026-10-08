@@ -1535,7 +1535,7 @@ wirePillGroup('batch-format-group', function(v){
 // Maximum pages packed into a single combined PDF before starting a new
 // part. Keeps each jsPDF instance's build/serialize step fast and bounded
 // in memory regardless of how many recipients are queued overall.
-var MAX_PAGES_PER_PDF = 150;
+var MAX_PAGES_PER_PDF = 50;
 
 function getEffectiveRecipients(){
   if(certData.recipients.length > 0) return certData.recipients.slice();
