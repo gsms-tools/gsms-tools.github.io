@@ -24,7 +24,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 
 <style>
   :root{
@@ -375,7 +374,7 @@
         <p class="helper-text" id="batch-format-help">All certificates will be combined into a single multi-page PDF, one page per recipient.</p>
       </div>
       <button class="btn btn-primary btn-block" id="btn-batch-generate" type="button">Generate certificates</button>
-      <p class="helper-text">Separate PDFs or images for more than one recipient are bundled into a single .zip download for convenience. For very large batches, combined PDFs are automatically split into multiple files (and zipped together) to keep generation fast and reliable.</p>
+      <p class="helper-text">Separate PDFs or images for more than one recipient are bundled into a single .zip download for convenience.</p>
     </div>
 
   </main>
@@ -1494,49 +1493,10 @@ document.addEventListener('click', function(e){
 
 /* =========================================================
    BATCH GENERATION (all queued recipients, one go)
-
-   Large-batch reliability notes (this is the part that changed):
-   - Each certificate is rasterised once into a PNG Blob via canvas.toBlob().
-     Blobs/ArrayBuffers are fed straight into jsPDF (as a Uint8Array) and
-     JSZip (as a Blob) instead of round-tripping through base64 data-URL
-     strings. Base64 strings are ~33% bigger and have to be built and then
-     re-decoded by jsPDF/JSZip, which is exactly the kind of double work
-     that makes the tab stop responding once you're into the hundreds or
-     thousands of certificates.
-   - Combined PDFs are built by MERGING single-page PDFs with pdf-lib,
-     instead of accumulating many pages inside one jsPDF document and
-     calling jsPDF's own save()/output(). jsPDF serialises a document's
-     entire file content as one big JS string via Array.join() at
-     save/output time, and that join is what throws "RangeError: Invalid
-     string length" once a document has enough pages — this turned out to
-     be driven by how jsPDF assembles its output (lots of small PDF
-     objects/streams concatenated into one string), not simply by total
-     embedded image bytes, which is why even a conservative byte budget
-     still failed at a modest page count. pdf-lib instead works with
-     binary buffers throughout, so merging many already-built single-page
-     PDFs together doesn't hit that ceiling. Each page is still produced
-     exactly the same proven-safe way "Separate PDFs" already does — one
-     small single-page jsPDF document per recipient — and pdf-lib then
-     copies that page into the combined document. A combined PDF is still
-     split into multiple parts (zipped together) once it reaches
-     MAX_PAGES_PER_PART, purely to keep each part's size and build time
-     reasonable for very large batches, not to work around a library
-     limit.
-   - Zipping uses compression:'STORE' (no deflate) because the PNG/PDF
-     bytes going into the zip are already compressed — deflating them again
-     only burns CPU time for no size benefit, and that extra CPU time is
-     part of what made large zips "not respond".
-   - Every page/file in the loop still yields to the browser via
-     requestAnimationFrame between certificates, so the UI (and the
-     progress label on the button) stays responsive throughout, however
-     many recipients are queued.
-   - None of this touches pixel output: every certificate is still drawn at
-     full template resolution and exported as lossless PNG, so quality is
-     identical to before for 1 recipient or 10,000.
 ========================================================= */
 var batchFormat = 'pdf-single';
 var BATCH_FORMAT_HELP = {
-  'pdf-single': 'All certificates will be combined into a single multi-page PDF, one page per recipient. Very large batches are automatically split into multiple PDFs and zipped together.',
+  'pdf-single': 'All certificates will be combined into a single multi-page PDF, one page per recipient.',
   'pdf-multi': 'Each recipient gets their own PDF file. For more than one recipient these are bundled into a single .zip.',
   'img-multi': 'Each recipient gets their own PNG image. For more than one recipient these are bundled into a single .zip.'
 };
@@ -1544,15 +1504,6 @@ wirePillGroup('batch-format-group', function(v){
   batchFormat = v;
   document.getElementById('batch-format-help').textContent = BATCH_FORMAT_HELP[v];
 });
-
-// A combined PDF part is closed off and flushed to a Blob once it reaches
-// whichever of these two limits comes first. With pdf-lib doing the
-// merging (binary buffers, not string concatenation), these are just
-// sensible batch sizes to keep each part's build time and file size
-// reasonable for very large recipient lists — not a workaround for a
-// hard ceiling the way the old jsPDF-only approach needed.
-var MAX_PAGES_PER_PART = 200;
-var MAX_PART_INPUT_BYTES = 80 * 1024 * 1024; // ~80MB of raw PNG input per part
 
 function getEffectiveRecipients(){
   if(certData.recipients.length > 0) return certData.recipients.slice();
@@ -1564,20 +1515,14 @@ function sanitizeFileName(name){
   return (name || 'Recipient').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') || 'Recipient';
 }
 
-// Renders the certificate for `name` on the shared preview canvas and
-// resolves with a lossless PNG Blob (same pixel data canvas.toDataURL
-// would have produced, but without the base64 string overhead).
-function renderCertificateBlobFor(name){
+function renderCertificateFor(name){
   var savedName = certData.recipientName;
   certData.recipientName = name;
   renderMainCanvas();
   var canvas = document.getElementById('cert-canvas');
+  var dataUrl = canvas.toDataURL('image/png');
   certData.recipientName = savedName;
-  return new Promise(function(resolve, reject){
-    canvas.toBlob(function(blob){
-      if(blob) resolve(blob); else reject(new Error('Canvas export failed for "' + name + '"'));
-    }, 'image/png');
-  });
+  return dataUrl;
 }
 
 document.getElementById('btn-batch-generate').addEventListener('click', async function(){
@@ -1590,8 +1535,7 @@ document.getElementById('btn-batch-generate').addEventListener('click', async fu
   btn.disabled = true;
   var originalLabel = btn.textContent;
   var dims = pageDimsMM(certData.pageSize, certData.orientation);
-  var jsPDFCtor = window.jspdf.jsPDF;
-  var orientationArg = certData.orientation === 'landscape' ? 'landscape' : 'portrait';
+  var jsPDF = window.jspdf.jsPDF;
   var usedNames = {};
 
   function uniqueFileBase(name){
@@ -1601,111 +1545,59 @@ document.getElementById('btn-batch-generate').addEventListener('click', async fu
     return base + '_' + usedNames[base];
   }
 
-  function triggerBlobDownload(blob, filename){
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
-  }
-
   try{
     if(recipients.length === 1){
       // Single recipient: no zip needed regardless of mode chosen.
       var only = recipients[0];
-      var soloBlob = await renderCertificateBlobFor(only);
+      var dataUrl = renderCertificateFor(only);
       if(batchFormat === 'img-multi'){
-        triggerBlobDownload(soloBlob, 'Certificate_' + uniqueFileBase(only) + '.png');
+        var a = document.createElement('a');
+        a.href = dataUrl; a.download = 'Certificate_' + uniqueFileBase(only) + '.png';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
       } else {
-        var soloBuf = new Uint8Array(await soloBlob.arrayBuffer());
-        var soloDoc = new jsPDFCtor({ unit:'mm', format:[dims.w, dims.h], orientation: orientationArg });
-        soloDoc.addImage(soloBuf, 'PNG', 0, 0, dims.w, dims.h);
-        soloDoc.save('Certificate_' + uniqueFileBase(only) + '.pdf');
+        var doc = new jsPDF({ unit:'mm', format:[dims.w, dims.h], orientation: certData.orientation === 'landscape' ? 'landscape' : 'portrait' });
+        doc.addImage(dataUrl, 'PNG', 0, 0, dims.w, dims.h);
+        doc.save('Certificate_' + uniqueFileBase(only) + '.pdf');
       }
       toast('Certificate generated.');
     } else if(batchFormat === 'pdf-single'){
-      // Build the combined PDF by MERGING small single-page PDFs with
-      // pdf-lib, rather than accumulating pages inside one jsPDF document.
-      // Each page is produced exactly the same proven-safe way "Separate
-      // PDFs" already does (one tiny single-page jsPDF document per
-      // recipient) — jsPDF's internal string-join only ever has to handle
-      // one page's worth of data, so it never approaches the ceiling that
-      // caused "Invalid string length" when many pages accumulated inside
-      // a single jsPDF document. pdf-lib then copies that single page,
-      // at the binary level, into the growing combined document, with no
-      // large string concatenation involved at any point.
-      var PDFLibDocument = PDFLib.PDFDocument;
-      var chunkBlobs = [];
-      var combinedDoc = await PDFLibDocument.create();
-      var currentPages = 0;
-      var currentBytes = 0;
-
-      for(var i = 0; i < recipients.length; i++){
-        btn.textContent = 'Generating ' + (i+1) + ' / ' + recipients.length + ' (PDF part ' + (chunkBlobs.length+1) + ')…';
-        var pageBlob = await renderCertificateBlobFor(recipients[i]);
-        var pageBuf = new Uint8Array(await pageBlob.arrayBuffer());
-
-        var singlePageDoc = new jsPDFCtor({ unit:'mm', format:[dims.w, dims.h], orientation: orientationArg });
-        singlePageDoc.addImage(pageBuf, 'PNG', 0, 0, dims.w, dims.h);
-        var singlePageBytes = singlePageDoc.output('arraybuffer');
-
-        var srcDoc = await PDFLibDocument.load(singlePageBytes);
-        var copiedPages = await combinedDoc.copyPages(srcDoc, [0]);
-        combinedDoc.addPage(copiedPages[0]);
-        currentPages++;
-        currentBytes += pageBuf.byteLength;
-
-        if(currentPages >= MAX_PAGES_PER_PART || currentBytes >= MAX_PART_INPUT_BYTES){
-          var partBytes = await combinedDoc.save();
-          chunkBlobs.push(new Blob([partBytes], { type:'application/pdf' }));
-          combinedDoc = await PDFLibDocument.create();
-          currentPages = 0;
-          currentBytes = 0;
-        }
-
+      btn.textContent = 'Generating 1 / ' + recipients.length + '…';
+      var combined = new jsPDF({ unit:'mm', format:[dims.w, dims.h], orientation: certData.orientation === 'landscape' ? 'landscape' : 'portrait' });
+      for(var i=0;i<recipients.length;i++){
+        btn.textContent = 'Generating ' + (i+1) + ' / ' + recipients.length + '…';
+        var du = renderCertificateFor(recipients[i]);
+        if(i > 0) combined.addPage([dims.w, dims.h], certData.orientation === 'landscape' ? 'landscape' : 'portrait');
+        combined.addImage(du, 'PNG', 0, 0, dims.w, dims.h);
         await new Promise(function(res){ requestAnimationFrame(res); });
       }
-      if(currentPages > 0){
-        var lastPartBytes = await combinedDoc.save();
-        chunkBlobs.push(new Blob([lastPartBytes], { type:'application/pdf' }));
-      }
-
-      if(chunkBlobs.length === 1){
-        triggerBlobDownload(chunkBlobs[0], 'Certificates_' + recipients.length + '_recipients.pdf');
-        toast('Combined PDF with ' + recipients.length + ' certificates downloaded.');
-      } else {
-        btn.textContent = 'Packaging zip…';
-        var zipCombined = new JSZip();
-        chunkBlobs.forEach(function(b, idx){
-          zipCombined.file('Certificates_part' + (idx+1) + '_of_' + chunkBlobs.length + '.pdf', b);
-        });
-        // STORE: the PDFs inside already contain compressed PNG data, so
-        // skipping deflate keeps packaging fast for large batches.
-        var zipCombinedBlob = await zipCombined.generateAsync({ type:'blob', compression:'STORE' });
-        triggerBlobDownload(zipCombinedBlob, 'Certificates_' + recipients.length + '_recipients_' + chunkBlobs.length + '_PDFs.zip');
-        toast(recipients.length + ' certificates generated across ' + chunkBlobs.length + ' PDFs, packaged into a zip.');
-      }
+      combined.save('Certificates_' + recipients.length + '_recipients.pdf');
+      toast('Combined PDF with ' + recipients.length + ' certificates downloaded.');
     } else {
       // pdf-multi or img-multi, multiple recipients -> zip
       var zip = new JSZip();
       for(var j=0;j<recipients.length;j++){
         btn.textContent = 'Generating ' + (j+1) + ' / ' + recipients.length + '…';
         var name = recipients[j];
-        var fileBlob = await renderCertificateBlobFor(name);
+        var durl = renderCertificateFor(name);
         var base = uniqueFileBase(name);
         if(batchFormat === 'img-multi'){
-          zip.file('Certificate_' + base + '.png', fileBlob);
+          var b64 = durl.split(',')[1];
+          zip.file('Certificate_' + base + '.png', b64, { base64: true });
         } else {
-          var fileBuf = new Uint8Array(await fileBlob.arrayBuffer());
-          var pdoc = new jsPDFCtor({ unit:'mm', format:[dims.w, dims.h], orientation: orientationArg });
-          pdoc.addImage(fileBuf, 'PNG', 0, 0, dims.w, dims.h);
-          zip.file('Certificate_' + base + '.pdf', pdoc.output('blob'));
+          var pdoc = new jsPDF({ unit:'mm', format:[dims.w, dims.h], orientation: certData.orientation === 'landscape' ? 'landscape' : 'portrait' });
+          pdoc.addImage(durl, 'PNG', 0, 0, dims.w, dims.h);
+          var pdfBlob = pdoc.output('blob');
+          zip.file('Certificate_' + base + '.pdf', pdfBlob);
         }
         await new Promise(function(res){ requestAnimationFrame(res); });
       }
       btn.textContent = 'Packaging zip…';
-      var zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
-      triggerBlobDownload(zipBlob, 'Certificates_' + recipients.length + '_recipients.zip');
+      var zipBlob = await zip.generateAsync({ type: 'blob' });
+      var url = URL.createObjectURL(zipBlob);
+      var a2 = document.createElement('a');
+      a2.href = url; a2.download = 'Certificates_' + recipients.length + '_recipients.zip';
+      document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
       toast(recipients.length + ' certificates packaged into a zip.');
     }
   }catch(err){
