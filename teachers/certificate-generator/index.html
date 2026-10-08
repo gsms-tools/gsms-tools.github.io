@@ -1502,13 +1502,23 @@ document.addEventListener('click', function(e){
      re-decoded by jsPDF/JSZip, which is exactly the kind of double work
      that makes the tab stop responding once you're into the hundreds or
      thousands of certificates.
-   - A combined PDF is capped at MAX_PAGES_PER_PDF pages. jsPDF builds the
-     whole document in memory and serialises it in one go when you call
-     save()/output() — an unbounded page count means an unbounded, blocking
-     serialisation step at the end. Capping it keeps every single PDF's
-     build + save step bounded and fast, no matter how many recipients are
-     queued. If the batch needs more than one PDF, the parts are zipped
-     together automatically so the user still gets one download.
+   - A combined PDF is capped by a BYTE BUDGET per part (MAX_CHUNK_BYTES),
+     not just a page count. jsPDF builds a document's whole file content in
+     memory as one big string via Array.join() when you call save()/
+     output() — the amount of embedded image data per document, not the
+     page count alone, is what decides whether that join blows past the
+     JS engine's maximum string length (this is exactly the "RangeError:
+     Invalid string length ... buildDocument" failure). A busy/decorative
+     template, or A3 instead of A4, can easily produce PNGs several times
+     larger than a plain template at A4 — so a fixed page count safe for
+     one combination could still overflow for another. Capping by actual
+     bytes-so-far, with a page count as a secondary safety net, keeps every
+     part's build step comfortably within safe limits regardless of
+     template, page size, or how many recipients are queued. Each part is
+     flushed to a Blob (jsPDF's output('blob')) the moment it hits budget,
+     so only one small part's worth of image data is ever being joined at
+     a time. If more than one part is produced, they're zipped together
+     automatically so the user still gets a single download.
    - Zipping uses compression:'STORE' (no deflate) because the PNG/PDF
      bytes going into the zip are already compressed — deflating them again
      only burns CPU time for no size benefit, and that extra CPU time is
@@ -1532,10 +1542,14 @@ wirePillGroup('batch-format-group', function(v){
   document.getElementById('batch-format-help').textContent = BATCH_FORMAT_HELP[v];
 });
 
-// Maximum pages packed into a single combined PDF before starting a new
-// part. Keeps each jsPDF instance's build/serialize step fast and bounded
-// in memory regardless of how many recipients are queued overall.
-var MAX_PAGES_PER_PDF = 50;
+// A combined PDF part is closed off and flushed to a Blob once its
+// embedded image data reaches this many bytes (whichever limit hits
+// first also applies a hard page-count ceiling as a secondary safety
+// net). Keeping this per-part budget well below the JS engine's maximum
+// string length is what prevents jsPDF's internal buildDocument() from
+// throwing "RangeError: Invalid string length" on large/complex batches.
+var MAX_CHUNK_BYTES = 15 * 1024 * 1024; // ~15MB of raw PNG data per PDF part
+var MAX_PAGES_PER_CHUNK = 60; // secondary cap in case images are unusually small
 
 function getEffectiveRecipients(){
   if(certData.recipients.length > 0) return certData.recipients.slice();
@@ -1607,48 +1621,52 @@ document.getElementById('btn-batch-generate').addEventListener('click', async fu
       }
       toast('Certificate generated.');
     } else if(batchFormat === 'pdf-single'){
-      // Build the combined PDF in page-capped chunks so a huge recipient
-      // list can never force one unbounded jsPDF document/serialize step.
-      var totalChunks = Math.ceil(recipients.length / MAX_PAGES_PER_PDF);
-      var chunkFiles = [];
+      // Build the combined PDF as a sequence of byte-budgeted parts. Each
+      // part is flushed to a Blob (forcing jsPDF to do its internal
+      // string-join while that part is still small) as soon as its
+      // embedded image bytes reach MAX_CHUNK_BYTES or its page count
+      // reaches MAX_PAGES_PER_CHUNK — whichever comes first. This is what
+      // avoids "RangeError: Invalid string length" on large or visually
+      // complex batches, regardless of page size or template.
+      var chunkBlobs = [];
+      var currentDoc = new jsPDFCtor({ unit:'mm', format:[dims.w, dims.h], orientation: orientationArg });
+      var currentPages = 0;
+      var currentBytes = 0;
 
-      for(var c = 0; c < totalChunks; c++){
-        var startIdx = c * MAX_PAGES_PER_PDF;
-        var endIdx = Math.min(startIdx + MAX_PAGES_PER_PDF, recipients.length);
-        var chunkDoc = new jsPDFCtor({ unit:'mm', format:[dims.w, dims.h], orientation: orientationArg });
+      for(var i = 0; i < recipients.length; i++){
+        btn.textContent = 'Generating ' + (i+1) + ' / ' + recipients.length + ' (PDF part ' + (chunkBlobs.length+1) + ')…';
+        var pageBlob = await renderCertificateBlobFor(recipients[i]);
 
-        for(var i = startIdx; i < endIdx; i++){
-          btn.textContent = totalChunks > 1
-            ? 'Generating ' + (i+1) + ' / ' + recipients.length + ' (PDF ' + (c+1) + ' of ' + totalChunks + ')…'
-            : 'Generating ' + (i+1) + ' / ' + recipients.length + '…';
-          var pageBlob = await renderCertificateBlobFor(recipients[i]);
-          var pageBuf = new Uint8Array(await pageBlob.arrayBuffer());
-          if(i > startIdx) chunkDoc.addPage([dims.w, dims.h], orientationArg);
-          chunkDoc.addImage(pageBuf, 'PNG', 0, 0, dims.w, dims.h);
-          await new Promise(function(res){ requestAnimationFrame(res); });
+        if(currentPages > 0 && (currentBytes + pageBlob.size > MAX_CHUNK_BYTES || currentPages >= MAX_PAGES_PER_CHUNK)){
+          chunkBlobs.push(currentDoc.output('blob'));
+          currentDoc = new jsPDFCtor({ unit:'mm', format:[dims.w, dims.h], orientation: orientationArg });
+          currentPages = 0;
+          currentBytes = 0;
         }
 
-        if(totalChunks === 1){
-          chunkDoc.save('Certificates_' + recipients.length + '_recipients.pdf');
-        } else {
-          chunkFiles.push({
-            name: 'Certificates_part' + (c+1) + '_of_' + totalChunks + '.pdf',
-            blob: chunkDoc.output('blob')
-          });
-        }
+        var pageBuf = new Uint8Array(await pageBlob.arrayBuffer());
+        if(currentPages > 0) currentDoc.addPage([dims.w, dims.h], orientationArg);
+        currentDoc.addImage(pageBuf, 'PNG', 0, 0, dims.w, dims.h);
+        currentPages++;
+        currentBytes += pageBlob.size;
+        await new Promise(function(res){ requestAnimationFrame(res); });
       }
+      chunkBlobs.push(currentDoc.output('blob')); // flush the final (possibly only) part
 
-      if(totalChunks > 1){
+      if(chunkBlobs.length === 1){
+        triggerBlobDownload(chunkBlobs[0], 'Certificates_' + recipients.length + '_recipients.pdf');
+        toast('Combined PDF with ' + recipients.length + ' certificates downloaded.');
+      } else {
         btn.textContent = 'Packaging zip…';
         var zipCombined = new JSZip();
-        chunkFiles.forEach(function(cf){ zipCombined.file(cf.name, cf.blob); });
+        chunkBlobs.forEach(function(b, idx){
+          zipCombined.file('Certificates_part' + (idx+1) + '_of_' + chunkBlobs.length + '.pdf', b);
+        });
         // STORE: the PDFs inside already contain compressed PNG data, so
         // skipping deflate keeps packaging fast for large batches.
         var zipCombinedBlob = await zipCombined.generateAsync({ type:'blob', compression:'STORE' });
-        triggerBlobDownload(zipCombinedBlob, 'Certificates_' + recipients.length + '_recipients_' + totalChunks + '_PDFs.zip');
-        toast(recipients.length + ' certificates generated across ' + totalChunks + ' PDFs, packaged into a zip.');
-      } else {
-        toast('Combined PDF with ' + recipients.length + ' certificates downloaded.');
+        triggerBlobDownload(zipCombinedBlob, 'Certificates_' + recipients.length + '_recipients_' + chunkBlobs.length + '_PDFs.zip');
+        toast(recipients.length + ' certificates generated across ' + chunkBlobs.length + ' PDFs, packaged into a zip.');
       }
     } else {
       // pdf-multi or img-multi, multiple recipients -> zip
