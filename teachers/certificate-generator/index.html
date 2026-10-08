@@ -24,6 +24,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 
 <style>
   :root{
@@ -1502,23 +1503,25 @@ document.addEventListener('click', function(e){
      re-decoded by jsPDF/JSZip, which is exactly the kind of double work
      that makes the tab stop responding once you're into the hundreds or
      thousands of certificates.
-   - A combined PDF is capped by a BYTE BUDGET per part (MAX_CHUNK_BYTES),
-     not just a page count. jsPDF builds a document's whole file content in
-     memory as one big string via Array.join() when you call save()/
-     output() — the amount of embedded image data per document, not the
-     page count alone, is what decides whether that join blows past the
-     JS engine's maximum string length (this is exactly the "RangeError:
-     Invalid string length ... buildDocument" failure). A busy/decorative
-     template, or A3 instead of A4, can easily produce PNGs several times
-     larger than a plain template at A4 — so a fixed page count safe for
-     one combination could still overflow for another. Capping by actual
-     bytes-so-far, with a page count as a secondary safety net, keeps every
-     part's build step comfortably within safe limits regardless of
-     template, page size, or how many recipients are queued. Each part is
-     flushed to a Blob (jsPDF's output('blob')) the moment it hits budget,
-     so only one small part's worth of image data is ever being joined at
-     a time. If more than one part is produced, they're zipped together
-     automatically so the user still gets a single download.
+   - Combined PDFs are built by MERGING single-page PDFs with pdf-lib,
+     instead of accumulating many pages inside one jsPDF document and
+     calling jsPDF's own save()/output(). jsPDF serialises a document's
+     entire file content as one big JS string via Array.join() at
+     save/output time, and that join is what throws "RangeError: Invalid
+     string length" once a document has enough pages — this turned out to
+     be driven by how jsPDF assembles its output (lots of small PDF
+     objects/streams concatenated into one string), not simply by total
+     embedded image bytes, which is why even a conservative byte budget
+     still failed at a modest page count. pdf-lib instead works with
+     binary buffers throughout, so merging many already-built single-page
+     PDFs together doesn't hit that ceiling. Each page is still produced
+     exactly the same proven-safe way "Separate PDFs" already does — one
+     small single-page jsPDF document per recipient — and pdf-lib then
+     copies that page into the combined document. A combined PDF is still
+     split into multiple parts (zipped together) once it reaches
+     MAX_PAGES_PER_PART, purely to keep each part's size and build time
+     reasonable for very large batches, not to work around a library
+     limit.
    - Zipping uses compression:'STORE' (no deflate) because the PNG/PDF
      bytes going into the zip are already compressed — deflating them again
      only burns CPU time for no size benefit, and that extra CPU time is
@@ -1542,14 +1545,14 @@ wirePillGroup('batch-format-group', function(v){
   document.getElementById('batch-format-help').textContent = BATCH_FORMAT_HELP[v];
 });
 
-// A combined PDF part is closed off and flushed to a Blob once its
-// embedded image data reaches this many bytes (whichever limit hits
-// first also applies a hard page-count ceiling as a secondary safety
-// net). Keeping this per-part budget well below the JS engine's maximum
-// string length is what prevents jsPDF's internal buildDocument() from
-// throwing "RangeError: Invalid string length" on large/complex batches.
-var MAX_CHUNK_BYTES = 15 * 1024 * 1024; // ~15MB of raw PNG data per PDF part
-var MAX_PAGES_PER_CHUNK = 60; // secondary cap in case images are unusually small
+// A combined PDF part is closed off and flushed to a Blob once it reaches
+// whichever of these two limits comes first. With pdf-lib doing the
+// merging (binary buffers, not string concatenation), these are just
+// sensible batch sizes to keep each part's build time and file size
+// reasonable for very large recipient lists — not a workaround for a
+// hard ceiling the way the old jsPDF-only approach needed.
+var MAX_PAGES_PER_PART = 200;
+var MAX_PART_INPUT_BYTES = 80 * 1024 * 1024; // ~80MB of raw PNG input per part
 
 function getEffectiveRecipients(){
   if(certData.recipients.length > 0) return certData.recipients.slice();
@@ -1621,37 +1624,51 @@ document.getElementById('btn-batch-generate').addEventListener('click', async fu
       }
       toast('Certificate generated.');
     } else if(batchFormat === 'pdf-single'){
-      // Build the combined PDF as a sequence of byte-budgeted parts. Each
-      // part is flushed to a Blob (forcing jsPDF to do its internal
-      // string-join while that part is still small) as soon as its
-      // embedded image bytes reach MAX_CHUNK_BYTES or its page count
-      // reaches MAX_PAGES_PER_CHUNK — whichever comes first. This is what
-      // avoids "RangeError: Invalid string length" on large or visually
-      // complex batches, regardless of page size or template.
+      // Build the combined PDF by MERGING small single-page PDFs with
+      // pdf-lib, rather than accumulating pages inside one jsPDF document.
+      // Each page is produced exactly the same proven-safe way "Separate
+      // PDFs" already does (one tiny single-page jsPDF document per
+      // recipient) — jsPDF's internal string-join only ever has to handle
+      // one page's worth of data, so it never approaches the ceiling that
+      // caused "Invalid string length" when many pages accumulated inside
+      // a single jsPDF document. pdf-lib then copies that single page,
+      // at the binary level, into the growing combined document, with no
+      // large string concatenation involved at any point.
+      var PDFLibDocument = PDFLib.PDFDocument;
       var chunkBlobs = [];
-      var currentDoc = new jsPDFCtor({ unit:'mm', format:[dims.w, dims.h], orientation: orientationArg });
+      var combinedDoc = await PDFLibDocument.create();
       var currentPages = 0;
       var currentBytes = 0;
 
       for(var i = 0; i < recipients.length; i++){
         btn.textContent = 'Generating ' + (i+1) + ' / ' + recipients.length + ' (PDF part ' + (chunkBlobs.length+1) + ')…';
         var pageBlob = await renderCertificateBlobFor(recipients[i]);
+        var pageBuf = new Uint8Array(await pageBlob.arrayBuffer());
 
-        if(currentPages > 0 && (currentBytes + pageBlob.size > MAX_CHUNK_BYTES || currentPages >= MAX_PAGES_PER_CHUNK)){
-          chunkBlobs.push(currentDoc.output('blob'));
-          currentDoc = new jsPDFCtor({ unit:'mm', format:[dims.w, dims.h], orientation: orientationArg });
+        var singlePageDoc = new jsPDFCtor({ unit:'mm', format:[dims.w, dims.h], orientation: orientationArg });
+        singlePageDoc.addImage(pageBuf, 'PNG', 0, 0, dims.w, dims.h);
+        var singlePageBytes = singlePageDoc.output('arraybuffer');
+
+        var srcDoc = await PDFLibDocument.load(singlePageBytes);
+        var copiedPages = await combinedDoc.copyPages(srcDoc, [0]);
+        combinedDoc.addPage(copiedPages[0]);
+        currentPages++;
+        currentBytes += pageBuf.byteLength;
+
+        if(currentPages >= MAX_PAGES_PER_PART || currentBytes >= MAX_PART_INPUT_BYTES){
+          var partBytes = await combinedDoc.save();
+          chunkBlobs.push(new Blob([partBytes], { type:'application/pdf' }));
+          combinedDoc = await PDFLibDocument.create();
           currentPages = 0;
           currentBytes = 0;
         }
 
-        var pageBuf = new Uint8Array(await pageBlob.arrayBuffer());
-        if(currentPages > 0) currentDoc.addPage([dims.w, dims.h], orientationArg);
-        currentDoc.addImage(pageBuf, 'PNG', 0, 0, dims.w, dims.h);
-        currentPages++;
-        currentBytes += pageBlob.size;
         await new Promise(function(res){ requestAnimationFrame(res); });
       }
-      chunkBlobs.push(currentDoc.output('blob')); // flush the final (possibly only) part
+      if(currentPages > 0){
+        var lastPartBytes = await combinedDoc.save();
+        chunkBlobs.push(new Blob([lastPartBytes], { type:'application/pdf' }));
+      }
 
       if(chunkBlobs.length === 1){
         triggerBlobDownload(chunkBlobs[0], 'Certificates_' + recipients.length + '_recipients.pdf');
