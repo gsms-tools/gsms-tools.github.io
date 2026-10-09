@@ -21,15 +21,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<!-- Devanagari-capable web font, loaded so the PDF snapshot (rendered by html2canvas) always has a proper Hindi typeface available, regardless of the device's installed system fonts. -->
+<!-- Devanagari-capable fonts: the browser embeds only the glyphs used, so the PDF stays small and text stays real text. -->
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;700&family=Noto+Sans+Devanagari:wght@400;500;700&display=swap" rel="stylesheet">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<!-- html2canvas rasterises the actual browser-rendered DOM (fonts, shaping, ligatures and all) into an image.
-     jsPDF is now only used as a thin container that places those page images onto A4 pages — it never draws
-     text itself, so its font/glyph limitations (the cause of the Hindi-in-PDF bug) never come into play. -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="ai-help.js"></script>
 
 <style>
@@ -965,6 +960,43 @@ select{ background-position:right 16px center; padding-right:44px; }
   outline:3px solid var(--gold-500);
   outline-offset:3px;
 }
+
+/* ---------- Print sheet: hidden on screen, the ONLY thing printed ---------- */
+#print-sheet{display:none;}
+
+@page{
+  size:A4; margin:14mm 14mm 16mm;
+  @bottom-center{ content:"Gopal Sharma Memorial School — Exam Blueprint  |  Page " counter(page) " of " counter(pages); font:8pt Helvetica,Arial,sans-serif; color:#5f6f70; }
+}
+@media print{
+  html{ color-scheme: light !important; }
+  html,body{background:#fff !important; color:#1c2626 !important;}
+  #gate,#app,.sheet-backdrop,#toast-wrap{display:none !important;}
+  #print-sheet{display:block; font-family:'Noto Sans','Noto Sans Devanagari',Helvetica,Arial,sans-serif; color:#1c2626;}
+  * {-webkit-print-color-adjust:exact; print-color-adjust:exact;}
+  .p-head{display:flex; align-items:center; justify-content:space-between; gap:12px; background:#0d3841; color:#fff; padding:12px 16px; border-radius:6px; margin-bottom:14px;}
+  .p-brand{display:flex; align-items:center; gap:12px;}
+  .p-brand img{width:42px; height:42px; object-fit:contain;}
+  .p-school{font-family:Georgia,'Times New Roman',serif; font-weight:700; font-size:15pt;}
+  .p-title{font-size:9.5pt; color:#ffd685; margin-top:2px;}
+  .p-right{text-align:right; font-size:9.5pt;}
+  .p-right .p-range{color:#ffd685; font-size:8.6pt; margin-top:2px;}
+  .p-card{border-left:3px solid #e2941a; padding:6px 0 8px 14px; margin-bottom:12px; break-inside:avoid; page-break-inside:avoid;}
+  .p-subject-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding-bottom:5px; border-bottom:1.4px solid #e2941a;}
+  .p-subject{font-family:Georgia,'Times New Roman',serif; font-weight:700; font-size:13pt; color:#124f59;}
+  .p-badge{font-family:Helvetica,Arial,sans-serif; font-weight:700; font-size:9pt; padding:4px 10px; border-radius:999px; color:#fff; background:#227d8b; white-space:nowrap;}
+  .p-teacher{font-size:8pt; color:#5f6f70; margin-top:5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#b26a12;}
+  .p-general{font-size:9.4pt; font-style:italic; color:#5f6f70; margin-top:6px;}
+  .p-freehand{font-size:9.8pt; color:#1c2626; white-space:pre-wrap; line-height:1.55; margin-top:8px;}
+  .p-section{margin-top:10px;}
+  .p-section-name{font-family:Helvetica,Arial,sans-serif; font-size:9.5pt; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#124f59;}
+  .p-section-instr{font-size:9pt; font-style:italic; color:#5f6f70; margin-bottom:4px;}
+  .p-group-row{display:flex; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:0.75px dashed #d8ccb0;}
+  .p-group-desc{font-size:10pt; color:#1c2626;}
+  .p-group-note{font-size:8.4pt; color:#5f6f70; margin-top:2px;}
+  .p-group-marks{font-family:Helvetica,Arial,sans-serif; font-size:10pt; font-weight:700; color:#1b6b78; white-space:nowrap;}
+  .p-totals{display:flex; justify-content:space-between; margin-top:8px; padding-top:8px; border-top:1.5px solid #d8ccb0; font-size:10pt; font-weight:700; color:#124f59;}
+}
 </style>
 </head>
 <body>
@@ -1156,6 +1188,7 @@ select{ background-position:right 16px center; padding-right:44px; }
             Download PDF
           </button>
         </div>
+        <p class="hint" style="margin:8px 0 0; font-size:.78rem; color:var(--ink-500);">In the print dialog, choose <strong>Save as PDF</strong> as the destination. On phones, use Share / Save to Files.</p>
         <div id="browse-results" style="display:flex;flex-direction:column;gap:12px;margin-top:12px;"></div>
       </div>
 
@@ -1169,6 +1202,9 @@ select{ background-position:right 16px center; padding-right:44px; }
   </main>
 
 </div>
+
+<!-- Print-only compiled document -->
+<div id="print-sheet" aria-hidden="true"></div>
 
 <!-- Sign-out confirmation sheet -->
 <div class="sheet-backdrop" id="sheet-signout">
@@ -1220,6 +1256,7 @@ var SUPABASE_URL = 'https://ctuqlmdunhdhhholsqco.supabase.co';
 var SUPABASE_ANON_KEY = 'sb_publishable_jaogFl0uiNQW_3kkPakSrw_uVTwohtY';
 var AUTH_REDIRECT = 'https://mygsms.in/auth.html';
 var DASHBOARD_URL = 'https://mygsms.in/teachers/';
+var LOGO_URL = 'https://mygsms.in/gsms-logo.png';
 
 var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -2173,301 +2210,112 @@ function jumpToEdit(p){
 }
 
 /* =========================================================
-   PDF GENERATION + SHARE
+   LIGHTWEIGHT PDF: build a print-only document and let the browser
+   render it (real text + embedded font subsets, so Hindi works and
+   the file stays tiny), then save it via the native "Save as PDF"
+   print destination — same approach as the weekly lesson plan page.
 ========================================================= */
-function loadImageAsDataURL(url){
-  return new Promise(function(resolve){
-    var img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = function(){
-      try{
-        var canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
-        var ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      }catch(e){ resolve(null); }
-    };
-    img.onerror = function(){ resolve(null); };
-    img.src = url;
-  });
-}
+function buildPrintSheetHtml(selectedFields){
+  var r = lastBrowseResults;
+  var html =
+    '<div class="p-head"><div class="p-brand"><img src="' + LOGO_URL + '" alt="">' +
+    '<div><div class="p-school">Gopal Sharma Memorial School</div><div class="p-title">Exam Blueprint</div></div></div>' +
+    '<div class="p-right"><div>Class ' + escapeHtml(r.class) + '</div><div class="p-range">' + escapeHtml(r.exam) + '</div></div></div>';
 
-// Builds one subject's blueprint block as a real DOM element, styled to
-// match the app's brand (teal/gold), which html2canvas will later snapshot.
-function buildSubjectCardEl(p, selectedFields){
-  var card = document.createElement('div');
-  card.style.cssText =
-    'position:relative; padding:12px 14px 14px 20px; margin-bottom:14px; ' +
-    'border-left:3px solid #e2941a; page-break-inside:avoid;';
+  r.entries.forEach(function(p){
+    html += '<div class="p-card">';
+    html += '<div class="p-subject-row"><div class="p-subject">' + escapeHtml(p.subject) + '</div>' +
+      '<div class="p-badge">' + escapeHtml(displayTotalMarksText(p)) + (selectedFields.indexOf('duration') !== -1 && p.duration_minutes ? ' • ' + p.duration_minutes + ' mins' : '') + '</div></div>';
 
-  var titleRow = document.createElement('div');
-  titleRow.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:10px;';
-
-  var titleEl = document.createElement('div');
-  titleEl.style.cssText = 'font-family:Georgia,"Times New Roman",serif; font-weight:700; font-size:13pt; color:#124f59;';
-  titleEl.textContent = p.subject;
-  titleRow.appendChild(titleEl);
-
-  var badge = document.createElement('div');
-  badge.style.cssText = 'font-family:Helvetica,Arial,sans-serif; font-weight:700; font-size:9pt; padding:4px 10px; border-radius:999px; color:#ffffff; background:#227d8b;';
-  badge.textContent = displayTotalMarksText(p) + (selectedFields.indexOf('duration') !== -1 && p.duration_minutes ? ' • ' + p.duration_minutes + ' mins' : '');
-  titleRow.appendChild(badge);
-  card.appendChild(titleRow);
-
-  var ruleEl = document.createElement('div');
-  ruleEl.style.cssText = 'height:1.4px; background:#e2941a; margin:8px 0 6px;';
-  card.appendChild(ruleEl);
-
-  if(selectedFields.indexOf('general_instructions') !== -1 && p.general_instructions){
-    var giEl = document.createElement('div');
-    giEl.style.cssText = 'font-family:"Noto Sans",Manrope,Helvetica,Arial,sans-serif; font-size:9.4pt; font-style:italic; color:#5f6f70; margin-bottom:8px;';
-    giEl.textContent = p.general_instructions;
-    card.appendChild(giEl);
-  }
-
-  if(selectedFields.indexOf('teacher_name') !== -1 && p.teacher_name){
-    var tnEl = document.createElement('div');
-    tnEl.style.cssText = 'font-family:Helvetica,Arial,sans-serif; font-size:8.4pt; color:#b26a12; margin-bottom:8px; font-weight:700; text-transform:uppercase; letter-spacing:.04em;';
-    tnEl.textContent = 'Teacher: ' + p.teacher_name;
-    card.appendChild(tnEl);
-  }
-
-  var data = p.blueprint_json || { sections: [] };
-
-  if(data.mode === 'freehand'){
-    var freehandEl = document.createElement('div');
-    freehandEl.style.cssText = 'font-family:"Noto Sans",Manrope,Helvetica,Arial,sans-serif; font-size:9.8pt; color:#1c2626; white-space:pre-wrap; line-height:1.55; margin-top:8px;';
-    freehandEl.textContent = data.text || '';
-    card.appendChild(freehandEl);
-    return card;
-  }
-
-  (data.sections || []).forEach(function(section){
-    var secWrap = document.createElement('div');
-    secWrap.style.cssText = 'margin-top:10px;';
-
-    if(section.name){
-      var secName = document.createElement('div');
-      secName.style.cssText = 'font-family:Helvetica,Arial,sans-serif; font-size:9.5pt; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#124f59;';
-      secName.textContent = section.name;
-      secWrap.appendChild(secName);
+    if(selectedFields.indexOf('teacher_name') !== -1 && p.teacher_name){
+      html += '<div class="p-teacher">Teacher: ' + escapeHtml(p.teacher_name) + '</div>';
     }
-    if(selectedFields.indexOf('section_instructions') !== -1 && section.instructions){
-      var secInstr = document.createElement('div');
-      secInstr.style.cssText = 'font-family:"Noto Sans",Manrope,Helvetica,Arial,sans-serif; font-size:9pt; font-style:italic; color:#5f6f70; margin-bottom:4px;';
-      secInstr.textContent = section.instructions;
-      secWrap.appendChild(secInstr);
+    if(selectedFields.indexOf('general_instructions') !== -1 && p.general_instructions){
+      html += '<div class="p-general">' + escapeHtml(p.general_instructions) + '</div>';
     }
 
-    section.groups.forEach(function(group){
-      var d = groupDescription(group);
-      var row = document.createElement('div');
-      row.style.cssText = 'display:flex; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:0.75px dashed #d8ccb0;';
+    var data = p.blueprint_json || { sections: [] };
 
-      var left = document.createElement('div');
-      left.style.cssText = 'font-family:"Noto Sans",Manrope,Helvetica,Arial,sans-serif; font-size:10pt; color:#1c2626;';
-      left.textContent = d.desc;
-      if(d.note && selectedFields.indexOf('question_notes') !== -1){
-        var noteEl = document.createElement('div');
-        noteEl.style.cssText = 'font-size:8.4pt; color:#5f6f70; margin-top:2px;';
-        noteEl.textContent = d.note;
-        left.appendChild(noteEl);
-      }
-      row.appendChild(left);
-
-      var right = document.createElement('div');
-      right.style.cssText = 'font-family:Helvetica,Arial,sans-serif; font-size:10pt; font-weight:700; color:#1b6b78; white-space:nowrap;';
-      right.textContent = groupMarks(group) + ' m';
-      row.appendChild(right);
-
-      secWrap.appendChild(row);
-    });
-
-    card.appendChild(secWrap);
-  });
-
-  return card;
-}
-
-async function buildPdf(logoDataUrl, selectedFields){
-  if(typeof html2canvas === 'undefined'){
-    throw new Error('html2canvas did not load — check your internet connection and try again.');
-  }
-  if(document.fonts && document.fonts.ready){
-    try{ await document.fonts.ready; }catch(e){}
-  }
-
-  var PAGE_W = 794;
-  var PAGE_H = 1123;
-  var MARGIN = 40;
-  var FOOTER_ZONE = 34;
-
-  var stage = document.createElement('div');
-  stage.style.cssText = 'position:fixed; left:-10000px; top:0; width:'+PAGE_W+'px; z-index:-1; background:#faf8f3;';
-  document.body.appendChild(stage);
-
-  try{
-    var headerEl = document.createElement('div');
-    headerEl.style.cssText =
-      'width:'+PAGE_W+'px; box-sizing:border-box; background:#0d3841; padding:18px '+MARGIN+'px; ' +
-      'display:flex; align-items:center; justify-content:space-between;';
-    headerEl.innerHTML =
-      '<div style="display:flex; align-items:center; gap:14px;">' +
-        (logoDataUrl ? '<img src="'+logoDataUrl+'" style="width:44px;height:44px;object-fit:contain;">' : '') +
-        '<div>' +
-          '<div style="font-family:Georgia,\'Times New Roman\',serif; font-weight:700; font-size:15pt; color:#ffffff;">Gopal Sharma Memorial School</div>' +
-          '<div style="font-family:Helvetica,Arial,sans-serif; font-size:9.5pt; color:#ffd685; margin-top:3px;">Exam Blueprint</div>' +
-        '</div>' +
-      '</div>' +
-      '<div style="text-align:right;">' +
-        '<div style="font-family:Helvetica,Arial,sans-serif; font-size:9.5pt; color:#ffffff;">Class ' + escapeHtml(lastBrowseResults.class) + '</div>' +
-        '<div style="font-family:Helvetica,Arial,sans-serif; font-size:8.6pt; color:#ffd685; margin-top:3px;">' + escapeHtml(lastBrowseResults.exam) + '</div>' +
-      '</div>';
-    stage.appendChild(headerEl);
-    var headerHeight = headerEl.getBoundingClientRect().height;
-    stage.removeChild(headerEl);
-
-    var cardEls = lastBrowseResults.entries.map(function(p){ return buildSubjectCardEl(p, selectedFields); });
-    var cardHeights = cardEls.map(function(el){
-      el.style.width = (PAGE_W - MARGIN*2) + 'px';
-      stage.appendChild(el);
-      var h = el.getBoundingClientRect().height;
-      stage.removeChild(el);
-      return h;
-    });
-
-    var pages = [];
-    var current = [];
-    var usable = PAGE_H - MARGIN*2 - headerHeight - FOOTER_ZONE - 10;
-    var used = 0;
-    for(var i = 0; i < cardEls.length; i++){
-      var h = cardHeights[i] + 14;
-      if(current.length > 0 && used + h > usable){
-        pages.push(current);
-        current = [];
-        used = 0;
-        usable = PAGE_H - MARGIN*2 - FOOTER_ZONE - 10;
-      }
-      current.push(i);
-      used += h;
-    }
-    if(current.length > 0 || pages.length === 0) pages.push(current);
-
-    var jsPDF = window.jspdf.jsPDF;
-    var doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    var pdfW = doc.internal.pageSize.getWidth();
-    var pdfH = doc.internal.pageSize.getHeight();
-
-    for(var pageIndex = 0; pageIndex < pages.length; pageIndex++){
-      var pageEl = document.createElement('div');
-      pageEl.style.cssText =
-        'width:'+PAGE_W+'px; height:'+PAGE_H+'px; background:#faf8f3; box-sizing:border-box; ' +
-        'position:relative; font-family:Manrope,Helvetica,Arial,sans-serif;';
-
-      if(pageIndex === 0){
-        pageEl.appendChild(headerEl.cloneNode(true));
-      }
-
-      var contentEl = document.createElement('div');
-      contentEl.style.cssText = 'padding:'+(pageIndex === 0 ? '18px' : MARGIN+'px')+' '+MARGIN+'px 0;';
-      pages[pageIndex].forEach(function(idx){
-        contentEl.appendChild(cardEls[idx].cloneNode(true));
+    if(data.mode === 'freehand'){
+      html += '<div class="p-freehand">' + escapeHtml(data.text || '') + '</div>';
+    } else {
+      (data.sections || []).forEach(function(section){
+        html += '<div class="p-section">';
+        if(section.name){ html += '<div class="p-section-name">' + escapeHtml(section.name) + '</div>'; }
+        if(selectedFields.indexOf('section_instructions') !== -1 && section.instructions){
+          html += '<div class="p-section-instr">' + escapeHtml(section.instructions) + '</div>';
+        }
+        (section.groups || []).forEach(function(group){
+          var d = groupDescription(group);
+          html += '<div class="p-group-row"><div class="p-group-desc">' + escapeHtml(d.desc) +
+            (d.note && selectedFields.indexOf('question_notes') !== -1 ? '<div class="p-group-note">' + escapeHtml(d.note) + '</div>' : '') +
+            '</div><div class="p-group-marks">' + groupMarks(group) + ' m</div></div>';
+        });
+        html += '</div>';
       });
-      pageEl.appendChild(contentEl);
-
-      var footerEl = document.createElement('div');
-      footerEl.style.cssText =
-        'position:absolute; left:'+MARGIN+'px; right:'+MARGIN+'px; bottom:'+(MARGIN-8)+'px; ' +
-        'border-top:1px solid #e2941a; padding-top:8px; display:flex; justify-content:space-between; ' +
-        'font-family:Helvetica,Arial,sans-serif; font-size:7.6pt; color:#5f6f70;';
-      footerEl.innerHTML =
-        '<span>Gopal Sharma Memorial School — Exam Blueprint</span>' +
-        '<span>Page ' + (pageIndex+1) + ' of ' + pages.length + '</span>';
-      pageEl.appendChild(footerEl);
-
-      stage.appendChild(pageEl);
-      var canvas = await html2canvas(pageEl, { scale: 2, backgroundColor: '#faf8f3', useCORS: true });
-      stage.removeChild(pageEl);
-
-      var imgData = canvas.toDataURL('image/png');
-      if(pageIndex > 0) doc.addPage();
-      doc.addImage(imgData, 'PNG', 0, 0, pdfW, pdfH);
+      html += '<div class="p-totals"><span>Total</span><span>' + escapeHtml(displayTotalMarksText(p)) + '</span></div>';
     }
 
-    var fileName = 'Exam-Blueprint_' + lastBrowseResults.exam.replace(/[^a-z0-9]/gi,'') + '_Class_' + lastBrowseResults.class.replace(/[^a-z0-9]/gi,'') + '.pdf';
-    var blob = doc.output('blob');
-    return { blob: blob, fileName: fileName };
-  } finally {
-    document.body.removeChild(stage);
+    html += '</div>';
+  });
+  return html;
+}
+
+function buildPrintSheet(selectedFields){
+  document.getElementById('print-sheet').innerHTML = buildPrintSheetHtml(selectedFields);
+}
+
+function pdfFileTitle(){
+  var r = lastBrowseResults;
+  return 'Exam-Blueprint_' + r.exam.replace(/[^a-z0-9]/gi,'') + '_Class_' + r.class.replace(/[^a-z0-9]/gi,'');
+}
+
+async function openPrintDialog(selectedFields, btn){
+  var originalHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = 'Preparing…';
+  try{
+    buildPrintSheet(selectedFields);
+    // Wait for fonts (Noto Sans / Devanagari) and the logo so the PDF captures them.
+    if(document.fonts && document.fonts.ready){ try{ await document.fonts.ready; }catch(e){} }
+    var img = document.querySelector('#print-sheet img');
+    if(img && !img.complete){
+      await new Promise(function(res){ img.onload = img.onerror = res; setTimeout(res, 3000); });
+    }
+    // The document title becomes the suggested PDF file name.
+    var oldTitle = document.title;
+    document.title = pdfFileTitle();
+    window.addEventListener('afterprint', function restore(){
+      document.title = oldTitle;
+      window.removeEventListener('afterprint', restore);
+    });
+    window.print();
+  }catch(e){
+    console.error(e);
+    toast('Could not open the print dialog.', true);
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
   }
 }
 
-function generatePdfFlow(afterBuild){
+function generatePdfFlow(btn){
   if(!lastBrowseResults.entries || lastBrowseResults.entries.length === 0){
     toast('Load an exam with at least one blueprint entry first.', true);
     return;
   }
-  askPdfFields(async function(selectedFields){
-    var btn = afterBuild.button;
-    btn.disabled = true;
-    var originalHtml = btn.innerHTML;
-    btn.textContent = 'Preparing PDF…';
-    try{
-      var logoDataUrl = await loadImageAsDataURL('https://mygsms.in/gsms-logo.png');
-      var result = await buildPdf(logoDataUrl, selectedFields);
-      afterBuild.onDone(result);
-    }catch(e){
-      console.error(e);
-      toast('Could not generate PDF.', true);
-    }finally{
-      btn.disabled = false;
-      btn.innerHTML = originalHtml;
-    }
+  askPdfFields(function(selectedFields){
+    openPrintDialog(selectedFields, btn);
   });
 }
 
 document.getElementById('btn-share-pdf').addEventListener('click', function(){
-  var btn = this;
-  generatePdfFlow({
-    button: btn,
-    onDone: function(result){ shareOrDownloadBlob(result.blob, result.fileName); }
-  });
+  generatePdfFlow(this);
 });
 
 document.getElementById('btn-download-pdf').addEventListener('click', function(){
-  var btn = this;
-  generatePdfFlow({
-    button: btn,
-    onDone: function(result){ downloadBlob(result.blob, result.fileName); toast('PDF downloaded.'); }
-  });
+  generatePdfFlow(this);
 });
-
-function shareOrDownloadBlob(blob, fileName){
-  var file = new File([blob], fileName, { type: 'application/pdf' });
-  var shareTitle = 'Exam Blueprint — ' + lastBrowseResults.class;
-  var shareText = 'Exam blueprint for ' + lastBrowseResults.class + ' (' + lastBrowseResults.exam + ')';
-
-  if(navigator.canShare && navigator.canShare({ files: [file] })){
-    navigator.share({ files: [file], title: shareTitle, text: shareText })
-      .catch(function(err){
-        if(err && err.name !== 'AbortError'){ downloadBlob(blob, fileName); }
-      });
-  }else{
-    downloadBlob(blob, fileName);
-    toast('PDF downloaded (sharing not supported on this device/browser).');
-  }
-}
-
-function downloadBlob(blob, fileName){
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url; a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
-}
 
 /* =========================================================
    AUTH + DATA BOOTSTRAP
