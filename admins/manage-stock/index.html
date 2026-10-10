@@ -261,6 +261,10 @@
   .history-person{ font-weight:700; font-size:.88rem; }
   .history-date{ font-size:.74rem; color:var(--ink-500); white-space:nowrap; }
   .history-item{ font-size:.82rem; color:var(--ink-500); margin-top:4px; }
+  /* Added: reverted-issue badge + revert action row (admins only) */
+  .reversed-chip{ font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--warn); background:var(--warn-bg); padding:3px 9px; border-radius:999px; }
+  .history-row.is-reversed{ opacity:.6; }
+  .revert-issue-btn{ color:var(--danger); }
 
   .sheet-backdrop{ position:fixed; inset:0; z-index:100; background:rgba(9,34,39,.4); opacity:0; visibility:hidden; transition:opacity .25s var(--ease), visibility .25s var(--ease); overflow-y:auto; }
   .sheet-backdrop.show{ opacity:1; visibility:visible; }
@@ -516,6 +520,20 @@
   </div>
 </div>
 
+<!-- Revert issue confirmation (admins only — restores the relevant items' stock) -->
+<div class="sheet-backdrop" id="sheet-revert">
+  <div class="sheet" role="dialog" aria-label="Revert issue confirmation">
+    <div class="sheet-handle"></div>
+    <h3>Revert this issue?</h3>
+    <p class="sheet-desc" id="revert-message"></p>
+    <p class="field-error" id="revert-error"></p>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="revert-cancel">Cancel</button>
+      <button class="btn btn-danger" id="revert-confirm">Revert</button>
+    </div>
+  </div>
+</div>
+
 <!-- Sign-out confirmation -->
 <div class="sheet-backdrop" id="sheet-signout">
   <div class="sheet" role="dialog" aria-label="Sign out confirmation">
@@ -557,6 +575,8 @@ var state = {
   historyPage: 0, historyLoading: false, historyExhausted: false,
   historyPerson: '', historyFrom: '', historyTo: '',
 
+  isAdmin: false,                // admins (not storekeepers) can revert an issue
+
   searchDebounce: null, itemSearchDebounce: null, recipientDebounce: null, historyDebounce: null
 };
 
@@ -597,16 +617,20 @@ function escapeHtml(str){
   return div.innerHTML;
 }
 
-/* Tabs — each tab's data is loaded lazily, the first time it's opened */
+/* Tabs — each tab's data is loaded lazily, the first time it's opened, and
+   reloaded whenever it's been marked "dirty" by a change made elsewhere
+   (see tabDirty below), instead of reloading on every switch. */
 var loadedTabs = { dashboard:false, items:false, issue:true, history:false };
+var tabDirty = { dashboard:false, items:false, issue:false, history:false };
 document.querySelectorAll('.tab-btn').forEach(function(btn){
   btn.addEventListener('click', function(){
     var tab = btn.dataset.tab;
     document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.toggle('active', b === btn); });
     document.querySelectorAll('.view').forEach(function(v){ v.classList.toggle('active', v.id === 'view-' + tab); });
     document.getElementById('fab-add-item').style.display = (tab === 'items') ? 'flex' : 'none';
-    if(!loadedTabs[tab]){
+    if(!loadedTabs[tab] || tabDirty[tab]){
       loadedTabs[tab] = true;
+      tabDirty[tab] = false;
       if(tab === 'dashboard') loadDashboard();
       if(tab === 'items') { loadCategoryOptions(); resetAndLoadItems(); }
       if(tab === 'history') resetAndLoadHistory();
@@ -859,6 +883,7 @@ function applyReplenish(variantId, btn){
     toast(delta > 0 ? 'Stock replenished.' : 'Stock corrected.');
     openEditItemSheet(state.activeItem.id); // cheap single-row refetch to show the new quantity
     resetAndLoadItems();
+    tabDirty.dashboard = true; // dashboard's totals/low-stock list are now stale
   });
 }
 
@@ -911,6 +936,7 @@ document.getElementById('item-save').addEventListener('click', async function(){
     sheetItem.classList.remove('show');
     state.activeItem = null;
     resetAndLoadItems();
+    tabDirty.dashboard = true; // item count / low-stock list may have changed
   }catch(err){
     itemError.textContent = err.message || 'Something went wrong.';
     itemError.classList.add('show');
@@ -950,6 +976,7 @@ document.getElementById('delete-confirm').addEventListener('click', async functi
   sheetItem.classList.remove('show');
   state.activeItem = null;
   resetAndLoadItems();
+  tabDirty.dashboard = true; // item count / low-stock list may have changed
 });
 
 /* =========================================================
@@ -1090,7 +1117,12 @@ document.getElementById('issue-submit-btn').addEventListener('click', async func
   state.recipientChosen = null; recipientChosenEl.style.display = 'none';
   recipientSearchInput.style.display = 'block'; recipientSearchInput.value = '';
   document.getElementById('issue-notes').value = '';
-  if(loadedTabs.dashboard) loadDashboard();
+  // Items' quantities, the dashboard's stats/low-stock list, and history
+  // all just went stale — refresh the dashboard now if it's visible/loaded,
+  // and mark the rest to refresh next time they're opened.
+  if(loadedTabs.dashboard){ loadDashboard(); } else { tabDirty.dashboard = true; }
+  tabDirty.items = true;
+  tabDirty.history = true;
 });
 
 /* =========================================================
@@ -1102,7 +1134,7 @@ var historySentinelEl = document.getElementById('history-sentinel');
 
 function buildHistoryQuery(){
   var q = supabaseClient.from('v_issue_history')
-    .select('issue_id,issued_at,recipient_name_snapshot,recipient_role_snapshot,item_name_snapshot,variant_label_snapshot,quantity_issued,notes');
+    .select('issue_id,issued_at,recipient_name_snapshot,recipient_role_snapshot,item_name_snapshot,variant_label_snapshot,quantity_issued,notes,reversed_at');
   var term = state.historyPerson.trim();
   if(term) q = q.ilike('recipient_name_snapshot', '%' + term.replace(/[%,()]/g, '') + '%');
   if(state.historyFrom) q = q.gte('issued_at', state.historyFrom + 'T00:00:00');
@@ -1123,12 +1155,26 @@ function loadNextHistoryPage(){
     var rows = res.data || [];
     rows.forEach(function(r){
       var row = document.createElement('div');
-      row.className = 'history-row';
+      var reversed = !!r.reversed_at;
+      row.className = 'history-row' + (reversed ? ' is-reversed' : '');
       var d = new Date(r.issued_at);
+      var actionHtml = '';
+      if(reversed){
+        actionHtml = '<span class="reversed-chip">Reverted</span>';
+      }else if(state.isAdmin){
+        // Admins only (not storekeepers) can revert a wrong issue; reverting
+        // restores stock for every line item in this transaction.
+        actionHtml = '<button class="btn btn-ghost btn-sm revert-issue-btn" type="button" data-issue-id="' + r.issue_id + '" data-recipient="' + escapeHtml(r.recipient_name_snapshot) + '">Revert</button>';
+      }
       row.innerHTML = '<div class="history-top"><span class="history-person">' + escapeHtml(r.recipient_name_snapshot) + ' <span class="recipient-role-chip">' + roleLabel(r.recipient_role_snapshot) + '</span></span>' +
         '<span class="history-date">' + d.toLocaleDateString() + '</span></div>' +
-        '<div class="history-item">' + escapeHtml(r.item_name_snapshot) + (r.variant_label_snapshot !== 'Standard' ? ' — ' + escapeHtml(r.variant_label_snapshot) : '') + ' &times; ' + r.quantity_issued + '</div>';
+        '<div class="history-item">' + escapeHtml(r.item_name_snapshot) + (r.variant_label_snapshot !== 'Standard' ? ' — ' + escapeHtml(r.variant_label_snapshot) : '') + ' &times; ' + r.quantity_issued + '</div>' +
+        (actionHtml ? '<div style="margin-top:8px;">' + actionHtml + '</div>' : '');
       historyListEl.appendChild(row);
+    });
+    historyListEl.querySelectorAll('.revert-issue-btn:not([data-bound])').forEach(function(btn){
+      btn.setAttribute('data-bound', '1');
+      btn.addEventListener('click', function(){ openRevertSheet(+btn.dataset.issueId, btn.dataset.recipient); });
     });
     state.historyPage += 1;
     if(rows.length < PAGE_SIZE) state.historyExhausted = true;
@@ -1159,6 +1205,41 @@ document.getElementById('history-clear').addEventListener('click', function(){
   resetAndLoadHistory();
 });
 
+/* Revert issue (admins only) — restores stock for every item in the
+   transaction (skipping any whose item/variant no longer exists) and
+   marks the issue as reverted. */
+var sheetRevert = document.getElementById('sheet-revert');
+var revertMessageEl = document.getElementById('revert-message');
+var revertErrorEl = document.getElementById('revert-error');
+var pendingRevertIssueId = null;
+
+function openRevertSheet(issueId, recipientName){
+  pendingRevertIssueId = issueId;
+  revertErrorEl.classList.remove('show'); revertErrorEl.textContent = '';
+  revertMessageEl.textContent = 'This restores the stock issued to ' + recipientName + ' in this transaction and marks it as reverted. This can\u2019t be undone.';
+  sheetRevert.classList.add('show');
+}
+document.getElementById('revert-cancel').addEventListener('click', function(){ sheetRevert.classList.remove('show'); pendingRevertIssueId = null; });
+sheetRevert.addEventListener('click', function(e){ if(e.target === sheetRevert){ sheetRevert.classList.remove('show'); pendingRevertIssueId = null; } });
+
+document.getElementById('revert-confirm').addEventListener('click', async function(){
+  if(!pendingRevertIssueId) return;
+  var btn = this;
+  btn.disabled = true; btn.textContent = 'Reverting…';
+
+  var res = await supabaseClient.rpc('reverse_stock_issue_transaction', { p_issue_id: pendingRevertIssueId });
+
+  btn.disabled = false; btn.textContent = 'Revert';
+  if(res.error){ revertErrorEl.textContent = res.error.message; revertErrorEl.classList.add('show'); return; }
+
+  sheetRevert.classList.remove('show');
+  pendingRevertIssueId = null;
+  toast('Issue reverted and stock restored.');
+  resetAndLoadHistory();             // this tab is visible right now — refresh it directly
+  tabDirty.dashboard = true;         // totals/low-stock list are now stale
+  tabDirty.items = true;             // item quantities are now stale
+});
+
 /* =========================================================
    AUTH + BOOTSTRAP
 ========================================================= */
@@ -1175,6 +1256,9 @@ function redirectToAuth(){ window.location.href = AUTH_REDIRECT; }
     var roleResult = await supabaseClient.rpc('is_storekeeper_or_admin');
     var allowed = !!(roleResult && roleResult.data === true);
     if(!allowed){ showDenied(); return; }
+
+    var adminResult = await supabaseClient.rpc('is_admin');
+    state.isAdmin = !!(adminResult && adminResult.data === true);
 
     showApp();
     loadDashboard();           // dashboard is the landing tab, load it immediately
