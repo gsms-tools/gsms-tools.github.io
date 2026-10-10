@@ -624,6 +624,7 @@
         <button type="button" class="role-opt active" data-role="teacher">Teacher</button>
         <button type="button" class="role-opt" data-role="student">Student</button>
         <button type="button" class="role-opt" data-role="admin">Admin</button>
+        <button type="button" class="role-opt" data-role="storekeeper">Storekeeper</button>
         <button type="button" class="role-opt" data-role="teacher_admin">Teacher + Admin</button>
         <button type="button" class="role-opt" data-role="guardian">Guardian</button>
         <button type="button" class="role-opt" data-role="guardian_teacher">Guardian + Teacher</button>
@@ -908,6 +909,8 @@ function setRole(role){
   }else if(guardianish){
     resetWardPicker();
     nameHint.textContent = "Used as the guardian's own display name (not the ward's).";
+  }else if(role === 'storekeeper'){
+    nameHint.textContent = "Used as the storekeeper's display name.";
   }else if(role === 'admin'){
     nameHint.textContent = 'Used as a display name for admin records.';
   }else{
@@ -1213,6 +1216,7 @@ function roleLabel(role){
   if(role === 'teacher') return 'Teacher';
   if(role === 'student') return 'Student';
   if(role === 'admin') return 'Admin';
+  if(role === 'storekeeper') return 'Storekeeper';
   if(role === 'teacher_admin') return 'Teacher + Admin';
   if(role === 'guardian') return 'Guardian';
   if(role === 'guardian_teacher') return 'Guardian + Teacher';
