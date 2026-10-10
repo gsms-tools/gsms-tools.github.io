@@ -655,7 +655,7 @@ function loadDashboard(){
     var card = document.getElementById('low-stock-card');
     if(res.error){ card.innerHTML = '<p class="field-error show">Could not load low-stock list.</p>'; return; }
     var rows = res.data || [];
-    if(rows.length === 0){ card.innerHTML = '<div class="placeholder-note"><p>Nothing is running low right now. 🎉</p></div>'; return; }
+    if(rows.length === 0){ card.innerHTML = '<div class="placeholder-note"><p>Nothing is running low right now. We will notify you when an item falls below its alert stock level.</p></div>'; return; }
     card.innerHTML = rows.map(function(r){
       return '<div class="low-stock-row">' +
         '<div><div class="low-stock-name">' + escapeHtml(r.item_name) + (r.variant_label !== 'Standard' ? ' — ' + escapeHtml(r.variant_label) : '') + '</div>' +
