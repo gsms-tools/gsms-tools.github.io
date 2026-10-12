@@ -788,11 +788,10 @@ function uploadOneFile(q){
         var init = await vaultCall('init-upload', payload);
 
         await new Promise(function(res, rej){
-          var fd = new FormData();
-          Object.keys(init.uploadFields).forEach(function(k){ fd.append(k, init.uploadFields[k]); });
-          fd.append('file', q.file);
           var xhr = new XMLHttpRequest();
-          xhr.open('POST', init.uploadUrl, true);
+          xhr.open('PUT', init.uploadUrl, true);
+          var headers = init.uploadHeaders || {};
+          Object.keys(headers).forEach(function(k){ xhr.setRequestHeader(k, headers[k]); });
           xhr.upload.onprogress = function(ev){
             if(ev.lengthComputable){ q.progress = Math.round((ev.loaded / ev.total) * 95); renderQueue(); }
           };
@@ -800,7 +799,7 @@ function uploadOneFile(q){
             if(xhr.status >= 200 && xhr.status < 300) res(); else rej(new Error('Upload failed (' + xhr.status + ')'));
           };
           xhr.onerror = function(){ rej(new Error('Network error during upload')); };
-          xhr.send(fd);
+          xhr.send(q.file); // raw bytes — browser sets Content-Length itself, which must match what was signed
         });
 
         await vaultCall('complete-upload', { fileId: init.fileId });
