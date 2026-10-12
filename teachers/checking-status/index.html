@@ -104,6 +104,7 @@
   html[data-theme="dark"] .icon-sun{opacity:0; transform:rotate(70deg) scale(.5);}
   html[data-theme="dark"] .icon-moon{opacity:1; transform:rotate(0) scale(1);}
   html[data-theme="dark"] .icon-btn svg{stroke:var(--gold-400);}
+  .icon-btn.danger svg{stroke:var(--danger);}
 
   /* Layout */
   main{flex:1; width:100%; max-width:960px; margin:0 auto; padding:20px 18px calc(env(safe-area-inset-bottom) + 40px); display:flex; flex-direction:column; gap:14px;}
@@ -250,6 +251,9 @@
           <select id="assignment-select"><option value="">Select assignment…</option></select>
         </div>
         <button class="icon-btn sm" id="new-assignment-btn" type="button" aria-label="New assignment" title="New assignment">+</button>
+        <button class="icon-btn sm danger" id="delete-assignment-btn" type="button" aria-label="Delete assignment" title="Delete assignment" style="display:none">
+          <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        </button>
       </div>
 
       <div class="target-row" id="target-row" style="display:none">
@@ -272,7 +276,7 @@
 
       <div class="toolbar">
         <button class="btn btn-ghost" id="btn-all-c" type="button">Mark unmarked checked</button>
-        <button class="btn btn-ghost" id="btn-share" type="button">Share flagged</button>
+        <button class="btn btn-ghost" id="btn-share" type="button">Share list</button>
       </div>
 
       <div class="list" id="list"></div>
@@ -378,6 +382,7 @@ var COLOR = { C: 'var(--success)', I: 'var(--gold-600)', N: 'var(--danger)', S: 
 var S = {
   isAdmin: false,
   myName: '',
+  myUid: '',
   classes: [],        // class names, oldest created_at first
   classOrder: {},      // name -> index
   subjects: [],        // subject names, by display_order
@@ -501,10 +506,15 @@ function populateTargets(){
 }
 
 async function loadAssignments(){
-  var res = await sb.from('checking_assignments').select('id, title').order('created_at', { ascending: false });
+  var res = await sb.from('checking_assignments').select('id, title, created_by').order('created_at', { ascending: false });
   if(res.error){ toast('Could not load assignments: ' + res.error.message, true); return; }
   S.assignments = res.data || [];
   populateAssignments();
+}
+
+function canDeleteAssignment(id){
+  var a = S.assignments.filter(function(x){ return String(x.id) === String(id); })[0];
+  return !!a && (S.isAdmin || a.created_by === S.myUid);
 }
 
 async function selectAssignment(id){
@@ -513,6 +523,7 @@ async function selectAssignment(id){
     S.cls = ''; S.subject = ''; S.targets = [];
     $('assignment-select').value = id;
     $('target-row').style.display = id ? 'flex' : 'none';
+    $('delete-assignment-btn').style.display = (id && canDeleteAssignment(id)) ? 'flex' : 'none';
     S.students = []; render();
     if(!id) return;
     var res = await sb.from('checking_assignment_targets').select('class, subject').eq('assignment_id', id);
@@ -710,24 +721,47 @@ $('btn-delete-all').addEventListener('click', function(){
     }, 'Clear all');
 });
 
-/* Share flagged (Incomplete / Not brought / Lost) students */
+/* Delete the whole assignment: cascades to all its targets and checking_status rows. */
+$('delete-assignment-btn').addEventListener('click', function(){
+  if(!S.assignmentId || !canDeleteAssignment(S.assignmentId)) return;
+  var a = S.assignments.filter(function(x){ return String(x.id) === String(S.assignmentId); })[0];
+  var title = a ? a.title : 'this assignment';
+  askConfirm('Delete "' + title + '"?',
+    'This permanently deletes the assignment and every checking record marked against it, for every class and subject it was mapped to. This cannot be undone.',
+    async function(){
+      var r = await sb.from('checking_assignments').delete().eq('id', S.assignmentId);
+      if(r.error){ toast('Delete failed: ' + r.error.message, true); return; }
+      toast('Assignment deleted.');
+      S.assignmentId = ''; S.cls = ''; S.subject = ''; S.targets = []; S.students = [];
+      $('target-row').style.display = 'none';
+      $('delete-assignment-btn').style.display = 'none';
+      await loadAssignments();
+      render();
+    }, 'Delete assignment');
+});
+
+/* Share the full roster, grouped by status */
 $('btn-share').addEventListener('click', function(){
-  var list = S.students.filter(function(s){ return ['I','N','L'].indexOf(S.cur[s.id]) !== -1; });
-  if(!list.length){ toast('Nothing flagged yet.'); return; }
+  if(!S.students.length){ toast('No students in this class.'); return; }
 
   var assignTitle = (S.assignments.filter(function(a){ return String(a.id) === String(S.assignmentId); })[0] || {}).title || 'Checking';
-  var msg = '*' + assignTitle + ' — Class ' + S.cls + ' (' + S.subject + ')*\n\n';
-  list.forEach(function(s, i){
-    var v = S.cur[s.id];
-    var note = S.notes[s.id] ? ' - ' + S.notes[s.id] : '';
-    msg += (i + 1) + '. ' + s.name + ' (' + (s.roll_no != null ? s.roll_no : '-') + ') [' + LABEL[v] + ']' + note + '\n';
+  var msg = '*' + assignTitle + ' - Class ' + S.cls + ' (' + S.subject + ')*\n';
+
+  // Fixed group order; "No status" only appears if someone is actually unmarked.
+  var groups = [
+    ['C', 'Checked'], ['I', 'Incomplete'], ['N', 'Not Brought'],
+    ['S', 'Submitted'], ['L', 'Lost'], [null, 'No Status']
+  ];
+  groups.forEach(function(g){
+    var code = g[0], label = g[1];
+    var names = S.students.filter(function(s){ return (S.cur[s.id] || null) === code; });
+    if(!names.length) return;
+    msg += '\n' + label + ':\n';
+    names.forEach(function(s, i){
+      var note = code && S.notes[s.id] ? ' - ' + S.notes[s.id] : '';
+      msg += (i + 1) + '. ' + s.name + note + '\n';
+    });
   });
-  var c = { I:0, N:0, L:0 };
-  list.forEach(function(s){ c[S.cur[s.id]]++; });
-  msg += '\nSummary:';
-  if(c.I) msg += '\nIncomplete: ' + c.I;
-  if(c.N) msg += '\nNot brought: ' + c.N;
-  if(c.L) msg += '\nLost: ' + c.L;
 
   if(navigator.share){
     navigator.share({ text: msg }).catch(function(){});
@@ -872,6 +906,7 @@ $('assign-save').addEventListener('click', async function(){
     var session = sess && sess.data ? sess.data.session : null;
     if(!session){ location.href = AUTH_REDIRECT; return; }
     var uid = session.user.id;
+    S.myUid = uid;
 
     var t = await sb.from('teachers').select('name').eq('id', uid).maybeSingle();
     if(t.error || !t.data){ location.href = AUTH_REDIRECT; return; }
