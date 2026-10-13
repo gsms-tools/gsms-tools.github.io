@@ -147,6 +147,11 @@
   .ic.danger svg{stroke:var(--danger);}
   .loader{display:flex; justify-content:center; padding:40px 0;}
 
+  /* Classwork/Homework attachment badge (read-only files shown inside subject folders) */
+  .frow.frow-cw{border-left:3px solid var(--teal-600);}
+  .cw-badge{display:inline-flex; align-items:center; margin-top:5px; font-size:.68rem; font-weight:700; letter-spacing:.02em; padding:3px 9px; border-radius:999px; background:var(--bg-tint-teal); color:var(--teal-700);}
+  html[data-theme="dark"] .cw-badge{color:var(--teal-600);}
+
   /* Floating upload button */
   .fab{
     position:fixed; right:calc(env(safe-area-inset-right) + 20px); bottom:calc(env(safe-area-inset-bottom) + 24px);
@@ -306,6 +311,19 @@
   </div>
 </div>
 
+<!-- Classwork/Homework entry view sheet (read-only) -->
+<div class="sheet-backdrop" id="sheet-cwhw-view">
+  <div class="sheet" role="dialog" aria-label="Classwork or homework entry">
+    <div class="sheet-handle"></div>
+    <h3 id="cwhw-view-title">Classwork</h3>
+    <p id="cwhw-view-meta" style="margin-bottom:12px;"></p>
+    <p id="cwhw-view-content" style="color:var(--ink-900); font-weight:500; font-size:.92rem; white-space:pre-wrap; margin-bottom:0;"></p>
+    <div class="btn-row" style="margin-top:18px;">
+      <button class="btn btn-ghost" id="cwhw-view-close" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Upload sheet -->
 <div class="sheet-backdrop" id="sheet-upload">
   <div class="sheet" role="dialog" aria-label="Upload files">
@@ -379,6 +397,7 @@ function fmtSize(bytes){
   return (bytes/(1024*1024*1024)).toFixed(2) + ' GB';
 }
 function fmtShort(iso){ return new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'short' }); }
+function fmtLong(iso){ return new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' }); }
 function toast(msg, isError){
   var el = document.createElement('div');
   el.className = 'toast' + (isError ? ' error' : '');
@@ -438,6 +457,8 @@ $('theme-toggle').addEventListener('click', function(){
 $('back-btn').addEventListener('click', function(){
   if(S.view === 'root'){ location.href = DASHBOARD_URL; } else { navigateUp(); }
 });
+
+$('cwhw-view-close').addEventListener('click', function(){ $('sheet-cwhw-view').classList.remove('show'); });
 
 /* =========================================================
    NAVIGATION / FOLDER MODEL
@@ -571,6 +592,36 @@ async function loadFiles(){
       var r4 = await sb.from('vault_file_targets').select('vault_files(*)').eq('class', S.curClass).eq('subject', S.curSubject);
       if(r4.error) throw r4.error;
       rows = (r4.data || []).map(function(x){ return x.vault_files; }).filter(function(f){ return f && f.status === 'active'; });
+
+      // Classwork/Homework attachments mapped to this class+subject: shown
+      // alongside ordinary subject files, but read-only (see renderFiles).
+      // They live in the same vault_files table (kind='classwork_homework'),
+      // linked to a classwork_homework entry instead of vault_file_targets.
+      try{
+        var cwLinks = await sb.from('classwork_homework_classes').select('entry_id').eq('class', S.curClass);
+        if(cwLinks.error) throw cwLinks.error;
+        var cwEntryIdsAll = (cwLinks.data || []).map(function(x){ return x.entry_id; });
+        if(cwEntryIdsAll.length){
+          var cwEntriesRes = await sb.from('classwork_homework').select('id, entry_date, kind, content, subject').in('id', cwEntryIdsAll).eq('subject', S.curSubject);
+          if(cwEntriesRes.error) throw cwEntriesRes.error;
+          var cwEntryMap = {};
+          (cwEntriesRes.data || []).forEach(function(e){ cwEntryMap[e.id] = e; });
+          var cwEntryIds = Object.keys(cwEntryMap).map(Number);
+          if(cwEntryIds.length){
+            var cwFilesRes = await sb.from('vault_files').select('*').eq('kind','classwork_homework').eq('status','active').in('cwhw_entry_id', cwEntryIds);
+            if(cwFilesRes.error) throw cwFilesRes.error;
+            (cwFilesRes.data || []).forEach(function(f){
+              f._cwEntry = cwEntryMap[f.cwhw_entry_id];
+              rows.push(f);
+            });
+          }
+        }
+      }catch(cwErr){
+        // Non-fatal: if classwork/homework attachments fail to load for any
+        // reason, the ordinary subject files above still render normally.
+        console.error('Could not load classwork/homework attachments:', cwErr);
+      }
+
       rows.sort(function(a,b){ return new Date(b.created_at) - new Date(a.created_at); });
     }
     S.files = rows;
@@ -589,13 +640,25 @@ function renderFiles(){
     return;
   }
   $('flist').innerHTML = S.files.map(function(f){
-    return '<div class="frow" data-id="' + f.id + '">' +
+    var isCw = f.kind === 'classwork_homework';
+    var canManageThis = manage && !isCw; // classwork/homework attachments are always read-only here
+    var badge = '';
+    if(isCw){
+      var entry = f._cwEntry;
+      var cwLabel = entry && entry.kind === 'H' ? 'Homework attachment' : 'Classwork attachment';
+      var cwDate = entry ? fmtShort(entry.entry_date) : '';
+      badge = '<span class="cw-badge">' + esc(cwLabel) + (cwDate ? ' &middot; ' + esc(cwDate) : '') + '</span>';
+    }
+    return '<div class="frow' + (isCw ? ' frow-cw' : '') + '" data-id="' + f.id + '">' +
       '<div class="fic">' + esc((f.file_ext||'').slice(0,4)) + '</div>' +
       '<div class="fwho"><div class="fname">' + esc(f.display_name) + '.' + esc(f.file_ext) + '</div>' +
-      '<div class="fmeta">' + fmtSize(f.size_bytes) + ' &middot; ' + fmtShort(f.created_at) + '</div></div>' +
+      '<div class="fmeta">' + fmtSize(f.size_bytes) + ' &middot; ' + fmtShort(f.created_at) + '</div>' +
+      badge +
+      '</div>' +
       '<div class="fbtns">' +
       '<button class="ic" type="button" data-act="download" aria-label="Download"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></button>' +
-      (manage ? '<button class="ic" type="button" data-act="rename" aria-label="Rename"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>' +
+      (isCw ? '<button class="ic" type="button" data-act="view-entry" aria-label="View classwork/homework entry"><svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>' : '') +
+      (canManageThis ? '<button class="ic" type="button" data-act="rename" aria-label="Rename"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>' +
                 '<button class="ic danger" type="button" data-act="delete" aria-label="Delete"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>' : '') +
       '</div></div>';
   }).join('');
@@ -619,6 +682,15 @@ $('flist').addEventListener('click', async function(e){
       document.body.appendChild(a); a.click(); a.remove();
     }catch(err){ toast(err.message, true); }
     act.disabled = false;
+  }
+
+  if(kind === 'view-entry'){
+    var entry = file._cwEntry;
+    if(!entry){ toast('Entry details are unavailable.', true); return; }
+    $('cwhw-view-title').textContent = (entry.kind === 'H' ? 'Homework' : 'Classwork') + ' — ' + (entry.subject || S.curSubject);
+    $('cwhw-view-meta').textContent = S.curClass + ' • ' + fmtLong(entry.entry_date);
+    $('cwhw-view-content').textContent = entry.content || '';
+    $('sheet-cwhw-view').classList.add('show');
   }
 
   if(kind === 'rename'){
