@@ -421,7 +421,7 @@
           <p id="upload-drop-text">Tap to choose a file (Word, PDF, photo, video — any format)</p>
         </div>
         <input type="file" id="upload-input" style="display:none;">
-        <p class="field-hint">Max recommended size: 500 MB.</p>
+        <p class="field-hint">Max recommended size: 200 MB.</p>
       </div>
       <div class="field">
         <label for="upload-note">Note to admin</label>
@@ -496,7 +496,7 @@ var SUPABASE_ANON_KEY = 'sb_publishable_jaogFl0uiNQW_3kkPakSrw_uVTwohtY';
 var AUTH_REDIRECT = 'https://mygsms.in/auth.html';
 var DASHBOARD_URL = 'https://mygsms.in/teachers/';
 var EDGE_FUNCTION_URL = SUPABASE_URL + '/functions/v1/file-manager';
-var MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB
+var MAX_FILE_SIZE = 200 * 1024 * 1024; // 200 MB
 
 var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -916,7 +916,7 @@ document.getElementById('upload-form').addEventListener('submit', function(e){
     return;
   }
   if(file.size > MAX_FILE_SIZE){
-    uploadError.textContent = 'That file is larger than the 500 MB limit.';
+    uploadError.textContent = 'That file is larger than the 200 MB limit.';
     uploadError.classList.add('show');
     return;
   }
@@ -931,6 +931,7 @@ document.getElementById('upload-form').addEventListener('submit', function(e){
 
   callEdgeFunction('request-upload-url', {
     class: cls, subject: subject, fileName: file.name, fileType: file.type,
+    fileSize: file.size,
     reuploadId: state.uploadReuploadId
   }).then(function(res){
     progressBar.style.width = '35%';
