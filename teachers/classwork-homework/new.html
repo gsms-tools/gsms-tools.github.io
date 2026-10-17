@@ -502,6 +502,35 @@ function extractAiText(data){
   return data == null ? '' : String(data);
 }
 
+// Deletes every attachment of a classwork/homework entry first, and only
+// deletes the entry row itself if ALL attachment deletes succeeded (or the
+// file was already gone, e.g. a retried attempt). This prevents orphaned R2
+// objects / stuck storage-quota reservations that the previous "best effort"
+// loop (try/catch-and-continue) could silently leave behind: if any
+// attachment fails to delete, the entry row is left intact so the user can
+// retry rather than losing the only link back to the orphaned file.
+async function deleteCwhwEntryAndAttachments(entryId, attachmentIds){
+  var failures = [];
+  for(var i = 0; i < attachmentIds.length; i++){
+    try{
+      await vaultCall('delete', { fileId: attachmentIds[i] });
+    }catch(e){
+      if(!/file not found/i.test(e.message || '')){
+        failures.push(attachmentIds[i]);
+      }
+      // "File not found" means it's already gone (e.g. a prior retry) —
+      // that's the desired end state, not a failure.
+    }
+  }
+  if(failures.length){
+    var err = new Error('ATTACH_DELETE_FAILED');
+    err.failedIds = failures;
+    throw err;
+  }
+  var res = await supabaseClient.from('classwork_homework').delete().eq('id', entryId);
+  if(res.error) throw res.error;
+}
+
 /* =========================================================
    THEME / HEADER / SHEETS
 ========================================================= */
@@ -744,17 +773,19 @@ $('btn-delete-entry').addEventListener('click', function(){
   if(!canWriteNow()){ toast('You can only delete entries dated today.', true); return; }
   askConfirm('Delete this entry?', 'This removes the ' + (currentKind === 'C' ? 'classwork' : 'homework') + ' entry and all its attachments. This cannot be undone.', async function(){
     try{
-      // Remove attachments from storage first, then the entry row (cascades
-      // its class links and attachment links automatically).
-      for(var i = 0; i < state.attachments.length; i++){
-        try{ await vaultCall('delete', { fileId: state.attachments[i].id }); }catch(e){ /* continue */ }
-      }
-      var res = await supabaseClient.from('classwork_homework').delete().eq('id', state.editingEntryId);
-      if(res.error) throw res.error;
+      await deleteCwhwEntryAndAttachments(
+        state.editingEntryId,
+        state.attachments.map(function(f){ return f.id; })
+      );
       toast('Entry deleted.');
       clearEditFields();
     }catch(err){
-      toast('Delete failed: ' + (err.message || 'unknown error'), true);
+      if(err.message === 'ATTACH_DELETE_FAILED'){
+        toast('Could not remove ' + err.failedIds.length + ' attachment(s) — entry was NOT deleted. Please retry.', true);
+        loadEntryAttachments(state.editingEntryId);
+      }else{
+        toast('Delete failed: ' + (err.message || 'unknown error'), true);
+      }
     }
   });
 });
@@ -1092,14 +1123,20 @@ function renderBrowseResults(){
         askConfirm('Delete this ' + (k==='C'?'classwork':'homework') + ' entry?', 'This removes it for every class it was mapped to, and all its attachments. This cannot be undone.', async function(){
           try{
             var atts = await supabaseClient.from('vault_files').select('id').eq('kind', ATTACHMENT_KIND).eq('cwhw_entry_id', entry.id);
-            for(var i=0;i<(atts.data||[]).length;i++){
-              try{ await vaultCall('delete', { fileId: atts.data[i].id }); }catch(e){}
-            }
-            var del = await supabaseClient.from('classwork_homework').delete().eq('id', entry.id);
-            if(del.error) throw del.error;
+            await deleteCwhwEntryAndAttachments(
+              entry.id,
+              (atts.data || []).map(function(a){ return a.id; })
+            );
             toast('Entry deleted.');
             $('btn-load-day').click();
-          }catch(err){ toast('Delete failed: ' + err.message, true); }
+          }catch(err){
+            if(err.message === 'ATTACH_DELETE_FAILED'){
+              toast('Could not remove ' + err.failedIds.length + ' attachment(s) — entry was NOT deleted. Please retry.', true);
+            }else{
+              toast('Delete failed: ' + (err.message || 'unknown error'), true);
+            }
+            $('btn-load-day').click();
+          }
         });
       });
     });
