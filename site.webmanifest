@@ -1,7 +1,7 @@
 {
-  "name": "My GSMS — Gopal Sharma Memorial School",
+  "name": "My GSMS — Gamified School Management System",
   "short_name": "My GSMS",
-  "description": "Official student and teacher portal of Gopal Sharma Memorial School.",
+  "description": "All-in-one app for managing student data.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
