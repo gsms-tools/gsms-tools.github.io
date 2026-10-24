@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GSMS Report Card Generator</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --blue-dark:#0070AA; --blue-mid:#2E74B5;
+    --shade-1:#D9EAF7; --shade-2:#E6F0F7; --shade-3:#EDF5FA;
+    --panel-bg:#f4f6f8;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:"Times New Roman", Times, serif; background:var(--panel-bg); margin:0; color:#000;}
+
+  /* ---------- Gate (auth / admin check) ---------- */
+  #gate{
+    font-family: Arial, Helvetica, sans-serif;
+    max-width:460px; margin:120px auto; background:#fff; border:1px solid #dde3e8;
+    border-radius:10px; padding:32px 28px; text-align:center;
+  }
+  #gate h2{margin:0 0 10px; font-size:18px;}
+  #gate p{color:#555; font-size:14px; line-height:1.5;}
+  #gate button{margin-top:14px;}
+  .spinner{width:28px;height:28px;border:3px solid #dbe6ee;border-top-color:var(--blue-dark);border-radius:50%;
+    animation:spin 0.8s linear infinite; margin:0 auto 14px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* ---------- Control panel ---------- */
+  #app{display:none;}
+  #controls{max-width:900px; margin:0 auto; padding:24px 20px; font-family: Arial, Helvetica, sans-serif;}
+  #controls h1{font-size:20px; margin:0 0 4px;}
+  #controls p.sub{color:#555; font-size:13px; margin:0 0 18px;}
+  .row{display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:14px;}
+  label{font-size:13px; color:#444; font-weight:600;}
+  select, input[type=text], button{
+    font-family: Arial, Helvetica, sans-serif; font-size:14px;
+    padding:9px 12px; border-radius:6px; border:1px solid #c7d2db; background:#fff;
+  }
+  select{min-width:200px;}
+  input[type=text]{width:140px;}
+  button{background:var(--blue-dark); color:#fff; border:none; cursor:pointer; font-weight:600;}
+  button:hover:not(:disabled){background:#005d8c;}
+  button:disabled{opacity:.5; cursor:not-allowed;}
+  button.secondary{background:#fff; color:var(--blue-dark); border:1px solid var(--blue-dark);}
+  button.secondary:hover{background:#eef6fb;}
+  button.link{background:none; border:none; color:#b00020; text-decoration:underline; font-weight:400; padding:0;}
+  #status{font-size:13px; color:#555; margin-top:4px; white-space:pre-line;}
+  #status.error{color:#b00020; font-weight:600;}
+  #cardsArea{max-width:900px; margin:0 auto; padding:0 20px 60px;}
+
+  /* ---------- Report card ---------- */
+  .page{
+    width:210mm; min-height:297mm; margin:0 auto 24px; background:#fff;
+    border:1.5pt solid #000; padding:9mm 10mm; box-shadow:0 2px 10px rgba(0,0,0,.18);
+    display:flex; flex-direction:column; font-size:10pt;
+  }
+  .page.density-2{font-size:9.2pt;}
+  .page.density-3{font-size:8.4pt;}
+  .hdr{text-align:center; margin-bottom:3mm;}
+  .hdr img{height:19mm; margin-bottom:1mm;}
+  .hdr .t1{color:var(--blue-dark); font-weight:bold; font-size:1.5em; margin:0;}
+  .hdr .t2{font-weight:bold; font-size:1.3em; margin:1mm 0 0;}
+  .hdr .t3{font-weight:bold; font-size:1.1em; margin:0;}
+
+  table{width:100%; border-collapse:collapse; font-size:1em;}
+  .idtable td{border:1pt solid #000; padding:2mm 3mm; font-weight:bold;}
+  .idtable{margin-bottom:3mm;}
+  .idtable .val{font-weight:normal;}
+
+  .marks-table{margin-bottom:3mm;}
+  .marks-table th, .marks-table td{border:1pt solid #000; padding:1.4mm 2mm; text-align:center;}
+  .marks-table td.subject, .marks-table th.subject{text-align:left; font-weight:bold;}
+  .shade1{background:var(--shade-1);} .shade2{background:var(--shade-2);} .shade3{background:var(--shade-3);}
+  .grand td{font-weight:bold; background:var(--shade-2);}
+  .status-cell{font-style:italic; color:#555; text-align:center;}
+
+  .section-title{color:var(--blue-mid); font-weight:bold; text-align:center; font-size:1.2em; margin:2mm 0 2mm;}
+  .note{font-size:0.85em; margin:1mm 0 3mm;}
+  .pronounce{font-size:0.95em; font-weight:bold; margin:2mm 0 auto;}
+  .signrow{display:flex; justify-content:space-between; margin-top:auto; padding-top:10mm; font-size:0.95em; font-weight:bold;}
+  .err-card{max-width:900px;margin:20px auto;padding:16px;background:#fff3f3;border:1px solid #f3b8b8;
+    border-radius:8px;font-family:Arial,sans-serif;color:#8a1f1f;}
+
+  @media print{
+    #controls, #gate{display:none !important;}
+    body{background:#fff;}
+    #cardsArea{padding:0; margin:0; max-width:none;}
+    .page{box-shadow:none; margin:0; border:1.5pt solid #000; width:210mm; height:297mm; min-height:0; page-break-after:always;}
+    .page:last-child{page-break-after:auto;}
+    @page{ size:A4; margin:0; }
+  }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="spinner"></div>
+  <h2 id="gateTitle">Checking access…</h2>
+  <p id="gateMsg">Please wait while we verify your session.</p>
+</div>
+
+<div id="app">
+  <div id="controls">
+    <h1>GSMS Report Card Generator</h1>
+    <p class="sub">Select a class — subjects, exams and weightages are pulled live for that class.</p>
+    <div class="row">
+      <div>
+        <div><label>Class</label></div>
+        <select id="classSelect"><option>Loading…</option></select>
+      </div>
+      <div>
+        <div><label>Session (shown on card)</label></div>
+        <input type="text" id="sessionInput">
+      </div>
+      <button id="genBtn">Generate Report Cards</button>
+      <button id="printBtn" class="secondary" disabled>Print / Save as PDF</button>
+      <button id="signOutBtn" class="link">Sign out</button>
+    </div>
+    <div id="status"></div>
+  </div>
+  <div id="cardsArea"></div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://ctuqlmdunhdhhholsqco.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_jaogFl0uiNQW_3kkPakSrw_uVTwohtY';
+const AUTH_REDIRECT = 'https://mygsms.in/auth.html';
+const LOGO_URL = 'https://sourabhsuneja.github.io/gsms-logo.png';
+const STATUS_LABEL = { AB:'Ab', L:'L', ML:'ML' };
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function setGate(title, msg){
+  document.getElementById('gateTitle').textContent = title;
+  document.getElementById('gateMsg').textContent = msg;
+}
+
+function defaultSession(){
+  const d = new Date(); const y = d.getFullYear();
+  const startYear = d.getMonth() >= 3 ? y : y - 1; // academic year starts ~April
+  return `${startYear}-${String((startYear+1)%100).padStart(2,'0')}`;
+}
+
+async function boot(){
+  try{
+    const { data:{ session }, error: sessErr } = await sb.auth.getSession();
+    if(sessErr) throw sessErr;
+    if(!session){
+      setGate('Redirecting to sign in…','Taking you to the GSMS sign-in page.');
+      location.href = AUTH_REDIRECT + '?returnTo=' + encodeURIComponent(location.href);
+      return;
+    }
+    const { data: isAdmin, error: rpcErr } = await sb.rpc('is_admin');
+    if(rpcErr) throw rpcErr;
+    if(!isAdmin){
+      document.querySelector('#gate .spinner').style.display='none';
+      setGate('Access restricted', 'This tool is available to admins only. Sign in with an admin account to continue.');
+      const btn = document.createElement('button');
+      btn.textContent = 'Sign out'; btn.className='secondary';
+      btn.onclick = async () => { await sb.auth.signOut(); location.href = AUTH_REDIRECT; };
+      document.getElementById('gate').appendChild(btn);
+      return;
+    }
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('app').style.display = '';
+    document.getElementById('sessionInput').value = defaultSession();
+    await loadClasses();
+  }catch(e){
+    document.querySelector('#gate .spinner').style.display='none';
+    setGate('Something went wrong', e.message || String(e));
+  }
+}
+
+async function loadClasses(){
+  const sel = document.getElementById('classSelect');
+  const { data, error } = await sb.from('classes').select('name').order('name');
+  if(error){ setStatus('Failed to load classes: ' + error.message, true); return; }
+  sel.innerHTML = data.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+}
+
+function setStatus(msg, isErr){
+  const el = document.getElementById('status');
+  el.textContent = msg; el.className = isErr ? 'error' : '';
+}
+
+function fmt(n){
+  if(n === null || n === undefined || n === '') return '';
+  const num = Number(n);
+  if(Number.isNaN(num)) return '';
+  return (Math.round(num*100)/100).toString();
+}
+
+document.getElementById('signOutBtn').addEventListener('click', async () => {
+  await sb.auth.signOut(); location.href = AUTH_REDIRECT;
+});
+
+document.getElementById('genBtn').addEventListener('click', generate);
+document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+async function generate(){
+  const className = document.getElementById('classSelect').value;
+  const session = document.getElementById('sessionInput').value.trim() || defaultSession();
+  const area = document.getElementById('cardsArea');
+  const genBtn = document.getElementById('genBtn');
+  if(!className) return;
+  genBtn.disabled = true; document.getElementById('printBtn').disabled = true;
+  area.innerHTML = '';
+  setStatus('Fetching subjects, exams and students for ' + className + '…');
+
+  try{
+    // 1. Subjects mapped to this class, in display order
+    const { data: csRows, error: csErr } = await sb
+      .from('class_subjects')
+      .select('subject, subjects(display_order)')
+      .eq('class', className);
+    if(csErr) throw csErr;
+    const subjects = (csRows||[])
+      .sort((a,b) => (a.subjects?.display_order ?? 1) - (b.subjects?.display_order ?? 1))
+      .map(r => r.subject);
+    if(subjects.length === 0){ setStatus('No subjects are mapped to ' + className + ' yet.', true); genBtn.disabled=false; return; }
+
+    // 2. Exams mapped to this class, with their mm + component breakdown
+    const { data: ecRows, error: ecErr } = await sb
+      .from('exam_classes')
+      .select('exam, exams(name, mm, components, added_at)')
+      .eq('class', className);
+    if(ecErr) throw ecErr;
+    const exams = (ecRows||[])
+      .map(r => r.exams)
+      .filter(Boolean)
+      .sort((a,b) => new Date(a.added_at) - new Date(b.added_at));
+    if(exams.length === 0){ setStatus('No exams are mapped to ' + className + ' yet.', true); genBtn.disabled=false; return; }
+    const examNames = exams.map(e => e.name);
+
+    // 3. Students in this class
+    const { data: students, error: stuErr } = await sb
+      .from('students_master')
+      .select('id, roll_no, name')
+      .eq('class', className)
+      .order('roll_no', { ascending: true, nullsFirst: false });
+    if(stuErr) throw stuErr;
+    if(students.length === 0){ setStatus('No students found in ' + className + '.', true); genBtn.disabled=false; return; }
+
+    // 4. All marks for this class across the applicable exams + subjects
+    const { data: marksRows, error: marksErr } = await sb
+      .from('marks')
+      .select('student_id, exam_name, subject, status, marks_obtained, component_marks')
+      .eq('class', className)
+      .in('exam_name', examNames)
+      .in('subject', subjects);
+    if(marksErr) throw marksErr;
+
+    // Build lookup: marksMap[student_id][exam_name][subject] = row
+    const marksMap = {};
+    (marksRows||[]).forEach(r => {
+      marksMap[r.student_id] ??= {};
+      marksMap[r.student_id][r.exam_name] ??= {};
+      marksMap[r.student_id][r.exam_name][r.subject] = r;
+    });
+
+    const totalRows = subjects.length * exams.length;
+    const densityClass = totalRows > 42 ? 'density-3' : totalRows > 28 ? 'density-2' : '';
+
+    area.innerHTML = students.map(s =>
+      renderReportCard(s, className, session, subjects, exams, marksMap[s.id] || {}, densityClass)
+    ).join('');
+
+    setStatus(`Generated ${students.length} report card(s) for ${className}.`);
+    document.getElementById('printBtn').disabled = false;
+  }catch(e){
+    setStatus('Error: ' + (e.message || String(e)), true);
+  }finally{
+    genBtn.disabled = false;
+  }
+}
+
+function subjectRow(subject, exam, examMarks){
+  const compKeys = Object.keys(exam.components || {});
+  const rec = examMarks ? examMarks[subject] : null;
+
+  if(!rec){ // never entered -> fully blank
+    return `<tr><td class="subject">${subject}</td>${compKeys.map(()=>'<td></td>').join('')}<td></td></tr>`;
+  }
+  if(rec.status !== 'P'){
+    const label = STATUS_LABEL[rec.status] || rec.status;
+    return `<tr><td class="subject">${subject}</td><td class="status-cell" colspan="${compKeys.length+1}">${label}</td></tr>`;
+  }
+  const cm = rec.component_marks || {};
+  const cells = compKeys.map(k => `<td>${fmt(cm[k])}</td>`).join('');
+  return `<tr><td class="subject">${subject}</td>${cells}<td><b>${fmt(rec.marks_obtained)}</b></td></tr>`;
+}
+
+function examTable(exam, subjects, examMarks, withGrandTotal){
+  const compKeys = Object.keys(exam.components || {});
+  const compHeaders = compKeys.map(k => `<th class="shade2">${k}</th>`).join('');
+  const compMax = compKeys.map(k => `<th class="shade3">${exam.components[k]}</th>`).join('');
+  const rows = subjects.map(s => subjectRow(s, exam, examMarks)).join('');
+
+  let grandTotal = '';
+  if(withGrandTotal){
+    const sums = {}; compKeys.forEach(k => sums[k]=0);
+    let obtSum = 0, countEntered = 0;
+    subjects.forEach(s => {
+      const rec = examMarks ? examMarks[s] : null;
+      if(rec && rec.status === 'P'){
+        countEntered++;
+        const cm = rec.component_marks || {};
+        compKeys.forEach(k => { sums[k] += Number(cm[k]) || 0; });
+        obtSum += Number(rec.marks_obtained) || 0;
+      }
+    });
+    const maxEach = compKeys.map(k => exam.components[k] * subjects.length);
+    const maxTotal = exam.mm ? exam.mm * subjects.length : '';
+    const cells = compKeys.map((k,i) => `<td>${fmt(sums[k])} / ${maxEach[i]}</td>`).join('');
+    grandTotal = `<tr class="grand"><td>GRAND TOTAL</td>${cells}<td>${fmt(obtSum)}${maxTotal!==''?' / '+maxTotal:''}</td></tr>`;
+  }
+
+  return `
+    <table class="marks-table">
+      <tr>
+        <th class="subject shade1" rowspan="3">Subject</th>
+        <th class="shade1" colspan="${compKeys.length+1}">${exam.name}</th>
+      </tr>
+      <tr>${compHeaders}<th class="shade2">Marks Obtained</th></tr>
+      <tr>${compMax}<th class="shade3">${exam.mm ?? ''}</th></tr>
+      ${rows}
+      ${grandTotal}
+    </table>`;
+}
+
+function renderReportCard(student, className, session, subjects, exams, studentMarks, densityClass){
+  const primaryExam = exams[0];
+  const otherExams = exams.slice(1);
+
+  const primaryTable = examTable(primaryExam, subjects, studentMarks[primaryExam.name], true);
+  const otherTables = otherExams.map(ex => `
+    <p class="section-title">${ex.name.toUpperCase()}</p>
+    ${examTable(ex, subjects, studentMarks[ex.name], false)}
+  `).join('');
+
+  return `
+  <div class="page ${densityClass}">
+    <div class="hdr">
+      <img src="${LOGO_URL}" alt="School Logo">
+      <p class="t1">APPLIED LEARNING ASSESSMENT ${session}</p>
+      <p class="t2">MARKSHEET</p>
+      <p class="t3">${className.toUpperCase()} &nbsp;|&nbsp; SESSION ${session}</p>
+    </div>
+    <table class="idtable">
+      <tr>
+        <td>Student Name</td><td class="val">${student.name}</td>
+        <td>Roll No.</td><td class="val">${student.roll_no ?? ''}</td>
+      </tr>
+    </table>
+    ${primaryTable}
+    ${otherTables}
+    <p class="note"><b>Note:</b> "Ab" = Absent, "L" = Leave, "ML" = Medical Leave.</p>
+    <p class="pronounce">General Pronouncement: ________________________________</p>
+    <div class="signrow"><span>Academic Director</span><span>Coordinator</span><span>Class Teacher</span></div>
+  </div>`;
+}
+
+boot();
+</script>
+</body>
+</html>
