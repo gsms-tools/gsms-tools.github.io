@@ -152,7 +152,7 @@ const LOGO_URL = "https://sourabhsuneja.github.io/gsms-logo.png";
 // fixed constant. Edit this when the academic session changes.
 const SESSION = "2026-27";
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const gateEl = document.getElementById('gate');
 const controlsEl = document.getElementById('controls');
@@ -194,13 +194,13 @@ function escapeHtml(s){
 // ---------------- Auth / admin gate ----------------
 async function init(){
   try{
-    const { data:{ session }, error: sessErr } = await supabase.auth.getSession();
+    const { data:{ session }, error: sessErr } = await sb.auth.getSession();
     if(sessErr) throw sessErr;
     if(!session){
       window.location.href = AUTH_REDIRECT + '?redirect=' + encodeURIComponent(window.location.href);
       return;
     }
-    const { data: isAdmin, error: adminErr } = await supabase.rpc('is_admin');
+    const { data: isAdmin, error: adminErr } = await sb.rpc('is_admin');
     if(adminErr) throw adminErr;
     if(!isAdmin){
       showGate('denied');
@@ -218,7 +218,7 @@ async function init(){
 // ---------------- Data loading ----------------
 async function loadClasses(){
   setStatus('Loading classes…');
-  const { data, error } = await supabase.from('classes').select('name');
+  const { data, error } = await sb.from('classes').select('name');
   if(error){ setStatus('Failed to load classes: ' + error.message, true); return; }
   const names = (data || []).map(r => r.name).sort((a,b) => {
     const na = Number(a), nb = Number(b);
@@ -247,7 +247,7 @@ genBtn.addEventListener('click', async () => {
 
   try{
     // 1. Exams mapped to this class, in the order they were created.
-    const { data: examRows, error: examErr } = await supabase
+    const { data: examRows, error: examErr } = await sb
       .from('exam_classes')
       .select('exam:exams(name, mm, components, added_at)')
       .eq('class', className);
@@ -265,7 +265,7 @@ genBtn.addEventListener('click', async () => {
     }
 
     // 2. Subjects mapped to this class, ordered by display_order.
-    const { data: csRows, error: csErr } = await supabase
+    const { data: csRows, error: csErr } = await sb
       .from('class_subjects')
       .select('subject, subjects(display_order)')
       .eq('class', className);
@@ -281,7 +281,7 @@ genBtn.addEventListener('click', async () => {
     }
 
     // 3. Students in this class.
-    const { data: students, error: stuErr } = await supabase
+    const { data: students, error: stuErr } = await sb
       .from('students_master')
       .select('id, roll_no, sr_no, name')
       .eq('class', className)
@@ -296,7 +296,7 @@ genBtn.addEventListener('click', async () => {
 
     // 4. Marks for this class, for the mapped exams only.
     const examNames = exams.map(e => e.name);
-    const { data: marks, error: marksErr } = await supabase
+    const { data: marks, error: marksErr } = await sb
       .from('marks')
       .select('student_id, exam_name, subject, status, marks_obtained, component_marks')
       .eq('class', className)
