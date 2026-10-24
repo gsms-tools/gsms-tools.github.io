@@ -130,7 +130,12 @@ const AUTH_REDIRECT = 'https://mygsms.in/auth.html';
 const LOGO_URL = 'https://sourabhsuneja.github.io/gsms-logo.png';
 const STATUS_LABEL = { AB:'Ab', L:'L', ML:'ML' };
 
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let sb;
+try{
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}catch(e){
+  console.error('Failed to create Supabase client:', e);
+}
 
 function setGate(title, msg){
   document.getElementById('gateTitle').textContent = title;
@@ -143,35 +148,71 @@ function defaultSession(){
   return `${startYear}-${String((startYear+1)%100).padStart(2,'0')}`;
 }
 
+function gateAddButton(label, onClick, cls){
+  const btn = document.createElement('button');
+  btn.textContent = label; btn.className = cls || 'secondary';
+  btn.style.marginLeft = '8px';
+  btn.onclick = onClick;
+  document.getElementById('gate').appendChild(btn);
+  return btn;
+}
+
 async function boot(){
+  const spinner = document.querySelector('#gate .spinner');
   try{
-    const { data:{ session }, error: sessErr } = await sb.auth.getSession();
-    if(sessErr) throw sessErr;
-    if(!session){
-      setGate('Redirecting to sign in…','Taking you to the GSMS sign-in page.');
-      location.href = AUTH_REDIRECT + '?returnTo=' + encodeURIComponent(location.href);
+    if(typeof supabase === 'undefined' || !sb){
+      spinner.style.display='none';
+      setGate('Could not load the Supabase library', 'The script from cdn.jsdelivr.net did not load, or the client failed to initialize (possibly localStorage is blocked on this page — common with file:// pages in some browsers). Check your internet connection and try reloading, or try hosting this file on an actual web server instead of opening it as a local file.');
       return;
     }
+
+    const { data:{ session }, error: sessErr } = await sb.auth.getSession();
+    if(sessErr) throw sessErr;
+
+    if(!session){
+      spinner.style.display='none';
+      setGate('Please sign in', 'No active session was found on this page. If you already signed in elsewhere, that session may not carry over to this file — sign in from here directly.');
+      gateAddButton('Sign in', () => { location.href = AUTH_REDIRECT + '?returnTo=' + encodeURIComponent(location.href); }, '');
+      return;
+    }
+
     const { data: isAdmin, error: rpcErr } = await sb.rpc('is_admin');
     if(rpcErr) throw rpcErr;
     if(!isAdmin){
-      document.querySelector('#gate .spinner').style.display='none';
-      setGate('Access restricted', 'This tool is available to admins only. Sign in with an admin account to continue.');
-      const btn = document.createElement('button');
-      btn.textContent = 'Sign out'; btn.className='secondary';
-      btn.onclick = async () => { await sb.auth.signOut(); location.href = AUTH_REDIRECT; };
-      document.getElementById('gate').appendChild(btn);
+      spinner.style.display='none';
+      setGate('Access restricted', 'This tool is available to admins only (signed in as ' + (session.user?.email || session.user?.id) + ').');
+      gateAddButton('Sign out', async () => { await sb.auth.signOut(); location.reload(); });
       return;
     }
+
     document.getElementById('gate').style.display = 'none';
     document.getElementById('app').style.display = '';
     document.getElementById('sessionInput').value = defaultSession();
     await loadClasses();
   }catch(e){
-    document.querySelector('#gate .spinner').style.display='none';
-    setGate('Something went wrong', e.message || String(e));
+    console.error('GSMS report card tool error:', e);
+    spinner.style.display='none';
+    setGate('Something went wrong', (e && e.message) ? e.message : String(e));
+    gateAddButton('Retry', () => location.reload());
   }
 }
+
+window.addEventListener('error', (ev) => {
+  console.error('Uncaught error:', ev.error || ev.message);
+  const gate = document.getElementById('gate');
+  if(gate && gate.style.display !== 'none'){
+    document.querySelector('#gate .spinner')?.style.setProperty('display','none');
+    setGate('A script error occurred', (ev.error && ev.error.message) ? ev.error.message : (ev.message || 'See browser console for details.'));
+  }
+});
+window.addEventListener('unhandledrejection', (ev) => {
+  console.error('Unhandled rejection:', ev.reason);
+  const gate = document.getElementById('gate');
+  if(gate && gate.style.display !== 'none'){
+    document.querySelector('#gate .spinner')?.style.setProperty('display','none');
+    setGate('A script error occurred', (ev.reason && ev.reason.message) ? ev.reason.message : String(ev.reason));
+  }
+});
 
 async function loadClasses(){
   const sel = document.getElementById('classSelect');
