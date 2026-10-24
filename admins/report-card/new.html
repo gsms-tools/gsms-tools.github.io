@@ -253,9 +253,6 @@ genBtn.addEventListener('click', async () => {
       .eq('class', className);
     if(examErr) throw examErr;
     const exams = (examRows || [])
-  .map(r => r.exam)
-  .filter(Boolean)
-  .filter(e => e.name !== 'Term-1 Practical')
       .map(r => r.exam)
       .filter(Boolean)
       .sort((a,b) => new Date(a.added_at) - new Date(b.added_at))
