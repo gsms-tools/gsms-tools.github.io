@@ -118,6 +118,7 @@
     .page:last-child{page-break-after:auto;}
     @page{ size:A4; margin:5mm; }
   }
+.weightage-note{font-size:8pt; font-style:italic; margin:0.5mm 0 3mm; text-align:left;}
 </style>
 </head>
 <body>
@@ -415,6 +416,7 @@ function renderReportCard(student, className, exams, subjects, marksMap){
 
     ${examSectionsHtml}
 
+    <p class="weightage-note">Skill Weightage: Each skill = 20 points: 12 from Written Assessment + 8 from Research Assessment</p>
     <p class="pronounce">General Pronouncement: ________________________________</p>
     <div class="signrow">
       <span>Academic Director</span><span>Coordinator</span><span>Class Teacher</span>
