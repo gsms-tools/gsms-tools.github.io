@@ -46,6 +46,25 @@
   #status.err{color:#a4201c; font-weight:600;}
   #cardsArea{max-width:900px; margin:0 auto; padding:0 20px 60px;}
 
+  /* ---------- Exam selection panel (screen only) ---------- */
+  .examSelectPanel{
+    margin-bottom:14px; padding:12px 14px; background:#fff;
+    border:1px solid #c7d2db; border-radius:6px;
+  }
+  .examSelectPanel .merge-label{margin:0 0 8px;}
+  .examSelectChecklist{display:flex; flex-wrap:wrap; gap:10px 16px;}
+  .examSelectChk-item{
+    font-size:13px; display:flex; align-items:center; gap:6px; cursor:pointer;
+    background:var(--shade-3); border:1px solid #d9e1e8; border-radius:6px;
+    padding:6px 10px; user-select:none;
+  }
+  .examSelectChk-item input{cursor:pointer; width:15px; height:15px; flex:none;}
+  .examSelect-hint{font-size:12px; color:#777; margin:8px 0 0;}
+  @media (max-width:600px){
+    .examSelectChecklist{gap:8px;}
+    .examSelectChk-item{font-size:12.5px; padding:5px 8px;}
+  }
+
   /* ---------- Exam merge panel (screen only) ---------- */
   .merge-panel{
     margin-bottom:14px; padding:12px 14px; background:#fff;
@@ -118,7 +137,7 @@
     color:var(--blue-mid); font-weight:bold; text-align:center;
     font-size:12pt; margin:2mm 0 2mm;
   }
-  .pronounce{font-size:9.5pt; font-weight:bold; margin:7mm 0 auto;}
+  .pronounce{font-size:9.5pt; font-weight:bold; margin:7mm 0 auto; display: none;}
   .signrow{display:flex; justify-content:space-around; margin-top:auto; padding-top:10mm; font-size:9.5pt; font-weight:bold;}
 
   /* ---------- Print ---------- */
@@ -153,6 +172,7 @@
     <button id="genBtn" disabled>Generate Report Cards</button>
     <button id="printBtn" class="secondary" disabled>Print / Save as PDF</button>
   </div>
+  <div id="examSelectArea" style="display:none;"></div>
   <div id="examMergeArea" style="display:none;"></div>
   <div id="status"></div>
 </div>
@@ -180,11 +200,17 @@ const printBtn = document.getElementById('printBtn');
 const statusEl = document.getElementById('status');
 const cardsArea = document.getElementById('cardsArea');
 const examMergeAreaEl = document.getElementById('examMergeArea');
+const examSelectAreaEl = document.getElementById('examSelectArea');
 
 // Exam-merge state for the currently selected class.
 let currentExams = [];           // exams loaded for currentClassForExams, in exam order
 let currentClassForExams = null; // which class currentExams belongs to
 let mergeGroups = [];            // array of arrays of exam names the admin chose to merge
+
+// Exam-selection state: which exams (by name) should be included when
+// generating report cards for the currently selected class. Defaults to
+// "all exams selected" whenever a fresh set of exams is loaded.
+let selectedExamNames = new Set();
 
 function setStatus(msg, isErr){
   statusEl.textContent = msg || '';
@@ -213,6 +239,10 @@ function parseJsonMaybe(val){
 
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function displayExamName(name){
+  return name.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
 }
 
 // ---------------- Auth / admin gate ----------------
@@ -270,6 +300,42 @@ async function fetchExamsForClass(className){
     .map(e => ({ ...e, components: parseJsonMaybe(e.components) || [] }));
 }
 
+// ---------------- Exam selection UI ----------------
+// Renders a checkbox list of every exam mapped to the currently selected
+// class, letting the admin decide which ones should be included when the
+// report cards are generated. All checkboxes are checked (selected) by
+// default whenever a class's exams are (re)loaded.
+function renderExamSelectUI(){
+  if(!currentExams.length){
+    examSelectAreaEl.style.display = 'none';
+    examSelectAreaEl.innerHTML = '';
+    return;
+  }
+  const itemsHtml = currentExams.map(e => {
+    const checked = selectedExamNames.has(e.name) ? 'checked' : '';
+    return `<label class="examSelectChk-item"><input type="checkbox" class="examSelectChk" value="${escapeHtml(e.name)}" ${checked}> ${escapeHtml(e.name)}</label>`;
+  }).join('');
+
+  examSelectAreaEl.style.display = 'block';
+  examSelectAreaEl.innerHTML = `
+    <div class="examSelectPanel">
+      <p class="merge-label">Exams to include in report cards:</p>
+      <div class="examSelectChecklist">${itemsHtml}</div>
+      <p class="examSelect-hint">Unchecked exams are left out of report card generation entirely.</p>
+    </div>`;
+}
+
+examSelectAreaEl.addEventListener('change', (e) => {
+  if(e.target && e.target.classList.contains('examSelectChk')){
+    const name = e.target.value;
+    if(e.target.checked){
+      selectedExamNames.add(name);
+    } else {
+      selectedExamNames.delete(name);
+    }
+  }
+});
+
 // ---------------- Exam merge UI ----------------
 async function loadExamsForMergeUI(className){
   setStatus('Loading exams for ' + className + '…');
@@ -277,6 +343,8 @@ async function loadExamsForMergeUI(className){
     const exams = await fetchExamsForClass(className);
     currentExams = exams;
     currentClassForExams = className;
+    selectedExamNames = new Set(exams.map(e => e.name)); // all selected by default
+    renderExamSelectUI();
     renderMergeUI();
     if(exams.length === 0){
       setStatus('No exams are mapped to ' + className + ' yet.', true);
@@ -346,8 +414,11 @@ classSelect.addEventListener('change', () => {
   mergeGroups = [];
   currentExams = [];
   currentClassForExams = null;
+  selectedExamNames = new Set();
   examMergeAreaEl.style.display = 'none';
   examMergeAreaEl.innerHTML = '';
+  examSelectAreaEl.style.display = 'none';
+  examSelectAreaEl.innerHTML = '';
   printBtn.disabled = true;
   cardsArea.innerHTML = '';
 
@@ -367,20 +438,23 @@ classSelect.addEventListener('change', () => {
 function computeRenderGroups(exams, mergeGroups){
   const byName = new Map(exams.map(e => [e.name, e]));
   const used = new Set();
-  const groups = [];
+  const mergedGroups = [];
+  const standaloneGroups = [];
   exams.forEach(e => {
     if(used.has(e.name)) return;
     const mg = mergeGroups.find(g => g.includes(e.name));
     if(mg){
       const groupExams = mg.map(n => byName.get(n)).filter(Boolean);
       groupExams.forEach(ex => used.add(ex.name));
-      groups.push(groupExams);
+      mergedGroups.push(groupExams);
     } else {
       used.add(e.name);
-      groups.push([e]);
+      standaloneGroups.push([e]);
     }
   });
-  return groups;
+  // Merged-exam tables are shown first, followed by standalone exam tables;
+  // relative order within each of the two buckets follows exam order as before.
+  return mergedGroups.concat(standaloneGroups);
 }
 
 genBtn.addEventListener('click', async () => {
@@ -402,10 +476,24 @@ genBtn.addEventListener('click', async () => {
       exams = await fetchExamsForClass(className);
       currentExams = exams;
       currentClassForExams = className;
+      selectedExamNames = new Set(exams.map(e => e.name)); // all selected by default
+      renderExamSelectUI();
     }
 
     if(exams.length === 0){
       setStatus('No exams are mapped to ' + className + ' yet.', true);
+      genBtn.disabled = false;
+      return;
+    }
+
+    // 1b. Filter out any exams the admin unchecked in the exam-selection
+    //     checklist. Only the selected exams are used from this point on —
+    //     everything downstream (marks lookup, merge resolution, rendering)
+    //     operates on this filtered list, so excluded exams never reach
+    //     report card generation.
+    const selectedExams = exams.filter(e => selectedExamNames.has(e.name));
+    if(selectedExams.length === 0){
+      setStatus('Select at least one exam to include in the report cards.', true);
       genBtn.disabled = false;
       return;
     }
@@ -440,8 +528,8 @@ genBtn.addEventListener('click', async () => {
       return;
     }
 
-    // 4. Marks for this class, for the mapped exams only.
-    const examNames = exams.map(e => e.name);
+    // 4. Marks for this class, for the selected exams only.
+    const examNames = selectedExams.map(e => e.name);
     const { data: marks, error: marksErr } = await sb
       .from('marks')
       .select('student_id, exam_name, subject, status, marks_obtained, component_marks')
@@ -454,8 +542,9 @@ genBtn.addEventListener('click', async () => {
       marksMap.set(m.student_id + '__' + m.exam_name + '__' + m.subject, m);
     });
 
-    // 5. Resolve the admin's merge selections (if any) into render groups.
-    const examGroups = computeRenderGroups(exams, mergeGroups);
+    // 5. Resolve the admin's merge selections (if any) into render groups,
+    //    using only the selected exams.
+    const examGroups = computeRenderGroups(selectedExams, mergeGroups);
 
     cardsArea.innerHTML = students
       .map(s => renderReportCard(s, className, examGroups, subjects, marksMap))
@@ -515,7 +604,7 @@ function renderExamSection(exam, subjects, student, marksMap, showTitle){
 
   const colSpan = components.length + 1;
   const titleHtml = showTitle
-    ? `<p class="section-title">${escapeHtml(exam.name).toUpperCase()}</p>`
+    ? `<p class="section-title">${escapeHtml(displayExamName(exam.name)).toUpperCase()}</p>`
     : '';
 
   return `
@@ -523,7 +612,7 @@ function renderExamSection(exam, subjects, student, marksMap, showTitle){
     <table class="marks-table">
       <tr>
         <th class="subject shade1" rowspan="3">Subject</th>
-        <th class="shade1" colspan="${colSpan}">${escapeHtml(exam.name)}</th>
+        <th class="shade1" colspan="${colSpan}">${escapeHtml(displayExamName(exam.name))}</th>
       </tr>
       <tr>
         ${components.map(c => `<th class="shade2">${escapeHtml(c.name)}</th>`).join('')}
@@ -550,6 +639,9 @@ function renderMergedExamSection(group, subjects, student, marksMap, showTitle){
   const totalMM = group.reduce((sum, ex) => sum + ex.mm, 0);
   const grandMax = subjects.length * totalMM;
   const colTotals = group.map(ex => ex.components.map(() => 0)); // per exam, per component
+  // Per-exam "Total" column totals (only meaningful/shown for exams with >1 component).
+  const examTotals = group.map(() => 0);
+  const examHasObtained = group.map(() => false);
   let grandObtained = 0;
   let anyObtained = false;
 
@@ -559,12 +651,15 @@ function renderMergedExamSection(group, subjects, student, marksMap, showTitle){
     let rowHasObtained = false;
 
     group.forEach((ex, gi) => {
+      const hasMultiComp = ex.components.length > 1;
       const m = marksMap.get(student.id + '__' + ex.name + '__' + subj);
       if(!m){
         rowCellsHtml += ex.components.map(() => '<td></td>').join('');
+        if(hasMultiComp) rowCellsHtml += '<td></td>';
       } else if(m.status !== 'P'){
         const label = m.status === 'AB' ? 'Ab' : m.status; // L / ML shown as-is
         rowCellsHtml += ex.components.map(() => `<td class="status-cell">${label}</td>`).join('');
+        if(hasMultiComp) rowCellsHtml += `<td class="status-cell">${label}</td>`;
       } else {
         const cm = parseJsonMaybe(m.component_marks) || {};
         rowCellsHtml += ex.components.map((c, ci) => {
@@ -576,8 +671,16 @@ function renderMergedExamSection(group, subjects, student, marksMap, showTitle){
           return '<td></td>';
         }).join('');
         if(m.marks_obtained !== null && m.marks_obtained !== undefined){
-          rowTotal += Number(m.marks_obtained);
+          const examTotal = Number(m.marks_obtained);
+          rowTotal += examTotal;
           rowHasObtained = true;
+          if(hasMultiComp){
+            examTotals[gi] += examTotal;
+            examHasObtained[gi] = true;
+            rowCellsHtml += `<td>${examTotal}</td>`;
+          }
+        } else if(hasMultiComp){
+          rowCellsHtml += '<td></td>';
         }
       }
     });
@@ -594,21 +697,26 @@ function renderMergedExamSection(group, subjects, student, marksMap, showTitle){
   }).join('');
 
   const examNameHeaders = group
-    .map(ex => `<th class="shade1" colspan="${ex.components.length}">${escapeHtml(ex.name)}</th>`)
+    .map(ex => `<th class="shade1" colspan="${ex.components.length + (ex.components.length > 1 ? 1 : 0)}">${escapeHtml(displayExamName(ex.name))}</th>`)
     .join('');
   const compNameHeaders = group
-    .map(ex => ex.components.map(c => `<th class="shade2">${escapeHtml(c.name)}</th>`).join(''))
+    .map(ex => ex.components.map(c => `<th class="shade2">${escapeHtml(c.name)}</th>`).join('')
+      + (ex.components.length > 1 ? '<th class="shade2">Total</th>' : ''))
     .join('');
   const compMmHeaders = group
-    .map(ex => ex.components.map(c => `<th class="shade3">${c.mm}</th>`).join(''))
+    .map(ex => ex.components.map(c => `<th class="shade3">${c.mm}</th>`).join('')
+      + (ex.components.length > 1 ? `<th class="shade3">${ex.mm}</th>` : ''))
     .join('');
   const grandRowCells = group
     .map((ex, gi) => colTotals[gi]
       .map((t, ci) => `<td>${t} / ${subjects.length * ex.components[ci].mm}</td>`)
-      .join(''))
+      .join('')
+      + (ex.components.length > 1
+          ? `<td>${examHasObtained[gi] ? examTotals[gi] : ''} / ${subjects.length * ex.mm}</td>`
+          : ''))
     .join('');
 
-  const groupTitle = group.map(ex => ex.name).join(' + ');
+  const groupTitle = group.map(ex => displayExamName(ex.name)).join(' + ');
   const titleHtml = showTitle
     ? `<p class="section-title">${escapeHtml(groupTitle).toUpperCase()}</p>`
     : '';
@@ -637,6 +745,7 @@ function renderMergedExamSection(group, subjects, student, marksMap, showTitle){
 }
 
 function renderReportCard(student, className, examGroups, subjects, marksMap){
+  const hideWeightageNote = ['Nursery', 'LKG', 'UKG'].includes(className);
   const examSectionsHtml = examGroups
     .map((group, idx) => group.length === 1
       ? renderExamSection(group[0], subjects, student, marksMap, idx > 0)
@@ -661,7 +770,7 @@ function renderReportCard(student, className, examGroups, subjects, marksMap){
 
     ${examSectionsHtml}
 
-    <p class="weightage-note">Skill Weightage: Each skill = 20 points: 12 from Written Assessment + 8 from Research Assessment</p>
+    ${hideWeightageNote ? '' : '<p class="weightage-note">Skill Weightage: Each skill = 20 points: 12 from Written Assessment + 8 from Research Assessment</p>'}
     <p class="pronounce">General Pronouncement: ________________________________</p>
     <div class="signrow">
       <span>Academic Director</span><span>Coordinator</span><span>Class Teacher</span>
