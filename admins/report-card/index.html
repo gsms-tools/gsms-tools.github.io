@@ -215,6 +215,10 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+function displayExamName(name){
+  return name.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+}
+
 // ---------------- Auth / admin gate ----------------
 async function init(){
   try{
@@ -518,7 +522,7 @@ function renderExamSection(exam, subjects, student, marksMap, showTitle){
 
   const colSpan = components.length + 1;
   const titleHtml = showTitle
-    ? `<p class="section-title">${escapeHtml(exam.name).toUpperCase()}</p>`
+    ? `<p class="section-title">${escapeHtml(displayExamName(exam.name)).toUpperCase()}</p>`
     : '';
 
   return `
@@ -526,7 +530,7 @@ function renderExamSection(exam, subjects, student, marksMap, showTitle){
     <table class="marks-table">
       <tr>
         <th class="subject shade1" rowspan="3">Subject</th>
-        <th class="shade1" colspan="${colSpan}">${escapeHtml(exam.name)}</th>
+        <th class="shade1" colspan="${colSpan}">${escapeHtml(displayExamName(exam.name))}</th>
       </tr>
       <tr>
         ${components.map(c => `<th class="shade2">${escapeHtml(c.name)}</th>`).join('')}
@@ -611,7 +615,7 @@ function renderMergedExamSection(group, subjects, student, marksMap, showTitle){
   }).join('');
 
   const examNameHeaders = group
-    .map(ex => `<th class="shade1" colspan="${ex.components.length + (ex.components.length > 1 ? 1 : 0)}">${escapeHtml(ex.name)}</th>`)
+    .map(ex => `<th class="shade1" colspan="${ex.components.length + (ex.components.length > 1 ? 1 : 0)}">${escapeHtml(displayExamName(ex.name))}</th>`)
     .join('');
   const compNameHeaders = group
     .map(ex => ex.components.map(c => `<th class="shade2">${escapeHtml(c.name)}</th>`).join('')
@@ -630,7 +634,7 @@ function renderMergedExamSection(group, subjects, student, marksMap, showTitle){
           : ''))
     .join('');
 
-  const groupTitle = group.map(ex => ex.name).join(' + ');
+  const groupTitle = group.map(ex => displayExamName(ex.name)).join(' + ');
   const titleHtml = showTitle
     ? `<p class="section-title">${escapeHtml(groupTitle).toUpperCase()}</p>`
     : '';
@@ -659,6 +663,7 @@ function renderMergedExamSection(group, subjects, student, marksMap, showTitle){
 }
 
 function renderReportCard(student, className, examGroups, subjects, marksMap){
+  const hideWeightageNote = ['Nursery', 'LKG', 'UKG'].includes(className);
   const examSectionsHtml = examGroups
     .map((group, idx) => group.length === 1
       ? renderExamSection(group[0], subjects, student, marksMap, idx > 0)
@@ -683,7 +688,7 @@ function renderReportCard(student, className, examGroups, subjects, marksMap){
 
     ${examSectionsHtml}
 
-    <p class="weightage-note">Skill Weightage: Each skill = 20 points: 12 from Written Assessment + 8 from Research Assessment</p>
+    ${hideWeightageNote ? '' : '<p class="weightage-note">Skill Weightage: Each skill = 20 points: 12 from Written Assessment + 8 from Research Assessment</p>'}
     <p class="pronounce">General Pronouncement: ________________________________</p>
     <div class="signrow">
       <span>Academic Director</span><span>Coordinator</span><span>Class Teacher</span>
