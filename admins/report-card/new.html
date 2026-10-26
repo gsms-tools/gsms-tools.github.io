@@ -46,6 +46,22 @@
   #status.err{color:#a4201c; font-weight:600;}
   #cardsArea{max-width:900px; margin:0 auto; padding:0 20px 60px;}
 
+  /* ---------- Exam merge panel (screen only) ---------- */
+  .merge-panel{
+    margin-bottom:14px; padding:12px 14px; background:#fff;
+    border:1px solid #c7d2db; border-radius:6px;
+  }
+  .merge-label{font-size:13px; color:#333; margin:0 0 8px; font-weight:600;}
+  .examChecklist{display:flex; flex-wrap:wrap; gap:10px 16px; margin-bottom:10px;}
+  .examChk-item{font-size:13px; display:flex; align-items:center; gap:5px; cursor:pointer;}
+  .merge-hint{font-size:12px; color:#777; margin:0 0 8px;}
+  .mergeGroupsList{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;}
+  .mergeChip{
+    display:flex; align-items:center; gap:8px; background:var(--shade-1);
+    border:1px solid var(--blue-mid); border-radius:14px; padding:5px 10px; font-size:12.5px;
+  }
+  .mergeChip button{background:none; border:none; color:var(--blue-dark); font-weight:700; cursor:pointer; padding:0; font-size:12px;}
+
   /* ---------- Gate screens (login / access denied / loading) ---------- */
   #gate{
     max-width:480px; margin:80px auto; padding:28px 26px;
@@ -75,7 +91,7 @@
     display:flex; flex-direction:column;
   }
   .hdr{text-align:center; margin-bottom:3mm;}
-  .hdr img{height:50mm; margin-bottom:1mm;}
+  .hdr img{height:30mm; margin-bottom:3mm;}
   .hdr .t1{color:var(--blue-dark); font-weight:bold; font-size:15pt; margin:0;}
   .hdr .t2{font-weight:bold; font-size:13pt; margin:1mm 0 0;}
   .hdr .t3{font-weight:bold; font-size:11pt; margin:0;}
@@ -102,7 +118,7 @@
     color:var(--blue-mid); font-weight:bold; text-align:center;
     font-size:12pt; margin:2mm 0 2mm;
   }
-  .pronounce{font-size:9.5pt; font-weight:bold; margin:9mm 0 auto;}
+  .pronounce{font-size:9.5pt; font-weight:bold; margin:7mm 0 auto;}
   .signrow{display:flex; justify-content:space-around; margin-top:auto; padding-top:10mm; font-size:9.5pt; font-weight:bold;}
 
   /* ---------- Print ---------- */
@@ -118,6 +134,7 @@
     .page:last-child{page-break-after:auto;}
     @page{ size:A4; margin:5mm; }
   }
+.weightage-note{font-size:8pt; font-style:italic; margin:0.5mm 0 3mm; text-align:left;}
 </style>
 </head>
 <body>
@@ -136,6 +153,7 @@
     <button id="genBtn" disabled>Generate Report Cards</button>
     <button id="printBtn" class="secondary" disabled>Print / Save as PDF</button>
   </div>
+  <div id="examMergeArea" style="display:none;"></div>
   <div id="status"></div>
 </div>
 
@@ -161,6 +179,12 @@ const genBtn = document.getElementById('genBtn');
 const printBtn = document.getElementById('printBtn');
 const statusEl = document.getElementById('status');
 const cardsArea = document.getElementById('cardsArea');
+const examMergeAreaEl = document.getElementById('examMergeArea');
+
+// Exam-merge state for the currently selected class.
+let currentExams = [];           // exams loaded for currentClassForExams, in exam order
+let currentClassForExams = null; // which class currentExams belongs to
+let mergeGroups = [];            // array of arrays of exam names the admin chose to merge
 
 function setStatus(msg, isErr){
   statusEl.textContent = msg || '';
@@ -233,9 +257,131 @@ async function loadClasses(){
   setStatus('');
 }
 
-classSelect.addEventListener('change', () => {
-  genBtn.disabled = !classSelect.value;
+async function fetchExamsForClass(className){
+  const { data: examRows, error: examErr } = await sb
+    .from('exam_classes')
+    .select('exam:exams(name, mm, components, added_at)')
+    .eq('class', className);
+  if(examErr) throw examErr;
+  return (examRows || [])
+    .map(r => r.exam)
+    .filter(Boolean)
+    .sort((a,b) => new Date(a.added_at) - new Date(b.added_at))
+    .map(e => ({ ...e, components: parseJsonMaybe(e.components) || [] }));
+}
+
+// ---------------- Exam merge UI ----------------
+async function loadExamsForMergeUI(className){
+  setStatus('Loading exams for ' + className + '…');
+  try{
+    const exams = await fetchExamsForClass(className);
+    currentExams = exams;
+    currentClassForExams = className;
+    renderMergeUI();
+    if(exams.length === 0){
+      setStatus('No exams are mapped to ' + className + ' yet.', true);
+      genBtn.disabled = true;
+    } else {
+      setStatus('');
+      genBtn.disabled = false;
+    }
+  } catch(e){
+    console.error(e);
+    setStatus('Failed to load exams: ' + (e.message || e), true);
+    genBtn.disabled = true;
+  }
+}
+
+function renderMergeUI(){
+  if(!currentExams.length){
+    examMergeAreaEl.style.display = 'none';
+    examMergeAreaEl.innerHTML = '';
+    return;
+  }
+  const groupedNames = new Set(mergeGroups.flat());
+  const available = currentExams.filter(e => !groupedNames.has(e.name));
+
+  const checklistHtml = available.length
+    ? available.map(e => `<label class="examChk-item"><input type="checkbox" class="examMergeChk" value="${escapeHtml(e.name)}"> ${escapeHtml(e.name)}</label>`).join('')
+    : '<p class="merge-hint">All exams are currently merged.</p>';
+
+  const mergeBtnHtml = available.length >= 2
+    ? `<div class="row"><button type="button" id="mergeSelectedBtn" class="secondary">Merge Selected</button></div>`
+    : '';
+
+  const groupsHtml = mergeGroups.length
+    ? `<div class="mergeGroupsList">${mergeGroups.map((g, gi) =>
+        `<div class="mergeChip"><span>Merged: ${g.map(n => escapeHtml(n)).join(' + ')}</span><button type="button" class="removeMergeBtn" data-idx="${gi}">✕</button></div>`
+      ).join('')}</div>`
+    : '';
+
+  examMergeAreaEl.style.display = 'block';
+  examMergeAreaEl.innerHTML = `
+    <div class="merge-panel">
+      <p class="merge-label">Exams for this class — select two or more to merge into one table:</p>
+      <div class="examChecklist">${checklistHtml}</div>
+      ${mergeBtnHtml}
+      ${groupsHtml}
+    </div>`;
+}
+
+examMergeAreaEl.addEventListener('click', (e) => {
+  if(e.target && e.target.id === 'mergeSelectedBtn'){
+    const checked = Array.from(document.querySelectorAll('.examMergeChk:checked')).map(cb => cb.value);
+    if(checked.length < 2){
+      setStatus('Select at least two exams to merge.', true);
+      return;
+    }
+    mergeGroups.push(checked);
+    setStatus('');
+    renderMergeUI();
+  } else if(e.target && e.target.classList.contains('removeMergeBtn')){
+    const idx = Number(e.target.dataset.idx);
+    mergeGroups.splice(idx, 1);
+    renderMergeUI();
+  }
 });
+
+classSelect.addEventListener('change', () => {
+  mergeGroups = [];
+  currentExams = [];
+  currentClassForExams = null;
+  examMergeAreaEl.style.display = 'none';
+  examMergeAreaEl.innerHTML = '';
+  printBtn.disabled = true;
+  cardsArea.innerHTML = '';
+
+  if(!classSelect.value){
+    genBtn.disabled = true;
+    setStatus('');
+    return;
+  }
+  genBtn.disabled = true;
+  loadExamsForMergeUI(classSelect.value);
+});
+
+// Resolves the admin's merge choices into the ordered list of "render
+// groups" — each entry is an array of 1+ exam objects that should share a
+// single table. Exams not chosen for merging stay as their own 1-item group,
+// so non-merged output is produced by the exact same code path as before.
+function computeRenderGroups(exams, mergeGroups){
+  const byName = new Map(exams.map(e => [e.name, e]));
+  const used = new Set();
+  const groups = [];
+  exams.forEach(e => {
+    if(used.has(e.name)) return;
+    const mg = mergeGroups.find(g => g.includes(e.name));
+    if(mg){
+      const groupExams = mg.map(n => byName.get(n)).filter(Boolean);
+      groupExams.forEach(ex => used.add(ex.name));
+      groups.push(groupExams);
+    } else {
+      used.add(e.name);
+      groups.push([e]);
+    }
+  });
+  return groups;
+}
 
 genBtn.addEventListener('click', async () => {
   const className = classSelect.value;
@@ -247,16 +393,16 @@ genBtn.addEventListener('click', async () => {
 
   try{
     // 1. Exams mapped to this class, in the order they were created.
-    const { data: examRows, error: examErr } = await sb
-      .from('exam_classes')
-      .select('exam:exams(name, mm, components, added_at)')
-      .eq('class', className);
-    if(examErr) throw examErr;
-    const exams = (examRows || [])
-      .map(r => r.exam)
-      .filter(Boolean)
-      .sort((a,b) => new Date(a.added_at) - new Date(b.added_at))
-      .map(e => ({ ...e, components: parseJsonMaybe(e.components) || [] }));
+    //    Reuse what the merge panel already fetched when possible, to avoid
+    //    an extra round-trip; fetch fresh if it's stale for any reason.
+    let exams;
+    if(currentClassForExams === className && currentExams.length){
+      exams = currentExams;
+    } else {
+      exams = await fetchExamsForClass(className);
+      currentExams = exams;
+      currentClassForExams = className;
+    }
 
     if(exams.length === 0){
       setStatus('No exams are mapped to ' + className + ' yet.', true);
@@ -308,8 +454,11 @@ genBtn.addEventListener('click', async () => {
       marksMap.set(m.student_id + '__' + m.exam_name + '__' + m.subject, m);
     });
 
+    // 5. Resolve the admin's merge selections (if any) into render groups.
+    const examGroups = computeRenderGroups(exams, mergeGroups);
+
     cardsArea.innerHTML = students
-      .map(s => renderReportCard(s, className, exams, subjects, marksMap))
+      .map(s => renderReportCard(s, className, examGroups, subjects, marksMap))
       .join('');
 
     setStatus(`Generated ${students.length} report card(s) for ${className}.`);
@@ -325,6 +474,7 @@ genBtn.addEventListener('click', async () => {
 printBtn.addEventListener('click', () => window.print());
 
 // ---------------- Rendering ----------------
+// Unchanged: renders a single, non-merged exam exactly as before.
 function renderExamSection(exam, subjects, student, marksMap, showTitle){
   const components = exam.components; // [{mm, name}, ...]
   const colTotals = components.map(() => 0);
@@ -392,9 +542,105 @@ function renderExamSection(exam, subjects, student, marksMap, showTitle){
     </table>`;
 }
 
-function renderReportCard(student, className, exams, subjects, marksMap){
-  const examSectionsHtml = exams
-    .map((exam, idx) => renderExamSection(exam, subjects, student, marksMap, idx > 0))
+// New: renders two or more exams merged into a single table. Each exam gets
+// its own column header (spanning its own components), and there is one
+// combined Total column on the right that adds up every component of every
+// merged exam — the grand-total row does the same, per the merge feature.
+function renderMergedExamSection(group, subjects, student, marksMap, showTitle){
+  const totalMM = group.reduce((sum, ex) => sum + ex.mm, 0);
+  const grandMax = subjects.length * totalMM;
+  const colTotals = group.map(ex => ex.components.map(() => 0)); // per exam, per component
+  let grandObtained = 0;
+  let anyObtained = false;
+
+  const rows = subjects.map(subj => {
+    let rowCellsHtml = '';
+    let rowTotal = 0;
+    let rowHasObtained = false;
+
+    group.forEach((ex, gi) => {
+      const m = marksMap.get(student.id + '__' + ex.name + '__' + subj);
+      if(!m){
+        rowCellsHtml += ex.components.map(() => '<td></td>').join('');
+      } else if(m.status !== 'P'){
+        const label = m.status === 'AB' ? 'Ab' : m.status; // L / ML shown as-is
+        rowCellsHtml += ex.components.map(() => `<td class="status-cell">${label}</td>`).join('');
+      } else {
+        const cm = parseJsonMaybe(m.component_marks) || {};
+        rowCellsHtml += ex.components.map((c, ci) => {
+          const v = cm[c.name];
+          if(v !== undefined && v !== null && v !== ''){
+            colTotals[gi][ci] += Number(v);
+            return `<td>${v}</td>`;
+          }
+          return '<td></td>';
+        }).join('');
+        if(m.marks_obtained !== null && m.marks_obtained !== undefined){
+          rowTotal += Number(m.marks_obtained);
+          rowHasObtained = true;
+        }
+      }
+    });
+
+    let totalCell;
+    if(rowHasObtained){
+      grandObtained += rowTotal;
+      anyObtained = true;
+      totalCell = `<td>${rowTotal}</td>`;
+    } else {
+      totalCell = '<td></td>';
+    }
+    return `<tr><td class="subject">${escapeHtml(subj)}</td>${rowCellsHtml}${totalCell}</tr>`;
+  }).join('');
+
+  const examNameHeaders = group
+    .map(ex => `<th class="shade1" colspan="${ex.components.length}">${escapeHtml(ex.name)}</th>`)
+    .join('');
+  const compNameHeaders = group
+    .map(ex => ex.components.map(c => `<th class="shade2">${escapeHtml(c.name)}</th>`).join(''))
+    .join('');
+  const compMmHeaders = group
+    .map(ex => ex.components.map(c => `<th class="shade3">${c.mm}</th>`).join(''))
+    .join('');
+  const grandRowCells = group
+    .map((ex, gi) => colTotals[gi]
+      .map((t, ci) => `<td>${t} / ${subjects.length * ex.components[ci].mm}</td>`)
+      .join(''))
+    .join('');
+
+  const groupTitle = group.map(ex => ex.name).join(' + ');
+  const titleHtml = showTitle
+    ? `<p class="section-title">${escapeHtml(groupTitle).toUpperCase()}</p>`
+    : '';
+
+  return `
+    ${titleHtml}
+    <table class="marks-table">
+      <tr>
+        <th class="subject shade1" rowspan="3">Subject</th>
+        ${examNameHeaders}
+        <th class="shade1" rowspan="3">Total</th>
+      </tr>
+      <tr>
+        ${compNameHeaders}
+      </tr>
+      <tr>
+        ${compMmHeaders}
+      </tr>
+      ${rows}
+      <tr class="grand">
+        <td>GRAND TOTAL</td>
+        ${grandRowCells}
+        <td>${anyObtained ? grandObtained : ''} / ${grandMax}</td>
+      </tr>
+    </table>`;
+}
+
+function renderReportCard(student, className, examGroups, subjects, marksMap){
+  const examSectionsHtml = examGroups
+    .map((group, idx) => group.length === 1
+      ? renderExamSection(group[0], subjects, student, marksMap, idx > 0)
+      : renderMergedExamSection(group, subjects, student, marksMap, idx > 0))
     .join('');
 
   return `
@@ -415,6 +661,7 @@ function renderReportCard(student, className, exams, subjects, marksMap){
 
     ${examSectionsHtml}
 
+    <p class="weightage-note">Skill Weightage: Each skill = 20 points: 12 from Written Assessment + 8 from Research Assessment</p>
     <p class="pronounce">General Pronouncement: ________________________________</p>
     <div class="signrow">
       <span>Academic Director</span><span>Coordinator</span><span>Class Teacher</span>
