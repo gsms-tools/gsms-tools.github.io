@@ -367,20 +367,23 @@ classSelect.addEventListener('change', () => {
 function computeRenderGroups(exams, mergeGroups){
   const byName = new Map(exams.map(e => [e.name, e]));
   const used = new Set();
-  const groups = [];
+  const mergedGroups = [];
+  const standaloneGroups = [];
   exams.forEach(e => {
     if(used.has(e.name)) return;
     const mg = mergeGroups.find(g => g.includes(e.name));
     if(mg){
       const groupExams = mg.map(n => byName.get(n)).filter(Boolean);
       groupExams.forEach(ex => used.add(ex.name));
-      groups.push(groupExams);
+      mergedGroups.push(groupExams);
     } else {
       used.add(e.name);
-      groups.push([e]);
+      standaloneGroups.push([e]);
     }
   });
-  return groups;
+  // Merged-exam tables are shown first, followed by standalone exam tables;
+  // relative order within each of the two buckets follows exam order as before.
+  return mergedGroups.concat(standaloneGroups);
 }
 
 genBtn.addEventListener('click', async () => {
