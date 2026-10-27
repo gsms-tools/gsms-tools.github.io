@@ -101,6 +101,47 @@
    background: var(--light);
    color: #9ca3af;
    }
+   .field-hint {
+   font-size: 12px;
+   color: #6b7280;
+   margin-top: 4px;
+   }
+
+   /* Multi-select exam checklist (replaces a plain <select> so two or more
+      exams can be merged into one consolidated statement) */
+   #examCheckboxList {
+   border: 1px solid var(--border);
+   border-radius: 4px;
+   max-height: 220px;
+   overflow-y: auto;
+   padding: 6px 4px;
+   background: #fff;
+   }
+   #examCheckboxList.disabled-look {
+   background: var(--light);
+   }
+   #examCheckboxList .exam-option {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+   padding: 7px 8px;
+   font-size: 14px;
+   border-radius: 3px;
+   }
+   #examCheckboxList .exam-option:hover {
+   background: var(--light);
+   }
+   #examCheckboxList .exam-option label {
+   cursor: pointer;
+   flex: 1;
+   margin: 0;
+   font-weight: normal;
+   }
+   #examCheckboxList .placeholder {
+   padding: 8px;
+   color: #9ca3af;
+   font-size: 14px;
+   }
    #selectionError {
    color: var(--danger);
    font-size: 13px;
@@ -155,6 +196,9 @@
    }
    th {
    background-color: #f2f2f2;
+   }
+   th.exam-header {
+   background-color: #e5e7eb;
    }
    .roll-col {
    width: 80px;
@@ -261,6 +305,11 @@
    -webkit-print-color-adjust: exact;
    print-color-adjust: exact;
    }
+   th.exam-header {
+   background-color: #e5e7eb !important;
+   -webkit-print-color-adjust: exact;
+   print-color-adjust: exact;
+   }
    }
    #accessDenied {
    max-width: 560px;
@@ -298,8 +347,9 @@
 
 <div class="container hidden" id="appContainer">
 
-   <!-- Selection panel: pick class + exam (new schema has no URL-driven view,
-        so classes/exams are fetched live from Supabase for the admin to choose) -->
+   <!-- Selection panel: pick class + one-or-more exams (new schema has no
+        URL-driven view, so classes/exams are fetched live from Supabase for
+        the admin to choose, and exams can be merged into one statement) -->
    <div id="selectionPanel">
       <h2>Generate Consolidated Marks Statement</h2>
       <div class="field-group">
@@ -309,10 +359,11 @@
          </select>
       </div>
       <div class="field-group">
-         <label for="examSelect">Exam</label>
-         <select id="examSelect" disabled>
-            <option value="">Select a class first</option>
-         </select>
+         <label for="examCheckboxList">Exam(s)</label>
+         <div id="examCheckboxList">
+            <div class="placeholder">Select a class first</div>
+         </div>
+         <div class="field-hint">Tick two or more exams to generate a merged statement.</div>
       </div>
       <div id="selectionError"></div>
       <button id="generateBtn" disabled>Generate Statement</button>
@@ -338,9 +389,9 @@
 </div>
 
 <script>
-   // ------------------------------------------------------------------
+   // ==================================================================
    // Setup
-   // ------------------------------------------------------------------
+   // ==================================================================
    const loadingOverlay = document.getElementById('loading-overlay');
    const appContainer = document.getElementById('appContainer');
    const accessDeniedEl = document.getElementById('accessDenied');
@@ -351,7 +402,7 @@
    let classesCache = [];      // [{name}]
    let examsCache = [];        // [{name, mm, components}] applicable to the chosen class
    let selectedClass = '';
-   let selectedExam = '';
+   let selectedExams = [];     // array of exam names (one-or-more, merged)
    let digitalSignature = '';
 
    document.getElementById('school-name-display').textContent = SCHOOL_NAME;
@@ -371,9 +422,17 @@
       return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
    }
 
-   // ------------------------------------------------------------------
+   function escapeHtml(str) {
+      return String(str)
+         .replace(/&/g, '&amp;')
+         .replace(/</g, '&lt;')
+         .replace(/>/g, '&gt;')
+         .replace(/"/g, '&quot;');
+   }
+
+   // ==================================================================
    // Rank calculation (same tie-handling logic as the old statement)
-   // ------------------------------------------------------------------
+   // ==================================================================
    function calculateRanks(values) {
       const indexedValues = values.map((value, index) => ({ value, index }));
       indexedValues.sort((a, b) => b.value - a.value);
@@ -395,9 +454,161 @@
       return ranks;
    }
 
-   // ------------------------------------------------------------------
+   // ==================================================================
+   // Smart header-abbreviation engine
+   //
+   // Long component / exam / subject names can blow out the print layout
+   // once several exams are merged side by side. Rather than a fixed
+   // character limit, this measures actual rendered text width (canvas
+   // measureText, matching the print font) against a per-column pixel
+   // budget derived from how many columns the sheet will actually have,
+   // and only shortens a label as far as it needs to in order to fit:
+   //   1. full name, if it already fits
+   //   2. a known academic short-form (Objective -> Obj., Theory -> Th.)
+   //   3. word-by-word shortening for names not in the lookup table
+   //   4. an initials acronym for multi-word names (Subject Enrichment
+   //      Activity -> SEA)
+   //   5. hard character truncation as a last resort
+   // Collisions between sibling columns are disambiguated automatically.
+   // ==================================================================
+   const HEADER_FONT = 'bold 12px Arial';
+   const PRINT_CONTENT_WIDTH_PX = 1080; // approx. A4 landscape content area
+   const ROLL_NAME_RESERVED_FRACTION = 0.21; // matches the 6% + 15% print CSS
+
+   const COMMON_ABBREVIATIONS = {
+      'objective': 'Obj.',
+      'subjective': 'Sub.',
+      'theory': 'Th.',
+      'practical': 'Prac.',
+      'oral': 'Oral',
+      'written': 'Wr.',
+      'grammar': 'Gram.',
+      'literature': 'Lit.',
+      'listening': 'List.',
+      'speaking': 'Spk.',
+      'reading': 'Read.',
+      'writing': 'Writ.',
+      'project': 'Proj.',
+      'assignment': 'Assgn.',
+      'activity': 'Act.',
+      'activities': 'Act.',
+      'enrichment': 'Enrich.',
+      'comprehension': 'Comp.',
+      'vocabulary': 'Vocab.',
+      'internal': 'Int.',
+      'external': 'Ext.',
+      'assessment': 'Assess.',
+      'examination': 'Exam',
+      'periodic': 'PT',
+      'formative': 'FA',
+      'summative': 'SA',
+      'dictation': 'Dict.',
+      'recitation': 'Recit.',
+      'drawing': 'Draw.',
+      'computer': 'Comp.',
+      'laboratory': 'Lab',
+      'portfolio': 'Port.',
+      'notebook': 'N.Bk',
+      'homework': 'H.Wk',
+      'classwork': 'C.Wk',
+      'quiz': 'Quiz',
+      'unit': 'Unit',
+      'test': 'Test',
+      'viva': 'Viva',
+      'subject': 'Sub.',
+      'enrichment activity': 'Enrich. Act.'
+   };
+
+   const STOPWORDS = new Set(['of', 'the', 'and', 'for', 'a', 'an', '&', 'to', 'in']);
+
+   let _measureCanvas = null;
+   function measureTextWidth(text, font) {
+      if (!_measureCanvas) _measureCanvas = document.createElement('canvas');
+      const ctx = _measureCanvas.getContext('2d');
+      ctx.font = font;
+      return ctx.measureText(text).width;
+   }
+
+   function wordAbbrev(word) {
+      const lower = word.toLowerCase().replace(/[^a-z]/g, '');
+      if (COMMON_ABBREVIATIONS[lower]) return COMMON_ABBREVIATIONS[lower];
+      if (word.length <= 4) return word;
+      return word.slice(0, 3) + '.';
+   }
+
+   function toAcronym(name) {
+      const words = name.trim().split(/[\s\-\/]+/).filter(w => w && !STOPWORDS.has(w.toLowerCase()));
+      if (words.length <= 1) return null;
+      return words.map(w => w[0].toUpperCase()).join('');
+   }
+
+   // usedLabels: a Set scoped to the sibling group these headers belong to,
+   // so two different full names never render as the same abbreviation
+   // within the same header row block.
+   function uniqueLabel(label, usedLabels) {
+      if (!usedLabels.has(label)) {
+         usedLabels.add(label);
+         return label;
+      }
+      let attempt = label;
+      let n = 2;
+      while (usedLabels.has(attempt) && n < 10) {
+         attempt = label + n;
+         n++;
+      }
+      usedLabels.add(attempt);
+      return attempt;
+   }
+
+   function deriveAbbreviation(fullName, budgetPx, usedLabels) {
+      const name = (fullName || '').trim();
+      if (!name) return { label: name, abbreviated: false };
+
+      if (measureTextWidth(name, HEADER_FONT) <= budgetPx) {
+         return { label: uniqueLabel(name, usedLabels), abbreviated: false };
+      }
+
+      const lowerFull = name.toLowerCase();
+      if (COMMON_ABBREVIATIONS[lowerFull] &&
+          measureTextWidth(COMMON_ABBREVIATIONS[lowerFull], HEADER_FONT) <= budgetPx) {
+         return { label: uniqueLabel(COMMON_ABBREVIATIONS[lowerFull], usedLabels), abbreviated: true };
+      }
+
+      const words = name.split(/\s+/);
+      let candidate = words.length === 1 ? wordAbbrev(words[0]) : words.map(wordAbbrev).join(' ');
+
+      if (measureTextWidth(candidate, HEADER_FONT) <= budgetPx) {
+         return { label: uniqueLabel(candidate, usedLabels), abbreviated: true };
+      }
+
+      const acronym = toAcronym(name);
+      if (acronym && measureTextWidth(acronym, HEADER_FONT) <= budgetPx) {
+         return { label: uniqueLabel(acronym, usedLabels), abbreviated: true };
+      }
+
+      // Last resort: hard-truncate whichever candidate is shortest so far.
+      let base = acronym || candidate || name;
+      if (measureTextWidth(base, HEADER_FONT) > budgetPx) {
+         while (base.length > 1 && measureTextWidth(base + '.', HEADER_FONT) > budgetPx) {
+            base = base.slice(0, -1);
+         }
+         base = base.length > 0 ? base + '.' : base;
+      }
+      return { label: uniqueLabel(base || name, usedLabels), abbreviated: true };
+   }
+
+   // Builds a <th> (or returns plain text) with the derived abbreviation,
+   // keeping the full name available as a tooltip on screen.
+   function applyAbbreviatedLabel(el, fullName, budgetPx, usedLabels) {
+      const { label, abbreviated } = deriveAbbreviation(fullName, budgetPx, usedLabels);
+      el.textContent = label;
+      if (abbreviated) el.title = fullName;
+      return label;
+   }
+
+   // ==================================================================
    // Auth / admin check
-   // ------------------------------------------------------------------
+   // ==================================================================
    async function checkAdminAccess() {
       const { data: { session }, error: sessionError } = await sb.auth.getSession();
 
@@ -406,8 +617,6 @@
          return false;
       }
 
-      // Prefer the get_my_role() RPC (defined in the schema); fall back to a
-      // direct admins-table lookup if the RPC isn't reachable for some reason.
       try {
          const { data: role, error: roleError } = await sb.rpc('get_my_role');
          if (!roleError && role === 'admin') return true;
@@ -432,9 +641,9 @@
       return true;
    }
 
-   // ------------------------------------------------------------------
+   // ==================================================================
    // Data loading: classes & exams for the selection panel
-   // ------------------------------------------------------------------
+   // ==================================================================
    async function loadClasses() {
       const { data, error } = await sb.from('classes').select('name');
       if (error) throw error;
@@ -446,23 +655,19 @@
    }
 
    async function loadExamsForClass(className) {
-      const examSelect = document.getElementById('examSelect');
-      examSelect.innerHTML = '<option value="">Loading exams&hellip;</option>';
-      examSelect.disabled = true;
+      const listEl = document.getElementById('examCheckboxList');
+      listEl.innerHTML = '<div class="placeholder">Loading exams&hellip;</div>';
+      listEl.classList.add('disabled-look');
       document.getElementById('generateBtn').disabled = true;
 
-      // Exams registered for this class via exam_classes
       const { data: mapRows, error: mapError } = await sb
          .from('exam_classes')
          .select('exam')
          .eq('class', className);
-
       if (mapError) throw mapError;
 
       let examNames = (mapRows || []).map(r => r.exam);
 
-      // Graceful fallback: if nothing is mapped for this class yet, offer every
-      // registered exam rather than leaving the admin with an empty dropdown.
       let examRows;
       if (examNames.length > 0) {
          const { data, error } = await sb
@@ -473,6 +678,8 @@
          if (error) throw error;
          examRows = data;
       } else {
+         // Graceful fallback: nothing mapped yet for this class -> offer
+         // every registered exam rather than an empty list.
          const { data, error } = await sb
             .from('exams')
             .select('name, mm, components')
@@ -482,35 +689,31 @@
       }
 
       examsCache = examRows || [];
+      listEl.classList.remove('disabled-look');
 
       if (examsCache.length === 0) {
-         examSelect.innerHTML = '<option value="">No exams available</option>';
-         examSelect.disabled = true;
+         listEl.innerHTML = '<div class="placeholder">No exams available</div>';
          return;
       }
 
-      examSelect.innerHTML = '<option value="">-- Select Exam --</option>' +
-         examsCache.map(e => `<option value="${escapeHtml(e.name)}">${escapeHtml(e.name)}</option>`).join('');
-      examSelect.disabled = false;
+      listEl.innerHTML = examsCache.map((e, idx) => `
+         <div class="exam-option">
+            <input type="checkbox" id="examOpt_${idx}" value="${escapeHtml(e.name)}" class="exam-checkbox">
+            <label for="examOpt_${idx}">${escapeHtml(e.name)}</label>
+         </div>
+      `).join('');
+
+      listEl.querySelectorAll('.exam-checkbox').forEach(cb => {
+         cb.addEventListener('change', () => {
+            selectedExams = Array.from(listEl.querySelectorAll('.exam-checkbox:checked')).map(c => c.value);
+            document.getElementById('generateBtn').disabled = !(selectedClass && selectedExams.length > 0);
+         });
+      });
    }
 
-   function escapeHtml(str) {
-      return String(str)
-         .replace(/&/g, '&amp;')
-         .replace(/</g, '&lt;')
-         .replace(/>/g, '&gt;')
-         .replace(/"/g, '&quot;');
-   }
-
-   // ------------------------------------------------------------------
+   // ==================================================================
    // Core report generation
-   // ------------------------------------------------------------------
-   function getExamDefinition(examName) {
-      return examsCache.find(e => e.name === examName) || null;
-   }
-
-   // Returns the ordered list of "columns" for a subject under this exam:
-   // either the exam's component breakdown, or a single implicit column.
+   // ==================================================================
    function getExamComponents(examDef) {
       if (examDef && Array.isArray(examDef.components) && examDef.components.length > 0) {
          return examDef.components; // [{mm, name}, ...]
@@ -525,8 +728,6 @@
    }
 
    function statusLabel(status) {
-      // Mirrors the old statement's "Ab" convention, extended to the new
-      // schema's explicit status codes.
       switch (status) {
          case 'AB': return 'Ab';
          case 'L': return 'L';
@@ -535,16 +736,15 @@
       }
    }
 
-   async function generateReport(className, examName) {
+   async function generateReport(className, examNames) {
       showLoading();
       document.getElementById('selectionError').textContent = '';
 
       try {
-         const examDef = getExamDefinition(examName);
-         if (!examDef) throw new Error('Selected exam could not be found.');
-
-         const components = getExamComponents(examDef);
-         const examMM = examDef.mm;
+         const examDefs = examNames
+            .map(name => examsCache.find(e => e.name === name))
+            .filter(Boolean);
+         if (examDefs.length === 0) throw new Error('Selected exam(s) could not be found.');
 
          // Subjects that apply to this class (ordered by display_order)
          const { data: subjRows, error: subjError } = await sb
@@ -579,24 +779,24 @@
             throw new Error('No students found for this class.');
          }
 
-         // Marks for this class + this standard exam (custom/one-off exams are
-         // intentionally excluded, same as the admin only picking from the
-         // registered "exams" list in the selection panel)
+         // Marks for this class across all merged (standard, registered)
+         // exams -- custom/one-off exams stay excluded, same as before.
          const { data: marksRows, error: marksError } = await sb
             .from('marks')
-            .select('id, student_id, subject, status, marks_obtained, component_marks, updated_at')
+            .select('id, student_id, subject, exam_name, status, marks_obtained, component_marks, updated_at')
             .eq('class', className)
-            .eq('exam_name', examName);
+            .in('exam_name', examDefs.map(e => e.name));
          if (marksError) throw marksError;
 
          digitalSignature = await generateNumericSignature(marksRows || []);
 
          renderTable({
-            className, examName, examMM, components,
+            className, examDefs,
             selectedSubjects, students, marksRows: marksRows || []
          });
 
-         document.getElementById('exam-name').textContent = examName;
+         const examHeading = examDefs.map(e => e.name).join(' + ');
+         document.getElementById('exam-name').textContent = examHeading;
          document.getElementById('session-label').textContent = SCHOOL_SESSION;
          document.getElementById('class-name').textContent = className;
          document.getElementById('timestamp-info').textContent =
@@ -608,7 +808,7 @@
          document.getElementById('marks-table').classList.remove('hidden');
          document.getElementById('printBtn').classList.remove('hidden');
 
-         updateUrlParams(className, examName);
+         updateUrlParams(className, examDefs.map(e => e.name));
       } catch (err) {
          console.error(err);
          document.getElementById('selectionError').textContent =
@@ -618,73 +818,112 @@
       }
    }
 
-   function renderTable({ className, examName, examMM, components, selectedSubjects, students, marksRows }) {
+   function renderTable({ className, examDefs, selectedSubjects, students, marksRows }) {
       const table = document.getElementById('marks-table');
       table.innerHTML = '';
 
-      const headerRow1 = document.createElement('tr');
-      const headerRow2 = document.createElement('tr');
+      const multiExam = examDefs.length > 1;
+      const headerRowCount = multiExam ? 3 : 2;
+
+      // Pre-compute the column structure (needed up front so we can size the
+      // abbreviation budget before building any header cell).
+      let totalMarkColumns = 0;
+      const subjectBlocks = selectedSubjects.map(subject => {
+         const examBlocks = examDefs.map(examDef => {
+            const comps = getExamComponents(examDef);
+            const colCount = comps ? comps.length + 1 : 1;
+            totalMarkColumns += colCount;
+            return { examDef, comps, colCount };
+         });
+         const subjectColSpan = examBlocks.reduce((s, b) => s + b.colCount, 0);
+         return { subject, examBlocks, subjectColSpan };
+      });
+
+      const totalDataColumns = totalMarkColumns + 3; // Total + % + Rank
+      const dataAreaPx = PRINT_CONTENT_WIDTH_PX * (1 - ROLL_NAME_RESERVED_FRACTION);
+      const perColumnBudgetPx = Math.min(140, Math.max(26, dataAreaPx / totalDataColumns));
+
+      const headerRowTop = document.createElement('tr');
+      const headerRowMid = document.createElement('tr');   // exam names (multi-exam only)
+      const headerRowBottom = document.createElement('tr'); // components
 
       const rollHeader = document.createElement('th');
       rollHeader.textContent = 'Roll No.';
-      rollHeader.rowSpan = 2;
+      rollHeader.rowSpan = headerRowCount;
       rollHeader.classList.add('roll-col');
-      headerRow1.appendChild(rollHeader);
+      headerRowTop.appendChild(rollHeader);
 
       const nameHeader = document.createElement('th');
       nameHeader.textContent = 'Student Name';
-      nameHeader.rowSpan = 2;
+      nameHeader.rowSpan = headerRowCount;
       nameHeader.classList.add('name-col');
-      headerRow1.appendChild(nameHeader);
+      headerRowTop.appendChild(nameHeader);
 
-      // Subject headers -- component breakdown is defined once per exam and
-      // applies uniformly to every subject (unlike the old per-subject model)
-      const columnCountPerSubject = components ? components.length + 1 : 1;
+      const subjectLabelUsed = new Set();
 
-      selectedSubjects.forEach(subject => {
+      subjectBlocks.forEach(({ subject, examBlocks, subjectColSpan }) => {
          const subjectHeader = document.createElement('th');
-         subjectHeader.textContent = subject;
-         subjectHeader.colSpan = columnCountPerSubject;
+         subjectHeader.colSpan = subjectColSpan;
          subjectHeader.classList.add('subject-header');
-         headerRow1.appendChild(subjectHeader);
+         applyAbbreviatedLabel(subjectHeader, subject, perColumnBudgetPx * subjectColSpan * 0.95, subjectLabelUsed);
+         headerRowTop.appendChild(subjectHeader);
 
-         if (components) {
-            components.forEach(comp => {
+         const examLabelUsed = new Set(); // scoped per subject block
+
+         examBlocks.forEach(({ examDef, comps, colCount }) => {
+            if (multiExam) {
+               const examTh = document.createElement('th');
+               examTh.colSpan = colCount;
+               examTh.classList.add('exam-header');
+               applyAbbreviatedLabel(examTh, examDef.name, perColumnBudgetPx * colCount * 0.95, examLabelUsed);
+               headerRowMid.appendChild(examTh);
+            }
+
+            const compLabelUsed = new Set(); // scoped per subject+exam block
+
+            if (comps) {
+               comps.forEach(comp => {
+                  const th = document.createElement('th');
+                  th.classList.add('mark-col');
+                  const label = applyAbbreviatedLabel(th, comp.name, perColumnBudgetPx, compLabelUsed);
+                  th.innerHTML = escapeHtml(label) + '<hr>' + comp.mm + 'M';
+                  if (label !== comp.name) th.title = comp.name;
+                  headerRowBottom.appendChild(th);
+               });
+               const totalTh = document.createElement('th');
+               totalTh.innerHTML = 'Total<hr>' + examDef.mm + 'M';
+               totalTh.classList.add('mark-col');
+               headerRowBottom.appendChild(totalTh);
+            } else {
                const th = document.createElement('th');
-               th.innerHTML = escapeHtml(comp.name) + '<hr>' + comp.mm + 'M';
+               th.innerHTML = examDef.mm + 'M';
                th.classList.add('mark-col');
-               headerRow2.appendChild(th);
-            });
-            const totalTh = document.createElement('th');
-            totalTh.innerHTML = 'Total<hr>' + examMM + 'M';
-            totalTh.classList.add('mark-col');
-            headerRow2.appendChild(totalTh);
-         } else {
-            const th = document.createElement('th');
-            th.innerHTML = examMM + 'M';
-            th.classList.add('mark-col');
-            headerRow2.appendChild(th);
-         }
+               headerRowBottom.appendChild(th);
+            }
+         });
       });
 
-      // Grand Total header
+      // Grand Total / Percentage / Rank headers
       const totalHeader = document.createElement('th');
       totalHeader.textContent = 'Total';
-      headerRow1.appendChild(totalHeader);
+      totalHeader.rowSpan = headerRowCount;
+      headerRowTop.appendChild(totalHeader);
 
-      const aggregateTotal = examMM * selectedSubjects.length;
-      const aggregateHeader = document.createElement('th');
-      aggregateHeader.textContent = aggregateTotal + 'M';
-      headerRow2.appendChild(aggregateHeader);
+      const percentHeader = document.createElement('th');
+      percentHeader.textContent = '%';
+      percentHeader.rowSpan = headerRowCount;
+      headerRowTop.appendChild(percentHeader);
 
-      // Rank header
       const rankHeader = document.createElement('th');
       rankHeader.textContent = 'Rank';
-      rankHeader.rowSpan = 2;
-      headerRow1.appendChild(rankHeader);
+      rankHeader.rowSpan = headerRowCount;
+      headerRowTop.appendChild(rankHeader);
 
-      table.appendChild(headerRow1);
-      table.appendChild(headerRow2);
+      table.appendChild(headerRowTop);
+      if (multiExam) table.appendChild(headerRowMid);
+      table.appendChild(headerRowBottom);
+
+      const aggregateTotalMax = selectedSubjects.length * examDefs.reduce((s, e) => s + Number(e.mm || 0), 0);
 
       const studentTotals = [];
       const studentRows = [];
@@ -707,72 +946,83 @@
 
          let grandTotal = 0;
 
-         selectedSubjects.forEach(subject => {
-            const markRow = marksRows.find(m => m.student_id === student.id && m.subject === subject);
+         subjectBlocks.forEach(({ subject, examBlocks }) => {
+            examBlocks.forEach(({ examDef, comps, colCount }) => {
+               const markRow = marksRows.find(m =>
+                  m.student_id === student.id && m.subject === subject && m.exam_name === examDef.name);
 
-            if (!markRow) {
-               // No record entered at all for this subject/exam
-               const cell = document.createElement('td');
-               cell.textContent = '-';
-               cell.colSpan = columnCountPerSubject;
-               cell.classList.add('mark-cell');
-               cell.dataset.name = student.name;
-               cell.dataset.subject = subject;
-               row.appendChild(cell);
-               return;
-            }
-
-            if (markRow.status !== 'P') {
-               // Absent / on leave / medical leave -- single merged status cell
-               const cell = document.createElement('td');
-               cell.textContent = statusLabel(markRow.status);
-               cell.colSpan = columnCountPerSubject;
-               cell.classList.add('mark-cell', 'status-cell');
-               cell.style.fontWeight = 'bold';
-               cell.dataset.name = student.name;
-               cell.dataset.subject = subject;
-               row.appendChild(cell);
-               return;
-            }
-
-            // Present: show component breakdown (if any) + subject total
-            if (components) {
-               components.forEach(comp => {
+               if (!markRow) {
                   const cell = document.createElement('td');
+                  cell.textContent = '-';
+                  cell.colSpan = colCount;
                   cell.classList.add('mark-cell');
                   cell.dataset.name = student.name;
                   cell.dataset.subject = subject;
-                  const compVal = markRow.component_marks ? markRow.component_marks[comp.name] : undefined;
-                  cell.textContent = (compVal === undefined || compVal === null) ? '-' : formatMark(compVal);
+                  cell.dataset.exam = examDef.name;
                   row.appendChild(cell);
-               });
-            }
+                  return;
+               }
 
-            const totalCell = document.createElement('td');
-            totalCell.classList.add('mark-cell');
-            totalCell.dataset.name = student.name;
-            totalCell.dataset.subject = subject;
-            totalCell.style.fontWeight = 'bold';
+               if (markRow.status !== 'P') {
+                  const cell = document.createElement('td');
+                  cell.textContent = statusLabel(markRow.status);
+                  cell.colSpan = colCount;
+                  cell.classList.add('mark-cell', 'status-cell');
+                  cell.style.fontWeight = 'bold';
+                  cell.dataset.name = student.name;
+                  cell.dataset.subject = subject;
+                  cell.dataset.exam = examDef.name;
+                  row.appendChild(cell);
+                  return;
+               }
 
-            const subjectTotal = markRow.marks_obtained !== null && markRow.marks_obtained !== undefined
-               ? Number(markRow.marks_obtained)
-               : (components
-                  ? components.reduce((sum, comp) => {
-                       const v = markRow.component_marks ? markRow.component_marks[comp.name] : null;
-                       return sum + (v !== null && v !== undefined ? Number(v) : 0);
-                    }, 0)
-                  : 0);
+               if (comps) {
+                  comps.forEach(comp => {
+                     const cell = document.createElement('td');
+                     cell.classList.add('mark-cell');
+                     cell.dataset.name = student.name;
+                     cell.dataset.subject = subject;
+                     cell.dataset.exam = examDef.name;
+                     const compVal = markRow.component_marks ? markRow.component_marks[comp.name] : undefined;
+                     cell.textContent = (compVal === undefined || compVal === null) ? '-' : formatMark(compVal);
+                     row.appendChild(cell);
+                  });
+               }
 
-            totalCell.textContent = formatMark(subjectTotal);
-            row.appendChild(totalCell);
+               const totalCell = document.createElement('td');
+               totalCell.classList.add('mark-cell');
+               totalCell.dataset.name = student.name;
+               totalCell.dataset.subject = subject;
+               totalCell.dataset.exam = examDef.name;
+               totalCell.style.fontWeight = 'bold';
 
-            grandTotal += subjectTotal;
+               const subjectExamTotal = markRow.marks_obtained !== null && markRow.marks_obtained !== undefined
+                  ? Number(markRow.marks_obtained)
+                  : (comps
+                     ? comps.reduce((sum, comp) => {
+                          const v = markRow.component_marks ? markRow.component_marks[comp.name] : null;
+                          return sum + (v !== null && v !== undefined ? Number(v) : 0);
+                       }, 0)
+                     : 0);
+
+               totalCell.textContent = formatMark(subjectExamTotal);
+               row.appendChild(totalCell);
+
+               grandTotal += subjectExamTotal;
+            });
          });
 
          const grandTotalCell = document.createElement('td');
          grandTotalCell.textContent = formatMark(grandTotal);
          grandTotalCell.style.fontWeight = 'bold';
          row.appendChild(grandTotalCell);
+
+         const percentCell = document.createElement('td');
+         percentCell.textContent = aggregateTotalMax > 0
+            ? ((grandTotal / aggregateTotalMax) * 100).toFixed(2)
+            : '-';
+         percentCell.style.fontWeight = 'bold';
+         row.appendChild(percentCell);
 
          const rankCell = document.createElement('td');
          rankCell.classList.add('rank-cell');
@@ -793,19 +1043,20 @@
       });
    }
 
-   // ------------------------------------------------------------------
-   // Digital signature (tamper-evidence) -- same approach as the old
-   // statement: a canonical, deterministic string hashed with SHA-256 and
+   // ==================================================================
+   // Digital signature (tamper-evidence) -- a canonical, deterministic
+   // string (now including exam_name, since marks from several merged
+   // exams can share the same id-adjacent space) hashed with SHA-256 and
    // shrunk to a 12-digit number, so any change in the underlying marks
    // changes the signature.
-   // ------------------------------------------------------------------
+   // ==================================================================
    async function generateNumericSignature(marksData) {
       const sorted = [...marksData].sort((a, b) => Number(a.id) - Number(b.id));
 
       const canonicalString = sorted
          .map(item => {
             const compPart = item.component_marks ? JSON.stringify(sortObjectKeys(item.component_marks)) : 'null';
-            return `${item.id}:${item.subject}:${item.status}:${item.marks_obtained}:${compPart}`;
+            return `${item.id}:${item.exam_name}:${item.subject}:${item.status}:${item.marks_obtained}:${compPart}`;
          })
          .join('|');
 
@@ -838,13 +1089,14 @@
       return now.toLocaleString('en-US', options);
    }
 
-   // ------------------------------------------------------------------
+   // ==================================================================
    // URL param helpers (kept for deep-linking parity with the old page)
-   // ------------------------------------------------------------------
-   function updateUrlParams(className, examName) {
+   // ==================================================================
+   function updateUrlParams(className, examNames) {
       const url = new URL(window.location.href);
       url.searchParams.set('class', className);
-      url.searchParams.set('exam', examName);
+      url.searchParams.delete('exam');
+      examNames.forEach(name => url.searchParams.append('exam', name));
       window.history.replaceState({}, '', url);
    }
 
@@ -856,16 +1108,15 @@
       document.getElementById('printBtn').classList.add('hidden');
    }
 
-   // ------------------------------------------------------------------
+   // ==================================================================
    // Wiring
-   // ------------------------------------------------------------------
+   // ==================================================================
    document.getElementById('classSelect').addEventListener('change', async (e) => {
       selectedClass = e.target.value;
-      document.getElementById('examSelect').value = '';
+      selectedExams = [];
       document.getElementById('generateBtn').disabled = true;
       if (!selectedClass) {
-         document.getElementById('examSelect').innerHTML = '<option value="">Select a class first</option>';
-         document.getElementById('examSelect').disabled = true;
+         document.getElementById('examCheckboxList').innerHTML = '<div class="placeholder">Select a class first</div>';
          return;
       }
       try {
@@ -876,14 +1127,9 @@
       }
    });
 
-   document.getElementById('examSelect').addEventListener('change', (e) => {
-      selectedExam = e.target.value;
-      document.getElementById('generateBtn').disabled = !(selectedClass && selectedExam);
-   });
-
    document.getElementById('generateBtn').addEventListener('click', () => {
-      if (selectedClass && selectedExam) {
-         generateReport(selectedClass, selectedExam);
+      if (selectedClass && selectedExams.length > 0) {
+         generateReport(selectedClass, selectedExams);
       }
    });
 
@@ -891,9 +1137,9 @@
       resetToSelectionPanel();
    });
 
-   // ------------------------------------------------------------------
+   // ==================================================================
    // Boot
-   // ------------------------------------------------------------------
+   // ==================================================================
    window.addEventListener('load', async () => {
       showLoading();
       try {
@@ -903,21 +1149,24 @@
          appContainer.classList.remove('hidden');
          await loadClasses();
 
-         // Deep-link support: ?class=...&exam=...
+         // Deep-link support: ?class=...&exam=...&exam=... (repeatable)
          const urlParams = new URLSearchParams(window.location.search);
          const classParam = urlParams.get('class');
-         const examParam = urlParams.get('exam');
+         const examParams = urlParams.getAll('exam');
 
          if (classParam && classesCache.some(c => c.name === classParam)) {
             document.getElementById('classSelect').value = classParam;
             selectedClass = classParam;
             await loadExamsForClass(classParam);
 
-            if (examParam && examsCache.some(ex => ex.name === examParam)) {
-               document.getElementById('examSelect').value = examParam;
-               selectedExam = examParam;
+            const validExamParams = examParams.filter(name => examsCache.some(ex => ex.name === name));
+            if (validExamParams.length > 0) {
+               document.querySelectorAll('.exam-checkbox').forEach(cb => {
+                  if (validExamParams.includes(cb.value)) cb.checked = true;
+               });
+               selectedExams = validExamParams;
                document.getElementById('generateBtn').disabled = false;
-               await generateReport(classParam, examParam);
+               await generateReport(classParam, validExamParams);
                return;
             }
          }
