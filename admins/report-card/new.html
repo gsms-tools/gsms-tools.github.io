@@ -46,25 +46,6 @@
   #status.err{color:#a4201c; font-weight:600;}
   #cardsArea{max-width:900px; margin:0 auto; padding:0 20px 60px;}
 
-  /* ---------- Exam selection panel (screen only) ---------- */
-  .examSelectPanel{
-    margin-bottom:14px; padding:12px 14px; background:#fff;
-    border:1px solid #c7d2db; border-radius:6px;
-  }
-  .examSelectPanel .merge-label{margin:0 0 8px;}
-  .examSelectChecklist{display:flex; flex-wrap:wrap; gap:10px 16px;}
-  .examSelectChk-item{
-    font-size:13px; display:flex; align-items:center; gap:6px; cursor:pointer;
-    background:var(--shade-3); border:1px solid #d9e1e8; border-radius:6px;
-    padding:6px 10px; user-select:none;
-  }
-  .examSelectChk-item input{cursor:pointer; width:15px; height:15px; flex:none;}
-  .examSelect-hint{font-size:12px; color:#777; margin:8px 0 0;}
-  @media (max-width:600px){
-    .examSelectChecklist{gap:8px;}
-    .examSelectChk-item{font-size:12.5px; padding:5px 8px;}
-  }
-
   /* ---------- Exam merge panel (screen only) ---------- */
   .merge-panel{
     margin-bottom:14px; padding:12px 14px; background:#fff;
@@ -110,7 +91,7 @@
     display:flex; flex-direction:column;
   }
   .hdr{text-align:center; margin-bottom:3mm;}
-  .hdr img{height:30mm; margin-bottom:3mm;}
+  .hdr img{height:24mm; margin-bottom:2mm;}
   .hdr .t1{color:var(--blue-dark); font-weight:bold; font-size:15pt; margin:0;}
   .hdr .t2{font-weight:bold; font-size:13pt; margin:1mm 0 0;}
   .hdr .t3{font-weight:bold; font-size:11pt; margin:0;}
@@ -120,6 +101,15 @@
   .idtable{margin-bottom:3mm;}
   .idtable .lbl{width:18%;}
   .idtable .val{width:32%; font-weight:normal;}
+
+  .summary-table{width:100%; border-collapse:collapse; font-size:10pt; margin:0 0 4mm;}
+  .summary-table td{border:1pt solid #000; padding:1.6mm 2mm; font-weight:bold; text-align:center;}
+  .summary-table td.val{font-weight:normal;}
+  .summary-table .lbl{width:25%; /*background:var(--shade-2);*/}
+  .summary-table .val{width:25%;}
+  @media print{
+  .summary-table{page-break-inside:avoid;}
+  }
 
   .marks-table{margin-bottom:3mm;}
   .marks-table th, .marks-table td{
@@ -147,13 +137,17 @@
     #cardsArea{padding:0; margin:0; max-width:none;}
     .page{
       box-shadow:none; margin:0; border:1.5pt solid #000;
-      width:210mm; height:297mm; min-height:0;
+      width:200mm; height:287mm; min-height:0;
       page-break-after:always;
     }
     .page:last-child{page-break-after:auto;}
     @page{ size:A4; margin:5mm; }
   }
 .weightage-note{font-size:8pt; font-style:italic; margin:0.5mm 0 3mm; text-align:left;}
+
+.page .summary-table ~ .summary-table{
+  display:none;
+}
 </style>
 </head>
 <body>
@@ -172,7 +166,6 @@
     <button id="genBtn" disabled>Generate Report Cards</button>
     <button id="printBtn" class="secondary" disabled>Print / Save as PDF</button>
   </div>
-  <div id="examSelectArea" style="display:none;"></div>
   <div id="examMergeArea" style="display:none;"></div>
   <div id="status"></div>
 </div>
@@ -200,17 +193,11 @@ const printBtn = document.getElementById('printBtn');
 const statusEl = document.getElementById('status');
 const cardsArea = document.getElementById('cardsArea');
 const examMergeAreaEl = document.getElementById('examMergeArea');
-const examSelectAreaEl = document.getElementById('examSelectArea');
 
 // Exam-merge state for the currently selected class.
 let currentExams = [];           // exams loaded for currentClassForExams, in exam order
 let currentClassForExams = null; // which class currentExams belongs to
 let mergeGroups = [];            // array of arrays of exam names the admin chose to merge
-
-// Exam-selection state: which exams (by name) should be included when
-// generating report cards for the currently selected class. Defaults to
-// "all exams selected" whenever a fresh set of exams is loaded.
-let selectedExamNames = new Set();
 
 function setStatus(msg, isErr){
   statusEl.textContent = msg || '';
@@ -239,6 +226,30 @@ function parseJsonMaybe(val){
 
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function computeGrade(pct){
+  if(pct >= 91) return 'A1';
+  if(pct >= 81) return 'A2';
+  if(pct >= 71) return 'B1';
+  if(pct >= 61) return 'B2';
+  if(pct >= 51) return 'C1';
+  if(pct >= 41) return 'C2';
+  if(pct >= 33) return 'D';
+  return 'E';
+}
+
+function renderSummaryTable(obtained, max, anyObtained){
+  const pct = anyObtained && max > 0 ? (obtained / max) * 100 : null;
+  const pctDisplay = pct !== null ? pct.toFixed(2) + '%' : '-';
+  const gradeDisplay = pct !== null ? computeGrade(pct) : '-';
+  return `
+    <table class="summary-table">
+      <tr>
+        <td class="lbl">Percentage</td><td class="val">${pctDisplay}</td>
+        <td class="lbl">Grade</td><td class="val">${gradeDisplay}</td>
+      </tr>
+    </table>`;
 }
 
 function displayExamName(name){
@@ -300,42 +311,6 @@ async function fetchExamsForClass(className){
     .map(e => ({ ...e, components: parseJsonMaybe(e.components) || [] }));
 }
 
-// ---------------- Exam selection UI ----------------
-// Renders a checkbox list of every exam mapped to the currently selected
-// class, letting the admin decide which ones should be included when the
-// report cards are generated. All checkboxes are checked (selected) by
-// default whenever a class's exams are (re)loaded.
-function renderExamSelectUI(){
-  if(!currentExams.length){
-    examSelectAreaEl.style.display = 'none';
-    examSelectAreaEl.innerHTML = '';
-    return;
-  }
-  const itemsHtml = currentExams.map(e => {
-    const checked = selectedExamNames.has(e.name) ? 'checked' : '';
-    return `<label class="examSelectChk-item"><input type="checkbox" class="examSelectChk" value="${escapeHtml(e.name)}" ${checked}> ${escapeHtml(e.name)}</label>`;
-  }).join('');
-
-  examSelectAreaEl.style.display = 'block';
-  examSelectAreaEl.innerHTML = `
-    <div class="examSelectPanel">
-      <p class="merge-label">Exams to include in report cards:</p>
-      <div class="examSelectChecklist">${itemsHtml}</div>
-      <p class="examSelect-hint">Unchecked exams are left out of report card generation entirely.</p>
-    </div>`;
-}
-
-examSelectAreaEl.addEventListener('change', (e) => {
-  if(e.target && e.target.classList.contains('examSelectChk')){
-    const name = e.target.value;
-    if(e.target.checked){
-      selectedExamNames.add(name);
-    } else {
-      selectedExamNames.delete(name);
-    }
-  }
-});
-
 // ---------------- Exam merge UI ----------------
 async function loadExamsForMergeUI(className){
   setStatus('Loading exams for ' + className + '…');
@@ -343,8 +318,6 @@ async function loadExamsForMergeUI(className){
     const exams = await fetchExamsForClass(className);
     currentExams = exams;
     currentClassForExams = className;
-    selectedExamNames = new Set(exams.map(e => e.name)); // all selected by default
-    renderExamSelectUI();
     renderMergeUI();
     if(exams.length === 0){
       setStatus('No exams are mapped to ' + className + ' yet.', true);
@@ -414,11 +387,8 @@ classSelect.addEventListener('change', () => {
   mergeGroups = [];
   currentExams = [];
   currentClassForExams = null;
-  selectedExamNames = new Set();
   examMergeAreaEl.style.display = 'none';
   examMergeAreaEl.innerHTML = '';
-  examSelectAreaEl.style.display = 'none';
-  examSelectAreaEl.innerHTML = '';
   printBtn.disabled = true;
   cardsArea.innerHTML = '';
 
@@ -476,24 +446,10 @@ genBtn.addEventListener('click', async () => {
       exams = await fetchExamsForClass(className);
       currentExams = exams;
       currentClassForExams = className;
-      selectedExamNames = new Set(exams.map(e => e.name)); // all selected by default
-      renderExamSelectUI();
     }
 
     if(exams.length === 0){
       setStatus('No exams are mapped to ' + className + ' yet.', true);
-      genBtn.disabled = false;
-      return;
-    }
-
-    // 1b. Filter out any exams the admin unchecked in the exam-selection
-    //     checklist. Only the selected exams are used from this point on —
-    //     everything downstream (marks lookup, merge resolution, rendering)
-    //     operates on this filtered list, so excluded exams never reach
-    //     report card generation.
-    const selectedExams = exams.filter(e => selectedExamNames.has(e.name));
-    if(selectedExams.length === 0){
-      setStatus('Select at least one exam to include in the report cards.', true);
       genBtn.disabled = false;
       return;
     }
@@ -528,8 +484,8 @@ genBtn.addEventListener('click', async () => {
       return;
     }
 
-    // 4. Marks for this class, for the selected exams only.
-    const examNames = selectedExams.map(e => e.name);
+    // 4. Marks for this class, for the mapped exams only.
+    const examNames = exams.map(e => e.name);
     const { data: marks, error: marksErr } = await sb
       .from('marks')
       .select('student_id, exam_name, subject, status, marks_obtained, component_marks')
@@ -542,9 +498,8 @@ genBtn.addEventListener('click', async () => {
       marksMap.set(m.student_id + '__' + m.exam_name + '__' + m.subject, m);
     });
 
-    // 5. Resolve the admin's merge selections (if any) into render groups,
-    //    using only the selected exams.
-    const examGroups = computeRenderGroups(selectedExams, mergeGroups);
+    // 5. Resolve the admin's merge selections (if any) into render groups.
+    const examGroups = computeRenderGroups(exams, mergeGroups);
 
     cardsArea.innerHTML = students
       .map(s => renderReportCard(s, className, examGroups, subjects, marksMap))
@@ -628,7 +583,8 @@ function renderExamSection(exam, subjects, student, marksMap, showTitle){
         ${colTotals.map((t, i) => `<td>${t} / ${subjects.length * components[i].mm}</td>`).join('')}
         <td>${anyObtained ? grandObtained : ''} / ${grandMax}</td>
       </tr>
-    </table>`;
+    </table>
+    ${renderSummaryTable(grandObtained, grandMax, anyObtained)}`;
 }
 
 // New: renders two or more exams merged into a single table. Each exam gets
@@ -741,7 +697,8 @@ function renderMergedExamSection(group, subjects, student, marksMap, showTitle){
         ${grandRowCells}
         <td>${anyObtained ? grandObtained : ''} / ${grandMax}</td>
       </tr>
-    </table>`;
+    </table>
+    ${renderSummaryTable(grandObtained, grandMax, anyObtained)}`;
 }
 
 function renderReportCard(student, className, examGroups, subjects, marksMap){
