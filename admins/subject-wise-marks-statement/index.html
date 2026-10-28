@@ -794,20 +794,31 @@
    function generateSubjectTables(className, examDefs, selectedSubjects, students, marksRows) {
       subjectTablesContainer.innerHTML = '';
 
-      for (let i = 0; i < selectedSubjects.length; i += 2) {
+      // Total exam components across all merged exams (an exam with no
+      // component breakdown counts as 1). Beyond 4, two tables per row
+      // get too congested, so fall back to one subject per row.
+      const totalComponentCount = examDefs.reduce((sum, examDef) => {
+         const comps = getExamComponents(examDef);
+         return sum + (comps ? comps.length : 1);
+      }, 0);
+      const subjectsPerRow = totalComponentCount >= 5 ? 1 : 2;
+
+      for (let i = 0; i < selectedSubjects.length; i += subjectsPerRow) {
          const rowDiv = document.createElement('div');
          rowDiv.className = 'subject-tables-row';
 
          const subject1 = selectedSubjects[i];
          rowDiv.appendChild(createSubjectTable(subject1, className, examDefs, students, marksRows));
 
-         if (i + 1 < selectedSubjects.length) {
-            const subject2 = selectedSubjects[i + 1];
-            rowDiv.appendChild(createSubjectTable(subject2, className, examDefs, students, marksRows));
-         } else {
-            const emptyContainer = document.createElement('div');
-            emptyContainer.className = 'subject-table-container';
-            rowDiv.appendChild(emptyContainer);
+         if (subjectsPerRow === 2) {
+            if (i + 1 < selectedSubjects.length) {
+               const subject2 = selectedSubjects[i + 1];
+               rowDiv.appendChild(createSubjectTable(subject2, className, examDefs, students, marksRows));
+            } else {
+               const emptyContainer = document.createElement('div');
+               emptyContainer.className = 'subject-table-container';
+               rowDiv.appendChild(emptyContainer);
+            }
          }
 
          subjectTablesContainer.appendChild(rowDiv);
