@@ -909,8 +909,10 @@
          const grandTh = document.createElement('th');
          grandTh.innerHTML = 'Total (' + grandMax + 'M)';
          grandTh.classList.add('mark-col');
-         grandTh.rowSpan = 1;
-         headerRowBottom.appendChild(grandTh);
+         // Spans the exam-name row and the component row together, so it
+         // doesn't leave an empty cell above it when exams are merged.
+         grandTh.rowSpan = 2;
+         headerRowMid.appendChild(grandTh);
       }
 
       table.appendChild(headerRowTop);
