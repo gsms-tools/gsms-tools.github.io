@@ -190,7 +190,7 @@
   .sheet-backdrop{ position:fixed; inset:0; z-index:100; background:rgba(9,34,39,.4); opacity:0; visibility:hidden; transition:opacity .25s var(--ease), visibility .25s var(--ease); }
   .sheet-backdrop.show{ opacity:1; visibility:visible; }
   .sheet{ position:fixed; left:0; right:0; bottom:0; z-index:101; background:var(--cream); border-radius:22px 22px 0 0; padding:22px 20px calc(env(safe-area-inset-bottom) + 20px); max-width:560px; margin:0 auto; box-shadow:0 -20px 50px -20px rgba(0,0,0,.35); transform:translateY(100%); transition:transform .3s var(--ease); max-height:88svh; overflow-y:auto; }
-  .sheet-backdrop.show .sheet{ transform:translateY(0); }
+  .sheet-backdrop.show .sheet{ transform:translateY(0); z-index: 5; }
   .sheet-handle{ width:38px; height:4px; border-radius:99px; background:var(--border-card); margin:0 auto 18px; }
   .sheet h3{ font-family:'Fraunces',serif; margin:0 0 6px; font-size:1.1rem; }
   .sheet p.sheet-desc{ margin:0 0 20px; color:var(--ink-500); font-size:.88rem; }
