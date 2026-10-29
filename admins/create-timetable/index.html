@@ -706,15 +706,29 @@ var teacherSearchList = document.getElementById('teacher-search-list');
 buildGridSkeleton(document.getElementById('teacher-grid'), 'Period');
 
 wireAutosuggest(teacherSearchInput, teacherSearchList, peopleSuggestItems, function(it){
-  if(!it.ref){ toast('No periods found — this teacher has no timetable entries yet.', true); return; }
-  state.selectedTeacherPersonId = it.ref.id;
-  state.selectedTeacherName = it.ref.display_name;
+  if(!it.ref){
+    // Brand-new freehand name with no directory entry at all yet — only
+    // useful if we're about to create periods for them, which requires
+    // edit rights (the grid below is otherwise just "nothing to view").
+    if(!state.isManager){ toast('No timetable found for that name yet.', true); return; }
+    state.selectedTeacherRef = { id: null, teacher_id: null, display_name: it.label, is_registered: false };
+  } else {
+    state.selectedTeacherRef = it.ref;
+  }
+  state.selectedTeacherPersonId = state.selectedTeacherRef.id; // may be null until first save
+  state.selectedTeacherName = state.selectedTeacherRef.display_name;
   loadTeacherTimetable();
 });
 
 function loadTeacherTimetable(){
-  supabaseClient.from('timetable_periods_view').select('*').eq('teacher_person_id', state.selectedTeacherPersonId)
-    .then(function(res){
+  // A registered teacher or earlier custom name who simply has no periods
+  // yet has no directory id either — skip the query and show the empty,
+  // still-editable grid rather than querying teacher_person_id = null.
+  var query = state.selectedTeacherPersonId
+    ? supabaseClient.from('timetable_periods_view').select('*').eq('teacher_person_id', state.selectedTeacherPersonId)
+    : Promise.resolve({ data: [] });
+
+  query.then(function(res){
       if(res.error){ toast('Could not load timetable: ' + res.error.message, true); return; }
       state.teacherRows = res.data || [];
       document.getElementById('teacher-placeholder').style.display = 'none';
@@ -722,7 +736,7 @@ function loadTeacherTimetable(){
       document.getElementById('teacher-grid-title').textContent = state.selectedTeacherName + ' — weekly timetable';
       document.getElementById('teacher-manager-hint').textContent = state.isManager ? 'Tap any period to add, change or clear it.' : '';
       renderGrid(document.getElementById('teacher-grid'), state.teacherRows, 'teacher', state.isManager, function(day, periodNum, existing){
-        openSlotEditor({ mode:'teacher', teacherPersonId: state.selectedTeacherPersonId, teacherName: state.selectedTeacherName, day: day, periodNumber: periodNum, existing: existing });
+        openSlotEditor({ mode:'teacher', teacherRef: state.selectedTeacherRef, teacherName: state.selectedTeacherName, day: day, periodNumber: periodNum, existing: existing });
       });
     });
 }
@@ -824,12 +838,13 @@ document.getElementById('slot-save-btn').addEventListener('click', function(){
     if(!slotTeacherInput.value.trim()){ toast('Please enter a teacher.', true); return; }
     teacherParams = resolveTeacherParams(slotTeacherInput.value.trim(), pickedTeacherRef);
   } else {
-    teacherParams = { p_teacher_id: ctx.teacherPersonId ? null : null, p_teacher_custom_name: null };
-    // teacher view: the teacher is fixed; resolve via existing person id by passing
-    // their registered id if known, else their custom name.
-    var person = state.peopleDirectory.find(function(p){ return p.id === ctx.teacherPersonId; });
-    if(person && person.is_registered){ teacherParams = { p_teacher_id: person.teacher_id, p_teacher_custom_name: null }; }
-    else { teacherParams = { p_teacher_id: null, p_teacher_custom_name: person ? person.display_name : ctx.teacherName }; }
+    // Teacher view: the teacher is fixed to whoever is open in the grid.
+    // Use the ref captured when they were picked/opened — it already
+    // carries either a real teacher_id or the custom display name, and
+    // doesn't depend on a directory row existing yet.
+    var ref = ctx.teacherRef;
+    if(ref && ref.teacher_id){ teacherParams = { p_teacher_id: ref.teacher_id, p_teacher_custom_name: null }; }
+    else { teacherParams = { p_teacher_id: null, p_teacher_custom_name: (ref ? ref.display_name : ctx.teacherName) }; }
   }
 
   var subjectParams = resolveSubjectParams(slotSubjectInput.value.trim(), pickedSubjectRef);
@@ -888,7 +903,18 @@ function resolveSubjectParams(typedName, picked){
 function refreshDirectoriesAndCurrentView(){
   loadDirectories().then(function(){
     if(tabs.class.panel.classList.contains('active') && state.selectedClass){ loadClassTimetable(); }
-    if(tabs.teacher.panel.classList.contains('active') && state.selectedTeacherPersonId){ loadTeacherTimetable(); }
+    if(tabs.teacher.panel.classList.contains('active') && state.selectedTeacherRef){
+      // The teacher being viewed may have just got their first-ever
+      // directory row (or first-ever period) from the save that triggered
+      // this refresh — re-resolve the ref against the refreshed
+      // directory so the id is picked up and the grid reload actually finds it.
+      var ref = state.selectedTeacherRef;
+      var fresh = ref.teacher_id
+        ? state.peopleDirectory.find(function(p){ return p.teacher_id === ref.teacher_id; })
+        : state.peopleDirectory.find(function(p){ return !p.is_registered && p.display_name.toLowerCase() === ref.display_name.toLowerCase(); });
+      if(fresh){ state.selectedTeacherRef = fresh; state.selectedTeacherPersonId = fresh.id; }
+      loadTeacherTimetable();
+    }
     if(tabs.subs.panel.classList.contains('active')){ loadSubsForDate(); }
   });
 }
@@ -1160,13 +1186,42 @@ function loadDirectories(){
   return Promise.all([
     supabaseClient.from('periods').select('*').order('display_order', { ascending: true }),
     supabaseClient.from('classes').select('name').order('name', { ascending: true }),
+    supabaseClient.from('teachers').select('id, name').order('name', { ascending: true }),
     supabaseClient.from('timetable_people_view').select('*'),
+    supabaseClient.from('subjects').select('name').order('display_order', { ascending: true }),
     supabaseClient.from('timetable_subjects_view').select('*')
   ]).then(function(results){
     state.periods = results[0].data || [];
     state.classes = (results[1].data || []).map(function(c){ return c.name; });
-    state.peopleDirectory = results[2].data || [];
-    state.subjectsDirectory = results[3].data || [];
+
+    // People directory: EVERY registered teacher/admin should autosuggest
+    // immediately, even before they've ever been put on a timetable — plus
+    // every custom name already typed into an earlier entry. Merge the
+    // "teachers" master list with whatever timetable_people already has
+    // (which carries the real directory id once a teacher has been used).
+    var teachersRaw = results[2].data || [];
+    var usedPeople = results[3].data || [];
+    var usedByTeacherId = {};
+    usedPeople.forEach(function(p){ if(p.is_registered){ usedByTeacherId[p.teacher_id] = p; } });
+    var registeredEntries = teachersRaw.map(function(t){
+      return usedByTeacherId[t.id] || { id: null, teacher_id: t.id, display_name: t.name, is_registered: true };
+    });
+    var customEntries = usedPeople.filter(function(p){ return !p.is_registered; });
+    state.peopleDirectory = registeredEntries.concat(customEntries);
+
+    // Subject directory: same idea — every subject already on the
+    // school's subject list autosuggests immediately, plus every custom
+    // subject name already typed into an earlier entry.
+    var subjectsRaw = results[4].data || [];
+    var usedSubjects = results[5].data || [];
+    var usedByMasterName = {};
+    usedSubjects.forEach(function(s){ if(s.is_master){ usedByMasterName[s.subject] = s; } });
+    var masterEntries = subjectsRaw.map(function(s){
+      return usedByMasterName[s.name] || { id: null, subject: s.name, display_name: s.name, is_master: true };
+    });
+    var customSubjectEntries = usedSubjects.filter(function(s){ return !s.is_master; });
+    state.subjectsDirectory = masterEntries.concat(customSubjectEntries);
+
     populateClassDropdown();
   });
 }
