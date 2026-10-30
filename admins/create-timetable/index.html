@@ -168,6 +168,11 @@
   .autosuggest-item:hover, .autosuggest-item.highlight{ background:var(--bg-tint-gold); }
   .autosuggest-item .tag{ font-size:.66rem; font-weight:700; text-transform:uppercase; color:var(--ink-500); letter-spacing:.04em; }
   .autosuggest-item.new .tag{ color:var(--gold-600); }
+  .combo-input{ padding-right:40px !important; }
+  .combo-toggle{ position:absolute; right:4px; top:4px; bottom:4px; width:34px; display:flex; align-items:center; justify-content:center; background:transparent; border:none; cursor:pointer; color:var(--ink-500); border-radius:10px; transition:background-color .2s var(--ease); }
+  .combo-toggle:hover{ background:var(--bg-tint-gold); }
+  .combo-toggle svg{ width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; transition:transform .2s var(--ease); }
+  .autosuggest-list.show ~ .combo-toggle svg, .combo-toggle.open svg{ transform:rotate(180deg); }
 
   /* ---------- Timetable grid ---------- */
   .grid-scroll{ overflow-x:auto; border-radius:var(--r-sm); border:1px solid var(--border-card); }
@@ -208,9 +213,15 @@
   .absence-pill.active{ border-color:var(--danger); background:var(--danger-bg); color:var(--danger); }
   .sub-row{ background:var(--white); border:1px solid var(--border-card); border-radius:var(--r-sm); padding:12px 14px; margin-bottom:10px; opacity:0; animation:rise .4s var(--ease) forwards; }
   @keyframes rise{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
-  .sub-row-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+  .sub-row-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
   .sub-row-title{ font-size:.86rem; font-weight:700; color:var(--ink-900); }
   .sub-row-meta{ font-size:.72rem; color:var(--ink-500); }
+  .sub-row.is-me{ border-color:var(--gold-500); box-shadow:0 0 0 2px var(--bg-tint-gold) inset; }
+  .sub-row-class-line{ font-size:.84rem; color:var(--ink-900); margin-top:7px; padding-top:7px; border-top:1px dashed var(--border-card); }
+  .sub-row-class-line:first-of-type{ border-top:none; padding-top:0; }
+  .sub-row-note{ font-size:.76rem; color:var(--ink-500); margin:3px 0 0; font-style:italic; }
+  .you-chip{ font-size:.64rem; font-weight:800; letter-spacing:.03em; color:var(--teal-900); background:var(--gold-400); padding:2px 8px; border-radius:999px; vertical-align:middle; margin-left:6px; }
+  .subs-info-card p{ margin:0; }
 
   #print-sheet{ display:none; }
   @page{ size:A4 landscape; margin:12mm 12mm 16mm; @bottom-center{ content:"Gopal Sharma Memorial School — Timetable  |  Page " counter(page) " of " counter(pages); font:8pt Helvetica,Arial,sans-serif; color:#5f6f70; } }
@@ -311,9 +322,13 @@
         <div class="field">
           <label for="teacher-search">Teacher name</label>
           <div class="autosuggest">
-            <input type="text" id="teacher-search" placeholder="Start typing a name…" autocomplete="off">
+            <input type="text" class="combo-input" id="teacher-search" placeholder="Start typing a name, or tap the arrow to browse…" autocomplete="off">
+            <button type="button" class="combo-toggle" id="teacher-search-toggle" aria-label="Browse all teachers">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
             <div class="autosuggest-list" id="teacher-search-list"></div>
           </div>
+          <p class="hint" style="margin-top:7px;">Type to search, or tap the arrow to pick from the full list.</p>
         </div>
       </div>
 
@@ -348,26 +363,36 @@
         <p class="hint" id="subs-day-hint"></p>
       </div>
 
-      <div id="subs-manager-wrap" style="display:none;">
-        <div class="card">
-          <p class="card-title">Mark teachers absent <span class="chip">That day's periods only</span></p>
-          <div class="absence-pill-row" id="absence-pill-row"></div>
-        </div>
+      <div class="card subs-info-card">
+        <p class="card-title">Viewing only <span class="chip">Read-only</span></p>
+        <p class="hint">This tab is for a quick, single-glance lookup of who is covering what — assigning substitutions happens on a separate page. A substitute can be merged across more than one class in the same period (e.g. one teacher covering two classes at once during a staff shortfall) — merged classes are grouped together below.</p>
+      </div>
 
-        <div class="card" id="subs-fill-card" style="display:none;">
-          <p class="card-title">Assign substitutes</p>
-          <div id="subs-fill-list"></div>
+      <div class="card" id="subs-filter-card" style="display:none;">
+        <p class="card-title">Filters</p>
+        <div class="row2">
+          <div class="field">
+            <label for="subs-filter-absent">Absent teacher</label>
+            <select id="subs-filter-absent"><option value="">All</option></select>
+          </div>
+          <div class="field">
+            <label for="subs-filter-sub">Substitute teacher</label>
+            <select id="subs-filter-sub"><option value="">All</option></select>
+          </div>
         </div>
       </div>
 
       <div class="card" id="subs-browse-card" style="display:none;">
-        <p class="card-title">Substitutions on this date</p>
+        <p class="card-title">
+          <span>Substitutions on this date</span>
+          <button class="btn btn-ghost btn-sm" id="subs-share-text" type="button">Share text</button>
+        </p>
         <div id="subs-browse-list"></div>
       </div>
 
       <div class="placeholder-note" id="subs-placeholder">
         <svg viewBox="0 0 24 24"><path d="M16 3h5v5M21 3l-7 7"/><path d="M8 21H3v-5M3 21l7-7"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg>
-        <p>Pick a date to view or (if you manage timetables) assign substitutions.</p>
+        <p>Pick a date to view that day's substitutions.</p>
       </div>
     </section>
 
@@ -477,7 +502,10 @@ var state = {
   selectedClass: '',
   selectedTeacherPersonId: null,
   selectedTeacherName: '',
-  slotContext: null             // what the open slot-editor sheet is editing
+  selectedTeacherRef: null,
+  slotContext: null,            // what the open slot-editor sheet is editing
+  myClassTeacherOf: null,        // class name this user is the class teacher of, if any
+  myTimetablePersonId: null      // this user's own id in timetable_people, if they appear there
 };
 
 /* =========================================================
@@ -597,16 +625,32 @@ function wireAutosuggest(inputEl, listEl, getItems, onPick){
     listEl.classList.remove('show');
     onPick(it);
   }
+  // Exposed so a separate "browse" control (e.g. a dropdown-arrow button)
+  // can force the list open with a given query, independent of focus/typing.
+  return {
+    open: function(query){ render(query === undefined ? inputEl.value.trim() : query); },
+    close: function(){ listEl.classList.remove('show'); }
+  };
 }
 
-function peopleSuggestItems(query){
+function peopleSuggestItems(query, opts){
+  opts = opts || {};
+  var limit = opts.limit || 8;
+  var allowNew = opts.allowNew !== false;
   var q = query.toLowerCase();
   var matches = state.peopleDirectory.filter(function(p){ return !q || p.display_name.toLowerCase().indexOf(q) !== -1; })
-    .slice(0, 8)
+    .slice(0, limit)
     .map(function(p){ return { label: p.display_name, sub: p.is_registered ? 'Registered' : 'Custom', isNew:false, ref:p }; });
   var exact = state.peopleDirectory.some(function(p){ return p.display_name.toLowerCase() === q; });
-  if(query && !exact){ matches.push({ label: query, isNew:true, ref:null }); }
+  if(allowNew && query && !exact){ matches.push({ label: query, isNew:true, ref:null }); }
   return matches;
+}
+// Fuller, view-only variant for the Teacher View combo picker: shows every
+// directory entry (not just the first 8) so the dropdown-arrow "browse"
+// mode is genuinely a full list, and omits the "Add new" option when the
+// signed-in user doesn't manage timetables (they can't act on it anyway).
+function teacherViewSuggestItems(query){
+  return peopleSuggestItems(query, { limit: 200, allowNew: state.isManager });
 }
 function subjectSuggestItems(query){
   var q = query.toLowerCase();
@@ -690,7 +734,8 @@ function loadClassTimetable(){
       state.classRows = res.data || [];
       document.getElementById('class-placeholder').style.display = 'none';
       document.getElementById('class-grid-wrap').style.display = 'block';
-      document.getElementById('class-grid-title').textContent = 'Class ' + state.selectedClass + ' — weekly timetable';
+      var isMyClass = state.myClassTeacherOf && state.selectedClass === state.myClassTeacherOf;
+      document.getElementById('class-grid-title').textContent = 'Class ' + state.selectedClass + ' — weekly timetable' + (isMyClass ? ' (your class)' : '');
       document.getElementById('class-manager-hint').textContent = state.isManager ? 'Tap any period to add, change or clear it.' : '';
       renderGrid(document.getElementById('class-grid'), state.classRows, 'class', state.isManager, function(day, periodNum, existing){
         openSlotEditor({ mode:'class', class: state.selectedClass, day: day, periodNumber: periodNum, existing: existing });
@@ -705,7 +750,7 @@ var teacherSearchInput = document.getElementById('teacher-search');
 var teacherSearchList = document.getElementById('teacher-search-list');
 buildGridSkeleton(document.getElementById('teacher-grid'), 'Period');
 
-wireAutosuggest(teacherSearchInput, teacherSearchList, peopleSuggestItems, function(it){
+var teacherSearchCombo = wireAutosuggest(teacherSearchInput, teacherSearchList, teacherViewSuggestItems, function(it){
   if(!it.ref){
     // Brand-new freehand name with no directory entry at all yet — only
     // useful if we're about to create periods for them, which requires
@@ -718,6 +763,19 @@ wireAutosuggest(teacherSearchInput, teacherSearchList, peopleSuggestItems, funct
   state.selectedTeacherPersonId = state.selectedTeacherRef.id; // may be null until first save
   state.selectedTeacherName = state.selectedTeacherRef.display_name;
   loadTeacherTimetable();
+});
+
+// Combo dropdown-arrow: lets someone browse the full teacher directory and
+// pick with a tap, instead of having to know a name to start typing it —
+// "ease of searching and lookups" also means ease of browsing.
+document.getElementById('teacher-search-toggle').addEventListener('mousedown', function(e){
+  e.preventDefault(); // keep focus on the input instead of the button, so blur doesn't race the open() below
+  if(teacherSearchList.classList.contains('show')){
+    teacherSearchCombo.close();
+  } else {
+    teacherSearchInput.focus();
+    teacherSearchCombo.open(teacherSearchInput.value.trim());
+  }
 });
 
 function loadTeacherTimetable(){
@@ -733,7 +791,8 @@ function loadTeacherTimetable(){
       state.teacherRows = res.data || [];
       document.getElementById('teacher-placeholder').style.display = 'none';
       document.getElementById('teacher-grid-wrap').style.display = 'block';
-      document.getElementById('teacher-grid-title').textContent = state.selectedTeacherName + ' — weekly timetable';
+      var isSelf = state.myTimetablePersonId && state.selectedTeacherPersonId === state.myTimetablePersonId;
+      document.getElementById('teacher-grid-title').textContent = state.selectedTeacherName + ' — weekly timetable' + (isSelf ? ' (you)' : '');
       document.getElementById('teacher-manager-hint').textContent = state.isManager ? 'Tap any period to add, change or clear it.' : '';
       renderGrid(document.getElementById('teacher-grid'), state.teacherRows, 'teacher', state.isManager, function(day, periodNum, existing){
         openSlotEditor({ mode:'teacher', teacherRef: state.selectedTeacherRef, teacherName: state.selectedTeacherName, day: day, periodNumber: periodNum, existing: existing });
@@ -1019,12 +1078,25 @@ var subsDateInput = document.getElementById('subs-date');
 })();
 subsDateInput.addEventListener('change', loadSubsForDate);
 
-var subsState = { date: null, dow: null, dayRows: [], absentPersonIds: [] };
+// Read-only lookup: this tab no longer assigns substitutions (a separate
+// page owns that) — it groups and displays the day's substitution rows for
+// a fast single-glance check, with the signed-in teacher highlighted and
+// filterable by absent/substitute teacher. Rows that share a merge_group_id
+// (set by the assign page when one substitute covers more than one class in
+// the same period) are shown together as one merged entry; rows that happen
+// to share the same substitute + period without that tag are grouped the
+// same way as a fallback, so merged coverage is always visible as one unit.
+var subsState = { date: null, dow: null, dayRows: [], subsForDate: [], groups: [] };
 
 function dateToDow(dateStr){
   // JS getDay(): 0=Sun..6=Sat -> convert to our 1=Mon..7=Sun
   var d = new Date(dateStr + 'T00:00:00').getDay();
   return d === 0 ? 7 : d;
+}
+
+function getPersonName(personId){
+  var p = state.peopleDirectory.find(function(x){ return x.id === personId; });
+  return p ? p.display_name : '';
 }
 
 function loadSubsForDate(){
@@ -1041,137 +1113,104 @@ function loadSubsForDate(){
   ]).then(function(results){
     var periodsRes = results[0], subsRes = results[1];
     if(periodsRes.error){ toast('Could not load periods: ' + periodsRes.error.message, true); return; }
+    if(subsRes.error){ toast('Could not load substitutions: ' + subsRes.error.message, true); return; }
     subsState.dayRows = periodsRes.data || [];
     subsState.subsForDate = subsRes.data || [];
-    subsState.absentPersonIds = [];
-
-    if(state.isManager){
-      document.getElementById('subs-manager-wrap').style.display = 'block';
-      renderAbsencePills();
-      document.getElementById('subs-fill-card').style.display = 'none';
-    }
+    buildSubsGroups();
+    populateSubsFilters();
     renderSubsBrowse();
   });
 }
 
-function renderAbsencePills(){
-  var teacherIds = Array.from(new Set(subsState.dayRows.map(function(r){ return r.teacher_person_id; })));
-  var row = document.getElementById('absence-pill-row');
-  if(teacherIds.length === 0){ row.innerHTML = '<p class="hint">No periods scheduled on this day.</p>'; return; }
-  row.innerHTML = teacherIds.map(function(pid){
-    var sample = subsState.dayRows.find(function(r){ return r.teacher_person_id === pid; });
-    var count = subsState.dayRows.filter(function(r){ return r.teacher_person_id === pid; }).length;
-    return '<button type="button" class="absence-pill" data-pid="'+pid+'">' + escapeHtml(sample.teacher_name) + ' <span class="hint">(' + count + ')</span></button>';
-  }).join('');
-  Array.prototype.forEach.call(row.children, function(pill){
-    pill.addEventListener('click', function(){
-      var pid = parseInt(pill.dataset.pid, 10);
-      var idx = subsState.absentPersonIds.indexOf(pid);
-      if(idx === -1){ subsState.absentPersonIds.push(pid); pill.classList.add('active'); }
-      else { subsState.absentPersonIds.splice(idx,1); pill.classList.remove('active'); }
-      renderSubsFillList();
-    });
+function buildSubsGroups(){
+  var byKey = {};
+  subsState.subsForDate.forEach(function(s){
+    var r = subsState.dayRows.find(function(x){ return x.id === s.timetable_period_id; });
+    if(!r) return; // the underlying slot was removed/changed since this substitution was recorded
+    var key = s.merge_group_id ? ('g_' + s.merge_group_id) : ('p_' + s.substitute_teacher_person_id + '_' + r.period_number);
+    if(!byKey[key]){ byKey[key] = { substituteId: s.substitute_teacher_person_id, periodNumber: r.period_number, items: [] }; }
+    byKey[key].items.push({ sub: s, period: r });
   });
+  subsState.groups = Object.keys(byKey).map(function(k){ return byKey[k]; })
+    .sort(function(a,b){ return a.periodNumber - b.periodNumber; });
 }
 
-function renderSubsFillList(){
-  var card = document.getElementById('subs-fill-card');
-  var list = document.getElementById('subs-fill-list');
-  if(subsState.absentPersonIds.length === 0){ card.style.display = 'none'; return; }
-  card.style.display = 'block';
+function populateSubsFilters(){
+  var filterCard = document.getElementById('subs-filter-card');
+  var absentSel = document.getElementById('subs-filter-absent');
+  var subSel = document.getElementById('subs-filter-sub');
+  if(subsState.subsForDate.length === 0){ filterCard.style.display = 'none'; return; }
+  filterCard.style.display = 'block';
 
-  var periodsToFill = subsState.dayRows.filter(function(r){ return subsState.absentPersonIds.indexOf(r.teacher_person_id) !== -1; });
-  list.innerHTML = periodsToFill.map(function(r){
-    var existingSub = subsState.subsForDate.find(function(s){ return s.timetable_period_id === r.id; });
-    return '<div class="sub-row" data-period-id="'+r.id+'" data-absent-pid="'+r.teacher_person_id+'">' +
-      '<div class="sub-row-top"><span class="sub-row-title">' + escapeHtml(r.class) + ' • ' + escapeHtml(r.subject_name) + '</span>' +
-      '<span class="sub-row-meta">' + periodLabelFor(r.period_number) + ' • usually ' + escapeHtml(r.teacher_name) + '</span></div>' +
-      '<div class="autosuggest"><input type="text" class="sub-teacher-input" placeholder="Substitute teacher…" autocomplete="off" value="' + (existingSub ? escapeHtml(getPersonName(existingSub.substitute_teacher_person_id)) : '') + '">' +
-      '<div class="autosuggest-list"></div></div>' +
-    '</div>';
-  }).join('');
+  var absentIds = Array.from(new Set(subsState.subsForDate.map(function(s){ return s.absent_teacher_person_id; })))
+    .sort(function(a,b){ return getPersonName(a).localeCompare(getPersonName(b)); });
+  var subIds = Array.from(new Set(subsState.subsForDate.map(function(s){ return s.substitute_teacher_person_id; })))
+    .sort(function(a,b){ return getPersonName(a).localeCompare(getPersonName(b)); });
 
-  Array.prototype.forEach.call(list.children, function(row){
-    var input = row.querySelector('.sub-teacher-input');
-    var listEl = row.querySelector('.autosuggest-list');
-    var pickedRef = null;
-    wireAutosuggest(input, listEl, peopleSuggestItems, function(it){ pickedRef = it; });
-    input._getPicked = function(){ return pickedRef; };
-  });
-
-  var saveBtn = document.createElement('button');
-  saveBtn.type = 'button'; saveBtn.className = 'btn btn-primary btn-block'; saveBtn.textContent = 'Save substitutions';
-  saveBtn.style.marginTop = '8px';
-  saveBtn.addEventListener('click', saveSubstitutions);
-  list.appendChild(saveBtn);
+  var prevAbsent = absentSel.value, prevSub = subSel.value;
+  absentSel.innerHTML = '<option value="">All</option>' + absentIds.map(function(id){ return '<option value="'+id+'">' + escapeHtml(getPersonName(id)) + '</option>'; }).join('');
+  subSel.innerHTML = '<option value="">All</option>' + subIds.map(function(id){ return '<option value="'+id+'">' + escapeHtml(getPersonName(id)) + '</option>'; }).join('');
+  absentSel.value = absentIds.indexOf(parseInt(prevAbsent,10)) !== -1 ? prevAbsent : '';
+  subSel.value = subIds.indexOf(parseInt(prevSub,10)) !== -1 ? prevSub : '';
 }
+document.getElementById('subs-filter-absent').addEventListener('change', renderSubsBrowse);
+document.getElementById('subs-filter-sub').addEventListener('change', renderSubsBrowse);
 
-function getPersonName(personId){
-  var p = state.peopleDirectory.find(function(x){ return x.id === personId; });
-  return p ? p.display_name : '';
-}
-
-function saveSubstitutions(){
-  var rows = Array.prototype.slice.call(document.querySelectorAll('#subs-fill-list .sub-row'));
-  var toSave = [];
-  var missing = false;
-  rows.forEach(function(row){
-    var input = row.querySelector('.sub-teacher-input');
-    var typed = input.value.trim();
-    if(!typed){ missing = true; return; }
-    var picked = input._getPicked ? input._getPicked() : null;
-    var params = resolveTeacherParams(typed, picked);
-    toSave.push({
-      periodId: parseInt(row.dataset.periodId, 10),
-      absentPersonId: parseInt(row.dataset.absentPid, 10),
-      params: params
-    });
+function filteredSubsGroups(){
+  var absentFilter = document.getElementById('subs-filter-absent').value;
+  var subFilter = document.getElementById('subs-filter-sub').value;
+  return subsState.groups.filter(function(g){
+    if(subFilter && String(g.substituteId) !== subFilter) return false;
+    if(absentFilter && !g.items.some(function(it){ return String(it.sub.absent_teacher_person_id) === absentFilter; })) return false;
+    return true;
   });
-  if(missing){ toast('Please fill in a substitute for every listed period, or deselect that teacher above.', true); return; }
-  if(toSave.length === 0) return;
-
-  (async function(){
-    for(var i=0;i<toSave.length;i++){
-      var item = toSave[i];
-      var subPersonId;
-      if(item.params.p_teacher_id){
-        var r1 = await supabaseClient.rpc('get_or_create_timetable_person_for_teacher', { p_teacher_id: item.params.p_teacher_id });
-        if(r1.error){ toast('Could not resolve substitute: ' + r1.error.message, true); return; }
-        subPersonId = r1.data;
-      } else {
-        var r2 = await supabaseClient.rpc('get_or_create_timetable_person', { p_custom_name: item.params.p_teacher_custom_name });
-        if(r2.error){ toast('Could not resolve substitute: ' + r2.error.message, true); return; }
-        subPersonId = r2.data;
-      }
-      var upsertRes = await supabaseClient.from('timetable_substitutions')
-        .upsert({
-          timetable_period_id: item.periodId,
-          substitution_date: subsState.date,
-          absent_teacher_person_id: item.absentPersonId,
-          substitute_teacher_person_id: subPersonId,
-          created_by: state.user.id
-        }, { onConflict: 'timetable_period_id,substitution_date' });
-      if(upsertRes.error){ toast('Save failed: ' + upsertRes.error.message, true); return; }
-    }
-    toast('Substitutions saved for ' + subsState.date + '.');
-    loadSubsForDate();
-  })();
 }
 
 function renderSubsBrowse(){
   var card = document.getElementById('subs-browse-card');
   var list = document.getElementById('subs-browse-list');
-  var subs = subsState.subsForDate;
-  if(subs.length === 0){ card.style.display = 'none'; return; }
+  if(subsState.subsForDate.length === 0){ card.style.display = 'none'; return; }
   card.style.display = 'block';
-  list.innerHTML = subs.map(function(s){
-    var r = subsState.dayRows.find(function(x){ return x.id === s.timetable_period_id; });
-    if(!r) return '';
-    return '<div class="sub-row"><div class="sub-row-top"><span class="sub-row-title">' + escapeHtml(r.class) + ' • ' + escapeHtml(r.subject_name) + '</span>' +
-      '<span class="sub-row-meta">' + periodLabelFor(r.period_number) + '</span></div>' +
-      '<p class="hint" style="margin:0;">' + escapeHtml(getPersonName(s.absent_teacher_person_id)) + ' is away — covered by <strong style="color:var(--teal-700)">' + escapeHtml(getPersonName(s.substitute_teacher_person_id)) + '</strong></p></div>';
+
+  var groups = filteredSubsGroups();
+  if(groups.length === 0){ list.innerHTML = '<p class="hint">No substitutions match these filters.</p>'; return; }
+
+  list.innerHTML = groups.map(function(g){
+    var isMeSub = !!(state.myTimetablePersonId && g.substituteId === state.myTimetablePersonId);
+    var merged = g.items.length > 1;
+    var classLines = g.items.map(function(it){
+      var isMeAbsent = !!(state.myTimetablePersonId && it.sub.absent_teacher_person_id === state.myTimetablePersonId);
+      var absentName = escapeHtml(getPersonName(it.sub.absent_teacher_person_id));
+      return '<div class="sub-row-class-line">' +
+        escapeHtml(it.period.class) + ' • ' + escapeHtml(it.period.subject_name) +
+        ' — usually <strong' + (isMeAbsent ? ' style="color:var(--danger)"' : '') + '>' + absentName + (isMeAbsent ? ' <span class="you-chip">You</span>' : '') + '</strong>' +
+        (it.sub.reason ? '<p class="sub-row-note">Note: ' + escapeHtml(it.sub.reason) + '</p>' : '') +
+        '</div>';
+    }).join('');
+    return '<div class="sub-row' + (isMeSub ? ' is-me' : '') + '">' +
+      '<div class="sub-row-top">' +
+        '<span class="sub-row-title">' + escapeHtml(getPersonName(g.substituteId)) + (isMeSub ? ' <span class="you-chip">You</span>' : '') + '</span>' +
+        '<span class="sub-row-meta">' + periodLabelFor(g.periodNumber) + (merged ? ' <span class="chip level-mid">Merged × ' + g.items.length + ' classes</span>' : '') + '</span>' +
+      '</div>' +
+      classLines +
+    '</div>';
   }).join('');
 }
+
+document.getElementById('subs-share-text').addEventListener('click', function(){
+  var groups = filteredSubsGroups();
+  var lines = [SCHOOL_NAME, 'Substitutions — ' + subsState.date + ' (' + DAY_FULL[subsState.dow] + ')', ''];
+  if(groups.length === 0){ lines.push('No substitutions recorded.'); }
+  groups.forEach(function(g){
+    var merged = g.items.length > 1;
+    lines.push(periodLabelFor(g.periodNumber) + ' — ' + getPersonName(g.substituteId) + (merged ? ' (merged, covering ' + g.items.length + ' classes)' : ''));
+    g.items.forEach(function(it){
+      lines.push('   ' + it.period.class + ' • ' + it.period.subject_name + ' (for ' + getPersonName(it.sub.absent_teacher_person_id) + ')' + (it.sub.reason ? ' — ' + it.sub.reason : ''));
+    });
+    lines.push('');
+  });
+  shareOrCopyText(lines.join('\n'), 'Substitutions ' + subsState.date);
+});
 
 /* =========================================================
    AUTH + DATA BOOTSTRAP
@@ -1207,7 +1246,8 @@ function loadDirectories(){
       return usedByTeacherId[t.id] || { id: null, teacher_id: t.id, display_name: t.name, is_registered: true };
     });
     var customEntries = usedPeople.filter(function(p){ return !p.is_registered; });
-    state.peopleDirectory = registeredEntries.concat(customEntries);
+    state.peopleDirectory = registeredEntries.concat(customEntries)
+      .sort(function(a,b){ return a.display_name.localeCompare(b.display_name); });
 
     // Subject directory: same idea — every subject already on the
     // school's subject list autosuggests immediately, plus every custom
@@ -1253,7 +1293,41 @@ function loadDirectories(){
     }
 
     await loadDirectories();
+
+    // Who is this person, timetable-wise? Both lookups are read-only
+    // conveniences for pre-loading the right view — failure here should
+    // never block the app from loading, just skip the pre-selection.
+    try{
+      var classTeacherResult = await supabaseClient.rpc('get_my_class_teacher_class');
+      state.myClassTeacherOf = (classTeacherResult && !classTeacherResult.error) ? classTeacherResult.data : null;
+    }catch(e){ state.myClassTeacherOf = null; }
+
+    try{
+      var myPersonResult = await supabaseClient.rpc('get_my_timetable_person_id');
+      state.myTimetablePersonId = (myPersonResult && !myPersonResult.error) ? myPersonResult.data : null;
+    }catch(e){ state.myTimetablePersonId = null; }
+
     showApp();
+
+    // Class teacher (regardless of admin status) → their class, pre-loaded.
+    if(state.myClassTeacherOf && state.classes.indexOf(state.myClassTeacherOf) !== -1){
+      classSelect.value = state.myClassTeacherOf;
+      state.selectedClass = state.myClassTeacherOf;
+      loadClassTimetable();
+    }
+
+    // Appears in timetable_people as themself → their own weekly schedule, pre-loaded.
+    if(state.myTimetablePersonId){
+      var mine = state.peopleDirectory.find(function(p){ return p.id === state.myTimetablePersonId; });
+      if(mine){
+        state.selectedTeacherRef = mine;
+        state.selectedTeacherPersonId = mine.id;
+        state.selectedTeacherName = mine.display_name;
+        teacherSearchInput.value = mine.display_name;
+        loadTeacherTimetable();
+      }
+    }
+
     loadSubsForDate();
   }catch(err){
     console.error('Auth/bootstrap failed:', err);
