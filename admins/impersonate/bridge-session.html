@@ -184,10 +184,13 @@ document.getElementById('go-dashboard').addEventListener('click', function(){ wi
   }
 
   try{
+    // IMPORTANT: when verifying via token_hash, `email` must NOT also be
+    // passed -- verifyOtp treats {token_hash, type} and {email, token, type}
+    // as two separate, mutually exclusive verification modes, and errors
+    // ("Only the token_hash and type should be provided") if both are sent.
     var result = await supabaseClient.auth.verifyOtp({
       type: 'magiclink',
-      token_hash: frag.token_hash,
-      email: frag.email
+      token_hash: frag.token_hash
     });
 
     if(result.error || !result.data || !result.data.session){
