@@ -229,7 +229,7 @@
   <main class="dash">
     <div class="notice">
       <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
-      <div>Every impersonation attempt is permanently logged (admin, target, time, result). Browsers can't be opened in Incognito mode by a webpage automatically &mdash; use <b>Copy link</b> and paste it into a Private/Incognito window for a session fully isolated from your own.</div>
+      <div>Every impersonation attempt is permanently logged (admin, target, time, result). Browsers can't be opened in Incognito mode by a webpage automatically &mdash; use <b>Copy link</b> and paste it into a Private/Incognito window. That's what actually keeps it isolated from your own admin session; opening the link in a normal tab shares your portal session storage, so it will sign your other open tabs into the impersonated account too.</div>
     </div>
 
     <div class="section-heading">
@@ -312,7 +312,7 @@
 
     <div class="notice" style="margin-bottom:6px;">
       <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
-      <div><b>Recommended:</b> open a new Incognito/Private window, then paste the link in. That keeps it fully separate from your own signed-in session.</div>
+      <div><b>Use an Incognito/Private window, not a normal tab.</b> This link signs in using the portal's normal storage (so the whole portal works once you're in), which a normal tab shares with any other tabs open on this site. An Incognito window has its own separate storage, so it stays fully apart from your real admin session.</div>
     </div>
 
     <div class="btn-row">
@@ -335,7 +335,7 @@ var DASHBOARD_URL = 'index.html';
 var IMPERSONATE_FUNCTION_URL = SUPABASE_URL + '/functions/v1/admin-impersonate';
 // The bridge page that exchanges the token for a real session (see
 // impersonate-session.html). Update this path if you host it elsewhere.
-var BRIDGE_PAGE_URL = 'bridge-session.html';
+var BRIDGE_PAGE_URL = 'impersonate-session.html';
 
 var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -600,9 +600,15 @@ document.getElementById('link-copy').addEventListener('click', function(){
 
 document.getElementById('link-open-tab').addEventListener('click', function(){
   // Best-effort only: this opens a REGULAR new tab, not Incognito -- browsers
-  // do not expose any API to force private browsing from a webpage. Because
-  // this tab shares localStorage with every other tab on this origin, the
-  // impersonated session may become visible in your own open admin tabs too.
+  // do not expose any API to force private browsing from a webpage. The
+  // bridge page intentionally uses the portal's normal (shared) storage so
+  // that navigating around the portal works, which means a regular tab DOES
+  // share that storage with every other tab open on this origin -- opening
+  // this way will sign your other open admin tabs into the impersonated
+  // account too, not just "might". Use Copy + an Incognito window instead
+  // unless you specifically understand and accept that trade-off.
+  var ok = window.confirm('This will open in a normal tab, not Incognito. It WILL replace your admin session in any other tabs open on this site. Continue anyway?');
+  if(!ok) return;
   window.open(currentLink, '_blank', 'noopener');
   sheetLink.classList.remove('show');
 });
