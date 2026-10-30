@@ -80,7 +80,7 @@
     <p id="ready-detail">You're now signed in as the selected user, in this tab only.</p>
     <button class="btn" id="go-dashboard">Go to dashboard →</button>
     <div class="notice">
-      This session lives in this tab's own storage, isolated from any other tab's session in the same browser. It expires automatically after <span id="expiry-minutes">60</span> minutes, or sooner if you click "End session."
+      If this is an Incognito/Private window, this session is fully isolated from your normal browsing &mdash; closing the window discards it entirely. It also expires automatically after <span id="expiry-minutes">60</span> minutes, or sooner if you click "End session." (If this is a normal tab rather than Incognito, it shares storage with your other open tabs on this site &mdash; see the warning where you got this link.)
     </div>
   </div>
 
@@ -102,24 +102,30 @@
 <script>
 var SUPABASE_URL = 'https://ctuqlmdunhdhhholsqco.supabase.co';
 var SUPABASE_ANON_KEY = 'sb_publishable_jaogFl0uiNQW_3kkPakSrw_uVTwohtY';
-var DASHBOARD_URL = 'index.html';
+var DASHBOARD_URL = 'https://mygsms.in';
 
 // Session lifetime for this impersonation tab. Keep this short -- there is
 // no reason a debugging session needs to outlive a single testing pass.
 var SESSION_MINUTES = 60;
 
-// IMPORTANT: this client uses sessionStorage, not the default localStorage.
-// sessionStorage is private to this single browser tab (new tabs opened by
-// typing a URL or clicking a bookmark get a fresh, empty sessionStorage), so
-// establishing the impersonated session here cannot leak into, or overwrite,
-// any session your own admin account has in other tabs on this same origin.
-// (A tab opened via window.open() from the picker page inherits a *copy* of
-// the opener's sessionStorage at creation time, then the two fully diverge --
-// so this remains safe even for the "open in new tab" path.)
+// IMPORTANT: this client deliberately does NOT override `storage` or
+// `storageKey`. It uses the exact same default (localStorage, under the
+// library's auto-generated per-project key) that every other page in the
+// portal uses when it does `createClient(SUPABASE_URL, SUPABASE_ANON_KEY)`
+// with no auth options -- which is how your dashboard and other pages are
+// built. That means once verifyOtp succeeds here, navigating to any other
+// portal page in THIS tab picks the session up automatically, because
+// they're all reading/writing the same storage key.
+//
+// This only stays safe because real isolation here comes from the browser,
+// not from a storage trick: an actual Incognito/Private window has its own
+// separate storage partition, completely walled off from your normal
+// browsing session, even though both use "the same" default key. If this
+// page is instead opened in a normal (non-Incognito) new tab, it WILL share
+// localStorage with your other open tabs on this origin -- see the warning
+// on the "open in new tab anyway" button on the picker page.
 var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    storage: window.sessionStorage,
-    storageKey: 'sb-impersonation-session',
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: false
