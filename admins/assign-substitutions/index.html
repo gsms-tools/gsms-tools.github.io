@@ -215,6 +215,9 @@
   .sub-row-note{ font-size:.76rem; color:var(--ink-500); margin:3px 0 0; font-style:italic; }
   .you-chip{ font-size:.64rem; font-weight:800; letter-spacing:.03em; color:var(--teal-900); background:var(--gold-400); padding:2px 8px; border-radius:999px; vertical-align:middle; margin-left:6px; }
   .mini-x{ width:26px; height:26px; border-radius:50%; border:none; background:var(--danger-bg); color:var(--danger); font-weight:800; cursor:pointer; flex-shrink:0; }
+  .row-actions{ display:flex; gap:6px; flex-shrink:0; }
+  .mini-change{ padding:4px 10px; border-radius:999px; border:1.5px solid var(--border-card); background:var(--white); color:var(--teal-700); font-weight:700; font-size:.7rem; cursor:pointer; white-space:nowrap; }
+  html[data-theme="dark"] .mini-change{ color:var(--gold-400); }
 </style>
 </head>
 <body>
@@ -592,7 +595,7 @@ function renderAbsences(){
 /* =========================================================
    RANKING ALGORITHM
 ========================================================= */
-function rankCandidates(targetPeriodNumbers, targetClasses, absentPersonIds){
+function rankCandidates(targetPeriodNumbers, targetClasses, absentPersonIds, excludeSubId){
   // targetPeriodNumbers: array of period numbers this assignment would occupy (usually [pn], merges share one pn)
   var pn = targetPeriodNumbers[0];
   var totalPeriods = state.periods.length;
@@ -603,8 +606,8 @@ function rankCandidates(targetPeriodNumbers, targetClasses, absentPersonIds){
     // busy periods today: own regular teaching load
     var teaches = state.dayRows.filter(function(r){ return r.teacher_person_id === cand.id; });
     var busySet = {}; teaches.forEach(function(r){ busySet[r.period_number] = true; });
-    // already substituting today
-    var mySubs = state.subsForDate.filter(function(s){ return s.substitute_teacher_person_id === cand.id; });
+    // already substituting today (ignore the row currently being changed, if any)
+    var mySubs = state.subsForDate.filter(function(s){ return s.substitute_teacher_person_id === cand.id && s.id !== excludeSubId; });
     mySubs.forEach(function(s){
       var p = state.dayRows.find(function(r){ return r.id === s.timetable_period_id; });
       if(p) busySet[p.period_number] = true;
@@ -643,7 +646,8 @@ var selectedMergeIds = [];      // array of timetable_period_id selected to merg
 function openAssignSheet(period, absence){
   if(!state.isManager){ return; }
   selectedCandidate = null; selectedMergeIds = [];
-  document.getElementById('assign-confirm-btn').disabled = true;
+  var confirmBtn = document.getElementById('assign-confirm-btn');
+  confirmBtn.disabled = true; confirmBtn.textContent = 'Confirm substitute';
   document.getElementById('candidate-search').value = '';
 
   document.getElementById('assign-title').textContent = escapeHtml(period.class) + ' • ' + periodLabelFor(period.period_number);
@@ -674,7 +678,31 @@ function openAssignSheet(period, absence){
     });
   } else { mergeField.style.display = 'none'; mergeRow.innerHTML = ''; }
 
-  state.assignCtx = { period: period, absence: absence };
+  state.assignCtx = { period: period, absence: absence, editingSubId: null };
+  refreshCandidateList();
+  sheetAssign.classList.add('show');
+}
+
+// Reassign the substitute on an already-assigned period (single row — if it
+// was part of a merged group, changing it detaches just this class from
+// that merge, since it now has a different substitute than the others).
+function openChangeSheet(sub){
+  if(!state.isManager){ return; }
+  var period = state.dayRows.find(function(r){ return r.id === sub.timetable_period_id; });
+  if(!period){ toast('Could not find that period.', true); return; }
+  var absencePseudo = { teacher_person_id: sub.absent_teacher_person_id };
+
+  selectedCandidate = null; selectedMergeIds = [];
+  var confirmBtn = document.getElementById('assign-confirm-btn');
+  confirmBtn.disabled = true; confirmBtn.textContent = 'Update substitute';
+  document.getElementById('candidate-search').value = '';
+  document.getElementById('merge-field').style.display = 'none';
+  document.getElementById('merge-chip-row').innerHTML = '';
+
+  document.getElementById('assign-title').textContent = escapeHtml(period.class) + ' • ' + periodLabelFor(period.period_number);
+  document.getElementById('assign-sub').textContent = 'Currently ' + getPersonName(sub.substitute_teacher_person_id) + ' is covering for ' + getPersonName(sub.absent_teacher_person_id) + ' (' + period.subject_name + '). Pick a replacement.';
+
+  state.assignCtx = { period: period, absence: absencePseudo, editingSubId: sub.id };
   refreshCandidateList();
   sheetAssign.classList.add('show');
 }
@@ -694,7 +722,7 @@ function currentTargetClassesAndAbsents(){
 function refreshCandidateList(){
   var ctx = state.assignCtx;
   var t = currentTargetClassesAndAbsents();
-  var ranked = rankCandidates([ctx.period.period_number], t.classes, t.absentIds).slice(0, 8);
+  var ranked = rankCandidates([ctx.period.period_number], t.classes, t.absentIds, ctx.editingSubId).slice(0, 8);
   var listEl = document.getElementById('candidate-list');
   if(ranked.length === 0){ listEl.innerHTML = '<p class="hint">No free teachers found for this period — try a custom name above.</p>'; return; }
   listEl.innerHTML = ranked.map(function(r, i){
@@ -729,13 +757,8 @@ wireAutosuggest(candidateSearchInput, document.getElementById('candidate-search-
 
 document.getElementById('assign-confirm-btn').addEventListener('click', function(){
   if(!selectedCandidate){ return; }
-  var btn = this; btn.disabled = true; btn.textContent = 'Saving…';
+  var btn = this; btn.disabled = true; var isEdit = !!state.assignCtx.editingSubId; btn.textContent = 'Saving…';
   var ctx = state.assignCtx;
-  var allPeriods = [ctx.period].concat(selectedMergeIds.map(function(pid){ return state.dayRows.find(function(r){ return r.id===pid; }); }));
-  var allAbsences = [ctx.absence].concat(selectedMergeIds.map(function(pid){
-    var r = state.dayRows.find(function(x){ return x.id===pid; });
-    return state.absences.find(function(a){ return a.teacher_person_id === r.teacher_person_id; });
-  }));
 
   var resolve = (selectedCandidate.teacher_id)
     ? supabaseClient.rpc('get_or_create_timetable_person_for_teacher', { p_teacher_id: selectedCandidate.teacher_id }).then(function(r){ return r.error ? null : r.data; })
@@ -743,7 +766,27 @@ document.getElementById('assign-confirm-btn').addEventListener('click', function
         : supabaseClient.rpc('get_or_create_timetable_person', { p_custom_name: selectedCandidate.display_name }).then(function(r){ return r.error ? null : r.data; }));
 
   resolve.then(function(subId){
-    if(!subId){ toast('Could not resolve substitute.', true); btn.disabled=false; btn.textContent='Confirm substitute'; return; }
+    if(!subId){ toast('Could not resolve substitute.', true); btn.disabled=false; btn.textContent = isEdit ? 'Update substitute' : 'Confirm substitute'; return; }
+
+    if(isEdit){
+      // Changing an existing single row. Detach it from any merge group it
+      // was part of, since it now has a different substitute than its
+      // former merge-mates (they still show correctly grouped on their own).
+      supabaseClient.from('timetable_substitutions').update({ substitute_teacher_person_id: subId, merge_group_id: null }).eq('id', ctx.editingSubId).then(function(res){
+        btn.disabled = false; btn.textContent = 'Update substitute';
+        if(res.error){ toast('Could not update: ' + res.error.message, true); return; }
+        toast('Substitute changed.');
+        sheetAssign.classList.remove('show');
+        loadForDate();
+      });
+      return;
+    }
+
+    var allPeriods = [ctx.period].concat(selectedMergeIds.map(function(pid){ return state.dayRows.find(function(r){ return r.id===pid; }); }));
+    var allAbsences = [ctx.absence].concat(selectedMergeIds.map(function(pid){
+      var r = state.dayRows.find(function(x){ return x.id===pid; });
+      return state.absences.find(function(a){ return a.teacher_person_id === r.teacher_person_id; });
+    }));
     var mergeGroupId = allPeriods.length > 1 ? (crypto.randomUUID ? crypto.randomUUID() : (Date.now()+'-'+Math.random())) : null;
     var rows = allPeriods.map(function(p, i){
       return {
@@ -825,10 +868,12 @@ function renderSubsBrowse(){
     var merged = g.items.length > 1;
     var lines = g.items.map(function(it){
       var isMeAbsent = it.sub.absent_teacher_person_id === state.myTimetablePersonId;
-      var del = state.isManager ? '<button class="mini-x" data-sub-id="'+it.sub.id+'" title="Remove">&times;</button>' : '';
+      var actions = state.isManager
+        ? '<div class="row-actions"><button class="mini-change" data-sub-id="'+it.sub.id+'" title="Change substitute">Change</button><button class="mini-x" data-sub-id="'+it.sub.id+'" title="Remove">&times;</button></div>'
+        : '';
       return '<div class="sub-row-class-line"><span>' + escapeHtml(it.period.class) + ' • ' + escapeHtml(it.period.subject_name) +
         ' — usually <strong' + (isMeAbsent?' style="color:var(--danger)"':'') + '>' + escapeHtml(getPersonName(it.sub.absent_teacher_person_id)) + (isMeAbsent?' <span class="you-chip">You</span>':'') + '</strong>' +
-        (it.sub.reason ? '<span class="sub-row-note"> — ' + escapeHtml(it.sub.reason) + '</span>' : '') + '</span>' + del + '</div>';
+        (it.sub.reason ? '<span class="sub-row-note"> — ' + escapeHtml(it.sub.reason) + '</span>' : '') + '</span>' + actions + '</div>';
     }).join('');
     return '<div class="sub-row' + (isMeSub?' is-me':'') + '"><div class="sub-row-top"><span class="sub-row-title">' + escapeHtml(getPersonName(g.substituteId)) + (isMeSub?' <span class="you-chip">You</span>':'') + '</span>' +
       '<span class="sub-row-meta">' + periodLabelFor(g.periodNumber) + (merged ? ' <span class="chip level-mid">Merged × ' + g.items.length + '</span>' : '') + '</span></div>' + lines + '</div>';
@@ -842,6 +887,13 @@ function renderSubsBrowse(){
           toast('Substitution removed.'); loadForDate();
         });
       });
+    });
+  });
+  Array.prototype.forEach.call(list.querySelectorAll('.mini-change'), function(btn){
+    btn.addEventListener('click', function(){
+      var subId = parseInt(btn.dataset.subId,10);
+      var sub = state.subsForDate.find(function(s){ return s.id === subId; });
+      if(sub) openChangeSheet(sub);
     });
   });
 }
