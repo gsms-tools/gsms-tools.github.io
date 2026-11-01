@@ -3,7 +3,7 @@ window.reword = function(prompt) {
 
         const callbackName = `jsonpCallback_${Date.now()}`;
 
-        const url = `https://cloudflare-serverless.pages.dev/lpElementWithSmartRetry?prompt=${encodeURIComponent(prompt)}&callback=${callbackName}`;
+        const url = `https://cloudflare-serverless.pages.dev/lpElement?prompt=${encodeURIComponent(prompt)}&callback=${callbackName}`;
 
         
         // Create a script element to fetch the data
