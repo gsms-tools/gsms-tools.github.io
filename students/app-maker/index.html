@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Backend Builder — Learn by Doing</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #0f1220;
+    --panel: #171b2e;
+    --panel-2: #1e2238;
+    --border: #2a2f4a;
+    --text: #eef0fb;
+    --muted: #9aa0c3;
+    --accent: #7c5cff;
+    --accent-2: #26d0ce;
+    --good: #30d394;
+    --bad: #ff5d7a;
+    --warn: #ffb547;
+    --radius: 16px;
+    font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(1200px 600px at 10% -10%, #2a1f66 0%, transparent 60%),
+      radial-gradient(1000px 500px at 110% 0%, #0f3b3a 0%, transparent 55%),
+      var(--bg);
+    color: var(--text);
+  }
+  a { color: var(--accent-2); }
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    transition: transform .08s ease, opacity .15s ease, box-shadow .15s ease;
+  }
+  button:active { transform: scale(0.97); }
+  button.primary { background: linear-gradient(135deg, var(--accent), #9b7bff); color: white; box-shadow: 0 6px 18px rgba(124,92,255,.35); }
+  button.primary:hover { box-shadow: 0 8px 22px rgba(124,92,255,.5); }
+  button.ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  button.ghost:hover { border-color: var(--accent); }
+  button.danger { background: rgba(255,93,122,0.15); color: var(--bad); border: 1px solid rgba(255,93,122,0.4); }
+  button.danger:hover { background: rgba(255,93,122,0.25); }
+  button.small { padding: 6px 10px; font-size: 12px; border-radius: 8px; }
+  input, select, textarea {
+    font-family: inherit;
+    background: #0d1024;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+    outline: none;
+    width: 100%;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  .hidden { display: none !important; }
+
+  /* ---------- Auth screen ---------- */
+  #view-auth {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .auth-card {
+    width: 100%;
+    max-width: 400px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 36px 32px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.4);
+  }
+  .auth-card h1 {
+    font-size: 24px;
+    margin: 0 0 4px;
+    background: linear-gradient(135deg, var(--accent-2), var(--accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .auth-card p.sub { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .auth-actions { display: flex; gap: 10px; margin-top: 18px; }
+  .auth-actions button { flex: 1; }
+  #auth-msg { margin-top: 14px; font-size: 13px; min-height: 18px; }
+  #auth-msg.err { color: var(--bad); }
+  #auth-msg.ok { color: var(--good); }
+
+  /* ---------- App shell ---------- */
+  #view-app { display: none; min-height: 100vh; flex-direction: column; }
+  #view-app.active { display: flex; }
+
+  header.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(23,27,46,.7);
+    backdrop-filter: blur(6px);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 18px; }
+  .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-2), var(--accent)); }
+  .user-pill { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); }
+  .user-pill .email { color: var(--text); font-weight: 600; }
+
+  nav.tabs {
+    display: flex;
+    gap: 6px;
+    padding: 10px 28px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  nav.tabs button {
+    background: transparent;
+    color: var(--muted);
+    border-radius: 10px 10px 0 0;
+    padding: 10px 18px;
+    border: 1px solid transparent;
+  }
+  nav.tabs button.active {
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-bottom-color: var(--panel);
+  }
+
+  main { flex: 1; padding: 28px; max-width: 1200px; width: 100%; margin: 0 auto; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+  }
+  .panel + .panel { margin-top: 20px; }
+  .panel h2 { margin-top: 0; font-size: 18px; }
+  .panel h2 .muted-note { color: var(--muted); font-weight: 400; font-size: 13px; }
+
+  .tab-view { display: none; }
+  .tab-view.active { display: block; }
+
+  /* ---------- Tables grid ---------- */
+  .tables-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .table-card {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    cursor: pointer;
+    transition: border-color .15s, transform .1s;
+  }
+  .table-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .table-card .name { font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+  .table-card .meta { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .new-table-card {
+    background: transparent;
+    border: 2px dashed var(--border);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 90px;
+    color: var(--muted);
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .new-table-card:hover { border-color: var(--accent); color: var(--text); }
+
+  /* ---------- Modal ---------- */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(5,6,15,.6);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100; padding: 20px;
+  }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 26px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+  .modal h3 { margin-top: 0; }
+  .col-row { display: grid; grid-template-columns: 1fr 140px 36px; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .col-row button { padding: 8px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+
+  /* ---------- Data view ---------- */
+  .data-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+  table.data-grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.data-grid th, table.data-grid td { border-bottom: 1px solid var(--border); padding: 8px 10px; text-align: left; }
+  table.data-grid th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+  table.data-grid input[type=text], table.data-grid input[type=number], table.data-grid input[type=date] {
+    padding: 6px 8px; font-size: 13px; min-width: 90px;
+  }
+  table.data-grid tr:hover td { background: rgba(255,255,255,0.02); }
+  .row-actions { display: flex; gap: 6px; white-space: nowrap; }
+  .empty-state { color: var(--muted); font-size: 14px; padding: 20px 0; text-align: center; }
+
+  /* ---------- Schema tab ---------- */
+  pre.code-block {
+    background: #0b0d1d;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #c6cafc;
+  }
+  .copy-row { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+
+  /* ---------- App maker ---------- */
+  .maker-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  @media (min-width: 900px) { .maker-grid { grid-template-columns: 1fr 1fr; } }
+  textarea#paste-code { min-height: 220px; font-family: 'Cascadia Code', Consolas, monospace; font-size: 12.5px; }
+  iframe#app-frame {
+    width: 100%; height: 420px; border: 1px solid var(--border); border-radius: 12px; background: white;
+  }
+  .saved-apps { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .saved-app-pill {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 999px;
+    padding: 6px 6px 6px 14px; font-size: 13px;
+  }
+
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+  .badge.text { background: rgba(124,92,255,.18); color: #b8a7ff; }
+  .badge.numeric { background: rgba(38,208,206,.18); color: #7fe9e8; }
+  .badge.boolean { background: rgba(255,181,71,.18); color: var(--warn); }
+  .badge.date { background: rgba(48,211,148,.18); color: var(--good); }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--panel-2); border: 1px solid var(--border);
+    padding: 12px 20px; border-radius: 12px; font-size: 13px; z-index: 200;
+    box-shadow: 0 10px 30px rgba(0,0,0,.4);
+  }
+  .toast.err { border-color: var(--bad); color: var(--bad); }
+  .toast.ok { border-color: var(--good); color: var(--good); }
+</style>
+</head>
+<body>
+
+<!-- =========================== AUTH VIEW =========================== -->
+<div id="view-auth">
+  <div class="auth-card">
+    <h1>🧩 Backend Builder</h1>
+    <p class="sub">Your own private database playground. Log in to start building.</p>
+
+    <div class="field">
+      <label for="auth-email">Email</label>
+      <input id="auth-email" type="email" placeholder="you@example.com" autocomplete="username" />
+    </div>
+    <div class="field">
+      <label for="auth-password">Password</label>
+      <input id="auth-password" type="password" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+
+    <div class="auth-actions">
+      <button class="primary" id="btn-login">Log in</button>
+      <button class="ghost" id="btn-signup">Sign up</button>
+    </div>
+    <div id="auth-msg"></div>
+  </div>
+</div>
+
+<!-- =========================== APP VIEW =========================== -->
+<div id="view-app">
+  <header class="topbar">
+    <div class="brand"><span class="dot"></span> Backend Builder</div>
+    <div class="user-pill">
+      <span>Logged in as <span class="email" id="user-email"></span></span>
+      <button class="ghost small" id="btn-logout">Log out</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="tables">My Tables</button>
+    <button class="tab-btn" data-tab="schema">Schema for AI</button>
+    <button class="tab-btn" data-tab="maker">App Maker</button>
+  </nav>
+
+  <main>
+    <!-- ---------------- TAB: My Tables ---------------- -->
+    <section class="tab-view active" id="tab-tables">
+      <div class="panel">
+        <h2>My Tables <span class="muted-note">— click a table to view and edit its data</span></h2>
+        <div class="tables-grid" id="tables-grid">
+          <!-- cards injected here -->
+          <div class="new-table-card" id="btn-new-table">+ New Table</div>
+        </div>
+      </div>
+
+      <div class="panel hidden" id="data-panel">
+        <div class="data-toolbar">
+          <h2 id="data-panel-title" style="margin:0;"></h2>
+          <div style="display:flex; gap:8px;">
+            <button class="ghost small" id="btn-refresh-data">Refresh</button>
+            <button class="danger small" id="btn-delete-table">Delete this table</button>
+          </div>
+        </div>
+        <div id="data-grid-container"></div>
+      </div>
+    </section>
+
+    <!-- ---------------- TAB: Schema for AI ---------------- -->
+    <section class="tab-view" id="tab-schema">
+      <div class="panel">
+        <h2>Give this to an AI <span class="muted-note">— copy and paste it to any AI chat to get a frontend built for you</span></h2>
+        <div class="copy-row">
+          <button class="primary small" id="btn-copy-schema">Copy for AI</button>
+        </div>
+        <pre class="code-block" id="schema-output">Create a table first to see its details here.</pre>
+      </div>
+    </section>
+
+    <!-- ---------------- TAB: App Maker ---------------- -->
+    <section class="tab-view" id="tab-maker">
+      <div class="panel">
+        <h2>App Maker <span class="muted-note">— paste the HTML your AI gave you and run it right here</span></h2>
+        <div class="maker-grid">
+          <div>
+            <textarea id="paste-code" placeholder="Paste the full HTML code your AI generated here..."></textarea>
+            <div style="display:flex; gap:10px; margin-top:10px; flex-wrap: wrap;">
+              <button class="primary" id="btn-run-app">▶ Run</button>
+              <input id="save-app-name" placeholder="Name this app to save it..." style="max-width:220px;" />
+              <button class="ghost" id="btn-save-app">💾 Save</button>
+            </div>
+            <div class="saved-apps" id="saved-apps-list"></div>
+          </div>
+          <div>
+            <iframe id="app-frame" sandbox="allow-scripts allow-forms allow-modals"></iframe>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+/* ============================================================
+   CONFIG — fill these in with your Supabase project's details
+   (Project Settings → API). The anon key is safe to expose in
+   client-side code; it only ever acts within Row Level Security.
+   ============================================================ */
+const SUPABASE_URL = "https://YOUR-PROJECT-REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const COLUMN_TYPES = [
+  { value: "text", label: "Text" },
+  { value: "numeric", label: "Number" },
+  { value: "boolean", label: "Yes / No" },
+  { value: "date", label: "Date" },
+];
+
+let currentUser = null;
+let myTables = [];          // rows from app_tables
+let activeTable = null;     // currently open table row
+
+/* ---------------------------- Helpers ---------------------------- */
+
+function toast(msg, kind = "ok") {
+  const el = document.createElement("div");
+  el.className = `toast ${kind}`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+async function callFunction(name, payload) {
+  const { data: { session } } = await sb.auth.getSession();
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${session.access_token}`,
+      "apikey": SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify(payload),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || `Request failed (${res.status})`);
+  return body;
+}
+
+/* ---------------------------- Auth ---------------------------- */
+
+const authMsg = document.getElementById("auth-msg");
+function setAuthMsg(text, kind) {
+  authMsg.textContent = text;
+  authMsg.className = kind || "";
+}
+
+document.getElementById("btn-login").onclick = async () => {
+  const email = document.getElementById("auth-email").value.trim();
+  const password = document.getElementById("auth-password").value;
+  if (!email || !password) return setAuthMsg("Enter an email and password.", "err");
+  setAuthMsg("Logging in...");
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) return setAuthMsg(error.message, "err");
+  setAuthMsg("");
+};
+
+document.getElementById("btn-signup").onclick = async () => {
+  const email = document.getElementById("auth-email").value.trim();
+  const password = document.getElementById("auth-password").value;
+  if (!email || !password) return setAuthMsg("Enter an email and password.", "err");
+  if (password.length < 6) return setAuthMsg("Password must be at least 6 characters.", "err");
+  setAuthMsg("Creating your account...");
+  const { error } = await sb.auth.signUp({ email, password });
+  if (error) return setAuthMsg(error.message, "err");
+  setAuthMsg("Account created! If email confirmation is on, check your inbox, then log in.", "ok");
+};
+
+document.getElementById("btn-logout").onclick = async () => {
+  // Clear per-session app-maker drafts on logout, as requested.
+  clearSavedApps();
+  await sb.auth.signOut();
+};
+
+sb.auth.onAuthStateChange((_event, session) => {
+  if (session?.user) {
+    currentUser = session.user;
+    showApp();
+  } else {
+    currentUser = null;
+    showAuth();
+  }
+});
+
+function showAuth() {
+  document.getElementById("view-auth").style.display = "flex";
+  document.getElementById("view-app").classList.remove("active");
+}
+
+async function showApp() {
+  document.getElementById("view-auth").style.display = "none";
+  document.getElementById("view-app").classList.add("active");
+  document.getElementById("user-email").textContent = currentUser.email;
+  await loadTables();
+  renderSavedApps();
+}
+
+/* ---------------------------- Tabs ---------------------------- */
+
+document.querySelectorAll(".tab-btn").forEach((btn) => {
+  btn.onclick = () => {
+    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll(".tab-view").forEach((v) => v.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
+    if (btn.dataset.tab === "schema") renderSchema();
+  };
+});
+
+/* ---------------------------- My Tables ---------------------------- */
+
+async function loadTables() {
+  const { data, error } = await sb.from("app_tables").select("*").order("created_at");
+  if (error) { toast(error.message, "err"); return; }
+  myTables = data || [];
+  renderTablesGrid();
+}
+
+function renderTablesGrid() {
+  const grid = document.getElementById("tables-grid");
+  grid.querySelectorAll(".table-card").forEach((el) => el.remove());
+  const newCard = document.getElementById("btn-new-table");
+
+  myTables.forEach((t) => {
+    const card = document.createElement("div");
+    card.className = "table-card";
+    card.innerHTML = `
+      <div class="name">🗂️ ${escapeHtml(t.display_name)}</div>
+      <div class="meta">${t.columns.length} column${t.columns.length === 1 ? "" : "s"}</div>
+    `;
+    card.onclick = () => openTable(t);
+    grid.insertBefore(card, newCard);
+  });
+}
+
+document.getElementById("btn-new-table").onclick = () => openNewTableModal();
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
+/* ---------------------------- New Table Modal ---------------------------- */
+
+function openNewTableModal() {
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop";
+  backdrop.innerHTML = `
+    <div class="modal">
+      <h3>Create a new table</h3>
+      <div class="field">
+        <label>Table name</label>
+        <input id="new-table-name" placeholder="e.g. todos, players, recipes" />
+      </div>
+      <label style="display:block; margin: 14px 0 6px; color: var(--muted); font-size:13px;">Columns</label>
+      <div id="columns-list"></div>
+      <button class="ghost small" id="add-column-btn">+ Add column</button>
+      <div class="modal-actions">
+        <button class="ghost" id="cancel-modal">Cancel</button>
+        <button class="primary" id="create-table-btn">Create table</button>
+      </div>
+      <div id="modal-msg" style="margin-top:10px; font-size:13px; color: var(--bad);"></div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  const columnsList = backdrop.querySelector("#columns-list");
+  function addColumnRow(name = "", type = "text") {
+    const row = document.createElement("div");
+    row.className = "col-row";
+    const typeOptions = COLUMN_TYPES.map(
+      (ct) => `<option value="${ct.value}" ${ct.value === type ? "selected" : ""}>${ct.label}</option>`
+    ).join("");
+    row.innerHTML = `
+      <input class="col-name" placeholder="column name" value="${escapeHtml(name)}" />
+      <select class="col-type">${typeOptions}</select>
+      <button class="danger remove-col" title="Remove">✕</button>
+    `;
+    row.querySelector(".remove-col").onclick = () => row.remove();
+    columnsList.appendChild(row);
+  }
+  addColumnRow("name", "text");
+
+  backdrop.querySelector("#add-column-btn").onclick = () => addColumnRow();
+  backdrop.querySelector("#cancel-modal").onclick = () => backdrop.remove();
+  backdrop.onclick = (e) => { if (e.target === backdrop) backdrop.remove(); };
+
+  backdrop.querySelector("#create-table-btn").onclick = async () => {
+    const msgEl = backdrop.querySelector("#modal-msg");
+    const tableName = backdrop.querySelector("#new-table-name").value.trim();
+    const rows = [...columnsList.querySelectorAll(".col-row")];
+    const columns = rows.map((r) => ({
+      name: r.querySelector(".col-name").value.trim(),
+      type: r.querySelector(".col-type").value,
+    })).filter((c) => c.name);
+
+    if (!tableName) { msgEl.textContent = "Please name your table."; return; }
+    if (columns.length === 0) { msgEl.textContent = "Add at least one column."; return; }
+
+    msgEl.style.color = "var(--muted)";
+    msgEl.textContent = "Creating...";
+    try {
+      await callFunction("table-manager", { action: "create_table", tableName, columns });
+      toast(`Table "${tableName}" created! 🎉`, "ok");
+      backdrop.remove();
+      await loadTables();
+    } catch (err) {
+      msgEl.style.color = "var(--bad)";
+      msgEl.textContent = err.message;
+    }
+  };
+}
+
+/* ---------------------------- Data View (CRUD) ---------------------------- */
+
+async function openTable(t) {
+  activeTable = t;
+  document.getElementById("data-panel").classList.remove("hidden");
+  document.getElementById("data-panel-title").textContent = `🗂️ ${t.display_name}`;
+  await refreshRows();
+  document.getElementById("data-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+document.getElementById("btn-refresh-data").onclick = () => refreshRows();
+document.getElementById("btn-delete-table").onclick = async () => {
+  if (!activeTable) return;
+  if (!confirm(`Delete table "${activeTable.display_name}" and all its data? This can't be undone.`)) return;
+  try {
+    await callFunction("table-manager", { action: "delete_table", physicalName: activeTable.physical_name });
+    toast("Table deleted.", "ok");
+    document.getElementById("data-panel").classList.add("hidden");
+    activeTable = null;
+    await loadTables();
+  } catch (err) {
+    toast(err.message, "err");
+  }
+};
+
+async function refreshRows() {
+  if (!activeTable) return;
+  const { data, error } = await sb.from(activeTable.physical_name).select("*").order("created_at");
+  if (error) { toast(error.message, "err"); return; }
+  renderDataGrid(activeTable, data || []);
+}
+
+function inputForColumn(col, value) {
+  if (col.type === "boolean") {
+    return `<select data-col="${col.name}"><option value="true" ${value === true ? "selected" : ""}>Yes</option><option value="false" ${value === false ? "selected" : ""}>No</option></select>`;
+  }
+  if (col.type === "date") {
+    return `<input type="date" data-col="${col.name}" value="${value ? String(value).slice(0,10) : ""}" />`;
+  }
+  if (col.type === "numeric") {
+    return `<input type="number" data-col="${col.name}" value="${value ?? ""}" />`;
+  }
+  return `<input type="text" data-col="${col.name}" value="${escapeHtml(value ?? "")}" />`;
+}
+
+function readRowInputs(rowEl, columns) {
+  const result = {};
+  columns.forEach((col) => {
+    const el = rowEl.querySelector(`[data-col="${col.name}"]`);
+    let v = el.value;
+    if (col.type === "numeric") v = v === "" ? null : Number(v);
+    if (col.type === "boolean") v = v === "true";
+    if (col.type === "date") v = v === "" ? null : v;
+    result[col.name] = v;
+  });
+  return result;
+}
+
+function renderDataGrid(table, rows) {
+  const container = document.getElementById("data-grid-container");
+  const columns = table.columns;
+
+  if (columns.length === 0) {
+    container.innerHTML = `<div class="empty-state">This table has no columns.</div>`;
+    return;
+  }
+
+  const headerCells = columns.map(
+    (c) => `<th>${escapeHtml(c.name)} <span class="badge ${c.type}">${c.type === "numeric" ? "number" : c.type === "boolean" ? "yes/no" : c.type}</span></th>`
+  ).join("");
+
+  const bodyRows = rows.map((r) => {
+    const cells = columns.map((c) => `<td>${inputForColumn(c, r[c.name])}</td>`).join("");
+    return `<tr data-id="${r.id}">${cells}<td class="row-actions">
+      <button class="ghost small save-row">Save</button>
+      <button class="danger small delete-row">Delete</button>
+    </td></tr>`;
+  }).join("");
+
+  const newRowCells = columns.map((c) => `<td>${inputForColumn(c, c.type === "boolean" ? false : "")}</td>`).join("");
+
+  container.innerHTML = `
+    <div style="overflow-x:auto;">
+    <table class="data-grid">
+      <thead><tr>${headerCells}<th>Actions</th></tr></thead>
+      <tbody>
+        ${bodyRows || ""}
+        <tr data-new="true">${newRowCells}<td class="row-actions"><button class="primary small add-row">+ Add</button></td></tr>
+      </tbody>
+    </table>
+    </div>
+    ${rows.length === 0 ? `<div class="empty-state">No rows yet — add your first one above! ⬆️</div>` : ""}
+  `;
+
+  container.querySelectorAll("tr[data-id]").forEach((rowEl) => {
+    const id = rowEl.dataset.id;
+    rowEl.querySelector(".save-row").onclick = async () => {
+      const values = readRowInputs(rowEl, columns);
+      const { error } = await sb.from(table.physical_name).update(values).eq("id", id);
+      if (error) return toast(error.message, "err");
+      toast("Saved.", "ok");
+    };
+    rowEl.querySelector(".delete-row").onclick = async () => {
+      if (!confirm("Delete this row?")) return;
+      const { error } = await sb.from(table.physical_name).delete().eq("id", id);
+      if (error) return toast(error.message, "err");
+      await refreshRows();
+    };
+  });
+
+  const newRowEl = container.querySelector("tr[data-new]");
+  newRowEl.querySelector(".add-row").onclick = async () => {
+    const values = readRowInputs(newRowEl, columns);
+    const { error } = await sb.from(table.physical_name).insert(values);
+    if (error) return toast(error.message, "err");
+    await refreshRows();
+  };
+}
+
+/* ---------------------------- Schema for AI ---------------------------- */
+
+function renderSchema() {
+  const out = document.getElementById("schema-output");
+  if (myTables.length === 0) {
+    out.textContent = "Create a table first to see its details here.";
+    return;
+  }
+
+  const typeNote = { text: "text", numeric: "number", boolean: "true/false", date: "date" };
+
+  let text = "";
+  text += `I have a Supabase backend already set up. Please build me a frontend (plain HTML/CSS/JS, using the Supabase JS client) that works with it.\n\n`;
+  text += `SUPABASE_URL = "${SUPABASE_URL}"\n`;
+  text += `SUPABASE_ANON_KEY = "${SUPABASE_ANON_KEY}"\n\n`;
+  text += `I'm already logged in via supabase.auth before this code runs, so you can assume a valid session exists ` +
+          `and just use the Supabase client directly for CRUD (select/insert/update/delete) against these tables.\n\n`;
+  text += `My tables:\n\n`;
+
+  myTables.forEach((t) => {
+    text += `Table: ${t.physical_name}  (I call this "${t.display_name}" in my app)\n`;
+    text += `Columns:\n`;
+    text += `  - id (unique identifier, auto-generated)\n`;
+    t.columns.forEach((c) => {
+      text += `  - ${c.name} (${typeNote[c.type] || c.type})\n`;
+    });
+    text += `  - created_at (date/time created, auto-generated)\n`;
+    text += `Note: rows are automatically scoped to me (owner_id), so I never need to set or filter by owner_id myself.\n\n`;
+  });
+
+  text += `Please build a complete, working single HTML file I can run directly.`;
+
+  out.textContent = text;
+}
+
+document.getElementById("btn-copy-schema").onclick = async () => {
+  const text = document.getElementById("schema-output").textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    toast("Copied! Paste it to your AI. 🤖", "ok");
+  } catch {
+    toast("Couldn't copy automatically — select the text and copy manually.", "err");
+  }
+};
+
+/* ---------------------------- App Maker ---------------------------- */
+
+document.getElementById("btn-run-app").onclick = () => {
+  const code = document.getElementById("paste-code").value;
+  document.getElementById("app-frame").srcdoc = code;
+};
+
+function savedAppsKey() {
+  return `sandbox_apps_${currentUser?.id || "anon"}`;
+}
+
+function getSavedApps() {
+  try { return JSON.parse(localStorage.getItem(savedAppsKey()) || "{}"); }
+  catch { return {}; }
+}
+
+function setSavedApps(obj) {
+  localStorage.setItem(savedAppsKey(), JSON.stringify(obj));
+}
+
+function clearSavedApps() {
+  if (currentUser) localStorage.removeItem(savedAppsKey());
+}
+
+document.getElementById("btn-save-app").onclick = () => {
+  const name = document.getElementById("save-app-name").value.trim();
+  const code = document.getElementById("paste-code").value;
+  if (!name) return toast("Give your app a name first.", "err");
+  if (!code) return toast("Nothing to save yet.", "err");
+  const apps = getSavedApps();
+  apps[name] = code;
+  setSavedApps(apps);
+  document.getElementById("save-app-name").value = "";
+  toast(`Saved "${name}".`, "ok");
+  renderSavedApps();
+};
+
+function renderSavedApps() {
+  const list = document.getElementById("saved-apps-list");
+  const apps = getSavedApps();
+  list.innerHTML = "";
+  Object.keys(apps).forEach((name) => {
+    const pill = document.createElement("div");
+    pill.className = "saved-app-pill";
+    pill.innerHTML = `<span>${escapeHtml(name)}</span>
+      <button class="ghost small load-btn">Load</button>
+      <button class="danger small del-btn">✕</button>`;
+    pill.querySelector(".load-btn").onclick = () => {
+      document.getElementById("paste-code").value = apps[name];
+      document.getElementById("app-frame").srcdoc = apps[name];
+    };
+    pill.querySelector(".del-btn").onclick = () => {
+      delete apps[name];
+      setSavedApps(apps);
+      renderSavedApps();
+    };
+    list.appendChild(pill);
+  });
+}
+</script>
+</body>
+</html>
