@@ -776,7 +776,16 @@ function injectParentSession(code, session) {
     access_token: session?.access_token || null,
     refresh_token: session?.refresh_token || null,
   });
-  const script = `<script>window.PARENT_SESSION = ${payload};</script>`;
+  // The backslash before the final closing-tag slash below is deliberate:
+  // this string is sitting inside this page's OWN inline script block,
+  // and the HTML parser looks for the literal closing-script sequence to
+  // know where that block ends - it doesn't know or care whether the
+  // sequence appears inside a JS string, template literal, or even a
+  // comment. Writing that sequence un-escaped anywhere in this block
+  // (including in a comment like this one) would truncate this very
+  // script block and break the whole page on load, which is exactly what
+  // happened the first time this was written without the backslash.
+  const script = `<script>window.PARENT_SESSION = ${payload};<\/script>`;
   if (/<head[^>]*>/i.test(code)) return code.replace(/<head[^>]*>/i, (m) => `${m}\n${script}`);
   if (/<html[^>]*>/i.test(code)) return code.replace(/<html[^>]*>/i, (m) => `${m}\n${script}`);
   return `${script}\n${code}`;
