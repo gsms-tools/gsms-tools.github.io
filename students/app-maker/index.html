@@ -524,7 +524,7 @@ function openNewTableModal() {
         <label>Table name</label>
         <input id="new-table-name" placeholder="e.g. todos, players, recipes" />
       </div>
-      <label style="display:block; margin: 14px 0 6px; color: var(--muted); font-size:13px;">Columns</label>
+      <label style="display:block; margin: 14px 0 6px; color: var(--muted); font-size:13px;">Columns <span style="opacity:.8;">(an id column is added for you automatically — no need to add one)</span></label>
       <div id="columns-list"></div>
       <button class="ghost small" id="add-column-btn">+ Add column</button>
       <div class="modal-actions">
@@ -572,8 +572,9 @@ function openNewTableModal() {
     msgEl.style.color = "var(--muted)";
     msgEl.textContent = "Creating...";
     try {
-      await callFunction("table-manager", { action: "create_table", tableName, columns });
+      const result = await callFunction("table-manager", { action: "create_table", tableName, columns });
       toast(`Table "${tableName}" created! 🎉`, "ok");
+      if (result.note) toast(result.note, "ok");
       backdrop.remove();
       await loadTables();
     } catch (err) {
@@ -717,8 +718,18 @@ function renderSchema() {
   text += `I have a Supabase backend already set up. Please build me a frontend (plain HTML/CSS/JS, using the Supabase JS client) that works with it.\n\n`;
   text += `SUPABASE_URL = "${SUPABASE_URL}"\n`;
   text += `SUPABASE_ANON_KEY = "${SUPABASE_ANON_KEY}"\n\n`;
-  text += `I'm already logged in via supabase.auth before this code runs, so you can assume a valid session exists ` +
-          `and just use the Supabase client directly for CRUD (select/insert/update/delete) against these tables.\n\n`;
+  text += `IMPORTANT - how login works here: my code will run inside an iframe that, before your code runs, already defines:\n`;
+  text += `  window.PARENT_SESSION = { access_token: "...", refresh_token: "..." }\n`;
+  text += `Right after creating your Supabase client, and BEFORE any select/insert/update/delete, you must run:\n`;
+  text += `  await supabaseClient.auth.setSession({\n`;
+  text += `    access_token: window.PARENT_SESSION.access_token,\n`;
+  text += `    refresh_token: window.PARENT_SESSION.refresh_token\n`;
+  text += `  });\n`;
+  text += `and wait for it to finish (check it didn't return an error) before touching the database. ` +
+          `Do NOT rely on supabaseClient.auth.getSession() finding an existing session on its own - there isn't one ` +
+          `until you call setSession with window.PARENT_SESSION. My tables are protected by Row Level Security, ` +
+          `so skipping this step (or calling it after a database request) causes every request to fail with a ` +
+          `"permission denied" / RLS error, even though the backend itself is working fine.\n\n`;
   text += `My tables:\n\n`;
 
   myTables.forEach((t) => {
@@ -749,9 +760,36 @@ document.getElementById("btn-copy-schema").onclick = async () => {
 
 /* ---------------------------- App Maker ---------------------------- */
 
+// The iframe below runs via `srcdoc`, which gives it its own isolated
+// browsing context - it does NOT share this page's localStorage/session.
+// So the pasted app's own Supabase client starts out logged out, and any
+// database call it makes goes out as the anonymous role, which RLS (and
+// our table grants) correctly reject.
+//
+// To fix that, we hand the student's current access/refresh token to the
+// iframe as a global variable before the pasted code runs. The prompt we
+// generate in the "Schema for AI" tab tells the AI to call
+// `supabaseClient.auth.setSession(...)` with it before doing any database
+// operations, which logs its own client in as the same student.
+function injectParentSession(code, session) {
+  const payload = JSON.stringify({
+    access_token: session?.access_token || null,
+    refresh_token: session?.refresh_token || null,
+  });
+  const script = `<script>window.PARENT_SESSION = ${payload};</script>`;
+  if (/<head[^>]*>/i.test(code)) return code.replace(/<head[^>]*>/i, (m) => `${m}\n${script}`);
+  if (/<html[^>]*>/i.test(code)) return code.replace(/<html[^>]*>/i, (m) => `${m}\n${script}`);
+  return `${script}\n${code}`;
+}
+
+async function runInFrame(code) {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) toast("Your login session seems to have expired - try logging out and back in.", "err");
+  document.getElementById("app-frame").srcdoc = injectParentSession(code, session);
+}
+
 document.getElementById("btn-run-app").onclick = () => {
-  const code = document.getElementById("paste-code").value;
-  document.getElementById("app-frame").srcdoc = code;
+  runInFrame(document.getElementById("paste-code").value);
 };
 
 function savedAppsKey() {
@@ -796,7 +834,7 @@ function renderSavedApps() {
       <button class="danger small del-btn">✕</button>`;
     pill.querySelector(".load-btn").onclick = () => {
       document.getElementById("paste-code").value = apps[name];
-      document.getElementById("app-frame").srcdoc = apps[name];
+      runInFrame(apps[name]);
     };
     pill.querySelector(".del-btn").onclick = () => {
       delete apps[name];
