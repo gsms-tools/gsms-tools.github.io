@@ -733,6 +733,14 @@
             <select id="compile-subject" disabled><option value="">Select exam first&hellip;</option></select>
           </div>
         </div>
+        <div class="field" id="compile-classes-field" style="display:none;">
+          <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <span>Classes to include</span>
+            <a href="#" id="compile-classes-toggle-all" style="font-size:.76rem;font-weight:700;letter-spacing:normal;text-transform:none;color:var(--teal-700);">Clear all</a>
+          </label>
+          <div id="compile-classes-list"></div>
+          <p class="hint" id="compile-classes-hint" style="margin-top:6px;"></p>
+        </div>
         <button class="btn btn-teal btn-block" id="btn-load-subject-compile" type="button" style="margin-top:6px;">Compile this subject's syllabus</button>
       </div>
 
@@ -1394,6 +1402,10 @@ function populateCompileExamDropdown(){
 
 var compileExamSel = document.getElementById('compile-exam');
 var compileSubjectSel = document.getElementById('compile-subject');
+var compileClassesField = document.getElementById('compile-classes-field');
+var compileClassesList = document.getElementById('compile-classes-list');
+var compileClassesToggleAll = document.getElementById('compile-classes-toggle-all');
+var compileClassesHint = document.getElementById('compile-classes-hint');
 
 compileExamSel.addEventListener('change', function(){
   var examVal = compileExamSel.value;
@@ -1404,7 +1416,53 @@ compileExamSel.addEventListener('change', function(){
   if(examVal && subjects.length === 0){
     toast('No subjects of yours are mapped to this exam yet.', true);
   }
+  hideCompileClassesField();
   hideCompileSubjectResults();
+});
+
+compileSubjectSel.addEventListener('change', function(){
+  var examVal = compileExamSel.value, subjVal = compileSubjectSel.value;
+  if(!examVal || !subjVal){ hideCompileClassesField(); hideCompileSubjectResults(); return; }
+  renderCompileClassesField(examVal, subjVal);
+  hideCompileSubjectResults();
+});
+
+function hideCompileClassesField(){
+  compileClassesField.style.display = 'none';
+  compileClassesList.innerHTML = '';
+}
+
+function renderCompileClassesField(examVal, subjVal){
+  var classes = classesForSubjectAndExam(examVal, subjVal);
+  if(classes.length === 0){
+    hideCompileClassesField();
+    toast('No classes found for this subject and exam.', true);
+    return;
+  }
+  compileClassesList.innerHTML = classes.map(function(c){
+    return '<label class="pdf-field-option"><input type="checkbox" class="compile-class-checkbox" value="'+c+'" checked><span>'+c+'</span></label>';
+  }).join('');
+  compileClassesField.style.display = 'block';
+  refreshCompileClassesToggleLabel();
+  compileClassesList.querySelectorAll('.compile-class-checkbox').forEach(function(cb){
+    cb.addEventListener('change', refreshCompileClassesToggleLabel);
+  });
+}
+
+function refreshCompileClassesToggleLabel(){
+  var boxes = compileClassesList.querySelectorAll('.compile-class-checkbox');
+  var checkedCount = compileClassesList.querySelectorAll('.compile-class-checkbox:checked').length;
+  compileClassesToggleAll.textContent = checkedCount === boxes.length ? 'Clear all' : 'Select all';
+  compileClassesHint.textContent = checkedCount + ' of ' + boxes.length + ' class' + (boxes.length === 1 ? '' : 'es') + ' selected.';
+}
+
+compileClassesToggleAll.addEventListener('click', function(e){
+  e.preventDefault();
+  var boxes = compileClassesList.querySelectorAll('.compile-class-checkbox');
+  var checkedCount = compileClassesList.querySelectorAll('.compile-class-checkbox:checked').length;
+  var makeChecked = checkedCount !== boxes.length;
+  boxes.forEach(function(cb){ cb.checked = makeChecked; });
+  refreshCompileClassesToggleLabel();
 });
 
 function hideCompileSubjectResults(){
@@ -1418,8 +1476,8 @@ document.getElementById('btn-load-subject-compile').addEventListener('click', fu
   var examVal = compileExamSel.value, subjVal = compileSubjectSel.value;
   if(!examVal || !subjVal){ toast('Select an exam and subject first.', true); return; }
 
-  var classes = classesForSubjectAndExam(examVal, subjVal);
-  if(classes.length === 0){ toast('No classes found for this subject and exam.', true); return; }
+  var classes = Array.prototype.slice.call(compileClassesList.querySelectorAll('.compile-class-checkbox:checked')).map(function(cb){ return cb.value; });
+  if(classes.length === 0){ toast('Select at least one class to include.', true); return; }
 
   var btn = this;
   btn.disabled = true; btn.textContent = 'Loading\u2026';
