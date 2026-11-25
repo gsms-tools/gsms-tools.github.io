@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpaceCraft — Gopal Sharma Memorial School</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Baloo+2:wght@500;600;700&family=Exo+2:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#040712;
+    --bg-nebula1: #1b0f3a;
+    --bg-nebula2: #06122e;
+    --accent-cyan:#4be3ff;
+    --accent-pink:#ff5fb0;
+    --accent-gold:#ffd166;
+    --accent-violet:#9b6bff;
+    --text-main:#eaf0ff;
+    --text-dim:#a7b3d6;
+    --card-bg: rgba(18, 22, 46, 0.65);
+    --card-border: rgba(130, 170, 255, 0.18);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: radial-gradient(ellipse at 20% 0%, var(--bg-nebula1) 0%, transparent 55%),
+                radial-gradient(ellipse at 85% 15%, var(--bg-nebula2) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 100%, #10163a 0%, transparent 60%),
+                var(--bg-deep);
+    color: var(--text-main);
+    font-family: 'Exo 2', sans-serif;
+    overflow-x:hidden;
+    position:relative;
+    min-height:100vh;
+  }
+
+  /* ---------- Starfield ---------- */
+  #stars-canvas{
+    position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none;
+  }
+
+  .shooting-star{
+    position:fixed;
+    top:0; left:0;
+    width:2px; height:2px;
+    background: linear-gradient(-45deg, rgba(255,255,255,1), rgba(255,255,255,0));
+    border-radius:999px;
+    filter: drop-shadow(0 0 6px #fff);
+    z-index:1;
+    opacity:0;
+    pointer-events:none;
+  }
+  @keyframes shoot{
+    0%{ transform: translate(0,0) rotate(215deg); opacity:1; width:2px; }
+    10%{ opacity:1; }
+    70%{ opacity:1; }
+    100%{ transform: translate(-900px, 650px) rotate(215deg); opacity:0; width:180px;}
+  }
+
+  /* ---------- Layout wrapper ---------- */
+  .wrap{ position:relative; z-index:2; max-width:1180px; margin:0 auto; padding: 28px 24px 80px; }
+
+  /* ---------- Header ---------- */
+  header.site-header{
+    display:flex; align-items:center; justify-content:space-between; gap:20px;
+    padding: 10px 6px 26px;
+    flex-wrap:wrap;
+  }
+  .brand{ display:flex; align-items:center; gap:14px; }
+  .brand img{
+    width:100px; height:100px; object-fit:contain;
+    filter: drop-shadow(0 0 10px rgba(120,170,255,0.45));
+    /*background: rgba(255,255,255,0.06);*/
+    background: white;
+    border-radius:14px; padding:6px;
+    border:1px solid var(--card-border);
+  }
+  .logo-fallback{
+    width:56px; height:56px; border-radius:14px;
+    display:none; align-items:center; justify-content:center;
+    background: linear-gradient(135deg, rgba(75,227,255,0.18), rgba(155,107,255,0.18));
+    border:1px solid var(--card-border);
+    font-family:'Orbitron',sans-serif; font-weight:700; color:var(--accent-cyan); font-size:0.8rem;
+    letter-spacing:0.03em; flex-shrink:0;
+  }
+  footer .logo-fallback{ width:30px; height:30px; border-radius:8px; font-size:0.5rem; }
+  .brand .school-name{ font-family:'Baloo 2', sans-serif; font-weight:600; font-size: 1.05rem; color: var(--text-main); line-height:1.2;}
+  .brand .school-sub{ font-size:0.72rem; letter-spacing:0.12em; color: var(--text-dim); text-transform:uppercase;}
+
+  .proudly{
+    font-size:0.78rem; color: var(--text-dim); text-align:right;
+    letter-spacing:0.03em;
+  }
+  .proudly b{ color: var(--accent-cyan); }
+
+  /* ---------- Hero ---------- */
+  .hero{ position:relative; text-align:center; padding: 38px 10px 54px; }
+  .hero .badge{
+    display:inline-flex; align-items:center; gap:8px;
+    background: rgba(155,107,255,0.14); border:1px solid rgba(155,107,255,0.4);
+    color: var(--accent-violet); padding: 6px 16px; border-radius:999px;
+    font-size:0.75rem; letter-spacing:0.14em; text-transform:uppercase; margin-bottom:22px;
+    font-weight:600;
+  }
+  .hero h1{
+    font-family:'Orbitron', sans-serif;
+    font-size: clamp(2.6rem, 7vw, 5rem);
+    margin: 0 0 10px;
+    font-weight:900;
+    background: linear-gradient(90deg, #8ff1ff 0%, #c9a6ff 45%, #ff9ad6 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    letter-spacing:0.02em;
+    text-shadow: 0 0 60px rgba(150,130,255,0.25);
+  }
+  .hero p.lede{
+    max-width:640px; margin: 0 auto 6px; color: var(--text-dim); font-size:1.08rem; line-height:1.65;
+  }
+  .hero p.lede b{ color: var(--text-main); font-weight:600;}
+
+  .orbit-scene{
+    position:relative; height: 170px; margin: 30px auto 6px; max-width: 520px;
+  }
+  .sun-core{
+    position:absolute; left:50%; top:50%; width:46px; height:46px; margin:-23px 0 0 -23px;
+    border-radius:50%;
+    background: radial-gradient(circle at 35% 35%, #fff6cf, #ffd166 45%, #ff8a3d 100%);
+    box-shadow: 0 0 40px 10px rgba(255,180,90,0.55), 0 0 90px 30px rgba(255,120,80,0.25);
+    animation: pulseSun 4s ease-in-out infinite;
+  }
+  @keyframes pulseSun{ 0%,100%{ transform:scale(1);} 50%{ transform:scale(1.08);} }
+  .orbit{
+    position:absolute; left:50%; top:50%; border:1px dashed rgba(170,190,255,0.22);
+    border-radius:50%; transform: translate(-50%,-50%);
+  }
+  .orbit.o1{ width:160px; height:160px; animation: spin 7s linear infinite; }
+  .orbit.o2{ width:260px; height:260px; animation: spin 13s linear infinite reverse; }
+  .orbit.o3{ width:380px; height:92px; animation: spin 19s linear infinite; }
+  @keyframes spin{ from{ transform: translate(-50%,-50%) rotate(0deg);} to{ transform: translate(-50%,-50%) rotate(360deg);} }
+  .planet{ position:absolute; border-radius:50%; top:-7px; left:50%; margin-left:-7px; }
+  .p1{ width:14px; height:14px; background: radial-gradient(circle at 35% 35%, #9be8ff, #2aa9e0); box-shadow:0 0 12px #4be3ff;}
+  .p2{ width:20px; height:20px; background: radial-gradient(circle at 35% 35%, #ffd0ec, #ff5fb0); box-shadow:0 0 14px #ff5fb0;}
+  .p3{ width:11px; height:11px; background: radial-gradient(circle at 35% 35%, #d9c8ff, #9b6bff); box-shadow:0 0 10px #9b6bff; left:0; margin-left:-5px;}
+
+  .scroll-cue{ color:var(--text-dim); font-size:0.78rem; letter-spacing:0.1em; text-transform:uppercase; margin-top:10px; }
+
+  /* ---------- Section titles ---------- */
+  .section-title{ text-align:center; margin: 10px 0 8px; }
+  .section-title h2{
+    font-family:'Orbitron', sans-serif; font-size: clamp(1.5rem, 3.4vw, 2.1rem);
+    color: var(--text-main); margin:0 0 8px; letter-spacing:0.02em;
+  }
+  .section-title .rule{
+    width:70px; height:3px; margin:0 auto; border-radius:3px;
+    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-violet), var(--accent-pink));
+  }
+
+  /* ---------- About card ---------- */
+  .about{
+    background: var(--card-bg);
+    border:1px solid var(--card-border);
+    border-radius:22px;
+    padding: 30px 32px;
+    margin: 36px 0 54px;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+    display:grid; grid-template-columns: 1fr; gap:18px;
+  }
+  .about-grid{ display:grid; grid-template-columns: repeat(3,1fr); gap:18px; margin-top:8px;}
+  @media (max-width:720px){ .about-grid{ grid-template-columns:1fr; } }
+  .about p{ color:var(--text-dim); line-height:1.75; font-size:1rem; margin:0;}
+  .about p b{ color:var(--text-main);}
+  .fact{
+    background: rgba(255,255,255,0.035); border:1px solid rgba(255,255,255,0.08);
+    border-radius:14px; padding:16px 18px; text-align:center;
+  }
+  .fact .emoji{ font-size:1.6rem; display:block; margin-bottom:6px;}
+  .fact .num{ font-family:'Orbitron',sans-serif; font-size:1.4rem; color:var(--accent-cyan); font-weight:700; display:block;}
+  .fact .lbl{ font-size:0.78rem; color:var(--text-dim); letter-spacing:0.04em; text-transform:uppercase;}
+
+  /* ---------- Video grid ---------- */
+  .video-grid{
+    display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap:26px; margin-top:34px;
+  }
+  .vcard{
+    position:relative;
+    background: var(--card-bg);
+    border:1px solid var(--card-border);
+    border-radius:18px;
+    overflow:hidden;
+    cursor:pointer;
+    transition: transform .35s ease, box-shadow .35s ease, border-color .35s ease;
+    display:flex; flex-direction:column;
+  }
+  .vcard:hover{
+    transform: translateY(-8px) scale(1.015);
+    box-shadow: 0 25px 55px rgba(80,120,255,0.25);
+    border-color: rgba(150,190,255,0.5);
+  }
+  .vcard .thumb-wrap{
+    position:relative; width:100%; aspect-ratio: 16/10; overflow:hidden;
+    background: linear-gradient(135deg, #171b35, #0a0e22);
+  }
+  .vcard .thumb-wrap svg{
+    width:100%; height:100%; display:block;
+    transition: transform .6s ease;
+  }
+  .vcard:hover .thumb-wrap svg{ transform: scale(1.08); }
+  .thumb-wrap::after{
+    content:""; position:absolute; inset:0;
+    background: linear-gradient(180deg, rgba(5,8,20,0) 45%, rgba(5,8,20,0.82) 100%);
+    pointer-events:none;
+  }
+  .spin-slow{ animation: spin 16s linear infinite; transform-origin:center; }
+  .spin-slower{ animation: spin 28s linear infinite reverse; transform-origin:center; }
+  .pulse-soft{ animation: pulseSoft 2.6s ease-in-out infinite; transform-origin:center; }
+  .twinkle{ animation: twinkleKF 2.2s ease-in-out infinite; }
+  .drift{ animation: driftKF 4s ease-in-out infinite; }
+  @keyframes pulseSoft{ 0%,100%{ transform:scale(1); opacity:1;} 50%{ transform:scale(1.08); opacity:0.85;} }
+  @keyframes twinkleKF{ 0%,100%{ opacity:0.35;} 50%{ opacity:1;} }
+  @keyframes driftKF{ 0%,100%{ transform:translateY(0);} 50%{ transform:translateY(-6px);} }
+  .seq-badge{
+    position:absolute; top:10px; left:10px; z-index:2;
+    font-family:'Orbitron',sans-serif; font-weight:700; font-size:0.72rem;
+    background: rgba(8,10,26,0.75); border:1px solid rgba(255,255,255,0.18);
+    color: var(--accent-gold); padding:4px 10px; border-radius:999px; letter-spacing:0.05em;
+  }
+  .play-btn{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) scale(0.92);
+    width:58px; height:58px; border-radius:50%; z-index:2;
+    background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.95), rgba(180,200,255,0.75));
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: 0 0 0 6px rgba(255,255,255,0.08), 0 10px 25px rgba(0,0,0,0.4);
+    transition: transform .3s ease, box-shadow .3s ease;
+  }
+  .vcard:hover .play-btn{ transform:translate(-50%,-50%) scale(1.08); box-shadow: 0 0 0 10px rgba(255,255,255,0.14), 0 14px 30px rgba(0,0,0,0.5);}
+  .play-btn svg{ width:20px; height:20px; margin-left:3px; fill:#161b33; }
+
+  .vcard .vbody{ padding: 16px 18px 20px; flex:1; display:flex; flex-direction:column; gap:6px; position:relative; z-index:2;}
+  .vcard .vtitle{ font-family:'Baloo 2', sans-serif; font-weight:600; font-size:1.08rem; color:var(--text-main); margin:0;}
+  .vcard .vdesc{ font-size:0.86rem; color:var(--text-dim); line-height:1.55; margin:0; }
+  .vcard .vtag{
+    align-self:flex-start; margin-top:4px; font-size:0.68rem; letter-spacing:0.06em; text-transform:uppercase;
+    color: var(--accent-cyan); border:1px solid rgba(75,227,255,0.35); background: rgba(75,227,255,0.08);
+    padding:3px 10px; border-radius:999px;
+  }
+
+  /* ---------- Fullscreen overlay ---------- */
+  .overlay{
+    position:fixed; inset:0; z-index:1000;
+    background: rgba(2,4,12,0.95);
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none;
+    transition: opacity .3s ease;
+    backdrop-filter: blur(4px);
+  }
+  .overlay.open{ opacity:1; pointer-events:auto; }
+  .overlay .player-box{
+    width:min(94vw, 1100px);
+    position:relative;
+    transform: scale(0.96);
+    transition: transform .3s ease;
+  }
+  .overlay.open .player-box{ transform: scale(1); }
+  .overlay video{
+    width:100%; max-height:82vh; border-radius:14px; background:#000;
+    box-shadow: 0 30px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08);
+  }
+  .overlay .ov-title{
+    color: var(--text-main); font-family:'Baloo 2',sans-serif; text-align:center; margin: 16px 0 0; font-size:1.1rem;
+  }
+  .overlay .close-btn{
+    position:absolute; top:-18px; right:-18px; width:42px; height:42px; border-radius:50%;
+    background: rgba(20,24,48,0.9); border:1px solid rgba(255,255,255,0.25);
+    color:#fff; font-size:1.3rem; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; line-height:1;
+  }
+  .overlay .close-btn:hover{ background: var(--accent-pink); border-color: var(--accent-pink); }
+  @media (max-width:640px){
+    .overlay .close-btn{ top:-52px; right:0; }
+  }
+
+  /* ---------- Footer ---------- */
+  footer{
+    margin-top: 70px; padding-top: 30px; border-top:1px solid rgba(255,255,255,0.08);
+    display:flex; flex-wrap:wrap; gap:16px; align-items:center; justify-content:space-between;
+    color: var(--text-dim); font-size:0.85rem;
+  }
+  footer .f-brand{ display:flex; align-items:center; gap:10px; }
+  footer img{ width:30px; height:30px; object-fit:contain; border-radius:8px; background:rgba(255,255,255,0.06); padding:3px;}
+  footer a{ color: var(--accent-cyan); text-decoration:none;}
+
+  ::selection{ background: var(--accent-violet); color:#fff; }
+
+  @media (max-width:560px){
+    header.site-header{ flex-direction:column; align-items:flex-start; }
+    .proudly{ text-align:left; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="stars-canvas"></canvas>
+
+<div class="wrap">
+
+  <header class="site-header">
+    <div class="brand">
+      <img src="https://sourabhsuneja.github.io/gsms-logo-short.png" alt="Gopal Sharma Memorial School logo"
+           onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+      <div class="logo-fallback">GSMS</div>
+      <div>
+        <div class="school-name">Gopal Sharma Memorial School</div>
+        <div class="school-sub">Jaipur</div>
+      </div>
+    </div>
+    <div class="proudly">presents<br><b>SpaceCraft</b> — Space Observation Programme</div>
+  </header>
+
+  <section class="hero">
+    <span class="badge">✦ For Our Young Astronomers ✦</span>
+    <h1>SpaceCraft</h1>
+    <p class="lede">A journey from the <b>first spark of the universe</b> to the <b>planet we call home</b> — join us as we look up, wonder, and discover how everything around us came to be.</p>
+
+    <div class="orbit-scene" aria-hidden="true">
+      <div class="sun-core"></div>
+      <div class="orbit o1"><div class="planet p1"></div></div>
+      <div class="orbit o2"><div class="planet p2"></div></div>
+      <div class="orbit o3"><div class="planet p3"></div></div>
+    </div>
+    <div class="scroll-cue">▾ scroll to explore the films ▾</div>
+  </section>
+
+  <section class="about">
+    <div class="section-title" style="margin-top:0;">
+      <h2>About the Programme</h2>
+      <div class="rule"></div>
+    </div>
+    <p>
+      <b>SpaceCraft</b> is Gopal Sharma Memorial School's space-observation initiative for curious young minds. Through
+      guided night-sky viewings, telescope sessions and a specially curated film library, students explore the
+      origins of the cosmos — from the Big Bang to the birth of our own planet — and learn to see the night sky not
+      just as stars, but as a story billions of years in the making.
+    </p>
+    <div class="about-grid">
+      <div class="fact"><span class="emoji">🌌</span><span class="num">8</span><span class="lbl">Short Films</span></div>
+      <div class="fact"><span class="emoji">🔭</span><span class="num">13.8B</span><span class="lbl">Years of History</span></div>
+      <div class="fact"><span class="emoji">🪐</span><span class="num">1</span><span class="lbl">Amazing Home Planet</span></div>
+    </div>
+  </section>
+
+  <section class="section-title">
+    <h2>Watch &amp; Explore</h2>
+    <div class="rule"></div>
+  </section>
+
+  <div class="video-grid" id="videoGrid"></div>
+
+  <footer>
+    <div class="f-brand">
+      <img src="https://sourabhsuneja.github.io/gsms-logo-short.png" alt="School logo"
+           onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+      <div class="logo-fallback">GSMS</div>
+      <span>Gopal Sharma Memorial School, Jaipur</span>
+    </div>
+    <div>SpaceCraft Observation Programme · Reach for the stars ✦</div>
+  </footer>
+
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="player-box">
+    <div class="close-btn" id="closeBtn" title="Close">✕</div>
+    <video id="player" controls playsinline></video>
+    <div class="ov-title" id="ovTitle"></div>
+  </div>
+</div>
+
+<script>
+/* ============ DATA ============ */
+const BASE = "https://pub-f87d1a2045ce471e92b38057afcf3b65.r2.dev/";
+
+const videos = [
+  {
+    file: "beginning-of-universe.mp4",
+    title: "The Beginning of the Universe",
+    desc: "Travel back 13.8 billion years to the Big Bang — the fiery moment everything began.",
+    tag: "Cosmic Origins",
+    art: `<svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="bb-bg" cx="50%" cy="50%" r="75%">
+          <stop offset="0%" stop-color="#2a1550"/><stop offset="100%" stop-color="#050611"/>
+        </radialGradient>
+        <radialGradient id="bb-core" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#fff7d6"/><stop offset="35%" stop-color="#ffb27a"/>
+          <stop offset="70%" stop-color="#ff5fb0"/><stop offset="100%" stop-color="#9b6bff" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <rect width="400" height="250" fill="url(#bb-bg)"/>
+      <g class="twinkle"><circle cx="60" cy="40" r="1.4" fill="#fff"/><circle cx="330" cy="60" r="1.1" fill="#fff"/>
+      <circle cx="350" cy="190" r="1.6" fill="#fff"/><circle cx="40" cy="190" r="1.2" fill="#fff"/>
+      <circle cx="200" cy="30" r="1" fill="#fff"/></g>
+      <g class="spin-slow" style="transform-box:fill-box; transform-origin:200px 125px;">
+        ${Array.from({length:16}).map((_,k)=>{const ang=k*22.5; return `<line x1="200" y1="125" x2="${200+Math.cos(ang*Math.PI/180)*150}" y2="${125+Math.sin(ang*Math.PI/180)*150}" stroke="#ffb27a" stroke-opacity="0.18" stroke-width="2"/>`;}).join('')}
+      </g>
+      <circle cx="200" cy="125" r="46" fill="url(#bb-core)" class="pulse-soft"/>
+      <circle cx="200" cy="125" r="18" fill="#fff" opacity="0.9"/>
+    </svg>`
+  },
+  {
+    file: "how-big-is-universe.mp4",
+    title: "How Big is the Universe?",
+    desc: "A mind-bending journey through scale — from our tiny Earth to galaxies beyond count.",
+    tag: "Scale of Space",
+    art: `<svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+      <defs><radialGradient id="sc-bg" cx="50%" cy="50%" r="75%">
+        <stop offset="0%" stop-color="#101a3d"/><stop offset="100%" stop-color="#050611"/></radialGradient></defs>
+      <rect width="400" height="250" fill="url(#sc-bg)"/>
+      <g class="twinkle"><circle cx="30" cy="30" r="1.2" fill="#fff"/><circle cx="370" cy="40" r="1" fill="#fff"/>
+      <circle cx="370" cy="220" r="1.4" fill="#fff"/><circle cx="25" cy="215" r="1" fill="#fff"/></g>
+      <g class="spin-slower" style="transform-box:fill-box; transform-origin:200px 125px;" fill="none">
+        <circle cx="200" cy="125" r="110" stroke="#4be3ff" stroke-opacity="0.35" stroke-dasharray="3 7"/>
+        <circle cx="200" cy="125" r="80" stroke="#9b6bff" stroke-opacity="0.4" stroke-dasharray="3 7"/>
+        <circle cx="200" cy="125" r="50" stroke="#ff5fb0" stroke-opacity="0.45" stroke-dasharray="3 7"/>
+      </g>
+      <circle cx="200" cy="125" r="7" fill="#ffd166" class="pulse-soft"/>
+      <circle cx="276" cy="125" r="4" fill="#4be3ff"/>
+      <circle cx="140" cy="86" r="3" fill="#9be8ff"/>
+      <circle cx="235" cy="185" r="2.6" fill="#ff9ad6"/>
+    </svg>`
+  },
+  {
+    file: "how-stars-die.mp4",
+    title: "How Stars Die",
+    desc: "Witness the dazzling, explosive end of a star's life — and why its 'death' matters to us.",
+    tag: "Stellar Life Cycle",
+    art: `<svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+      <defs><radialGradient id="sn-bg" cx="50%" cy="50%" r="75%">
+        <stop offset="0%" stop-color="#3a0f2a"/><stop offset="100%" stop-color="#05060f"/></radialGradient>
+        <radialGradient id="sn-core" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#fff"/><stop offset="30%" stop-color="#ffe1a8"/>
+          <stop offset="65%" stop-color="#ff7a45"/><stop offset="100%" stop-color="#ff5fb0" stop-opacity="0"/>
+        </radialGradient></defs>
+      <rect width="400" height="250" fill="url(#sn-bg)"/>
+      <g class="twinkle"><circle cx="50" cy="45" r="1.2" fill="#fff"/><circle cx="355" cy="200" r="1.3" fill="#fff"/></g>
+      <circle cx="200" cy="125" r="95" fill="none" stroke="#ff9ad6" stroke-opacity="0.3" stroke-width="2" class="pulse-soft"/>
+      <circle cx="200" cy="125" r="65" fill="none" stroke="#ffd166" stroke-opacity="0.35" stroke-width="2"/>
+      <g class="spin-slow" style="transform-box:fill-box; transform-origin:200px 125px;">
+        ${Array.from({length:10}).map((_,k)=>{const ang=k*36; const x2=200+Math.cos(ang*Math.PI/180)*58, y2=125+Math.sin(ang*Math.PI/180)*58; return `<polygon points="200,125 ${200+Math.cos((ang-9)*Math.PI/180)*30},${125+Math.sin((ang-9)*Math.PI/180)*30} ${x2},${y2} ${200+Math.cos((ang+9)*Math.PI/180)*30},${125+Math.sin((ang+9)*Math.PI/180)*30}" fill="#ffb27a" opacity="0.5"/>`;}).join('')}
+      </g>
+      <circle cx="200" cy="125" r="34" fill="url(#sn-core)"/>
+    </svg>`
+  },
+  {
+    file: "how-was-oxygen-created.mp4",
+    title: "How Was Oxygen Created?",
+    desc: "The air we breathe was forged inside dying stars. Discover the cosmic origin of oxygen.",
+    tag: "Elements & Life",
+    art: `<svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+      <defs><radialGradient id="ox-bg" cx="40%" cy="40%" r="80%">
+        <stop offset="0%" stop-color="#0c2a3a"/><stop offset="100%" stop-color="#050a12"/></radialGradient></defs>
+      <rect width="400" height="250" fill="url(#ox-bg)"/>
+      <ellipse cx="120" cy="90" rx="110" ry="55" fill="#2fa6c9" opacity="0.18"/>
+      <ellipse cx="290" cy="170" rx="100" ry="50" fill="#4be3ff" opacity="0.14"/>
+      <g class="twinkle"><circle cx="40" cy="200" r="1.2" fill="#fff"/><circle cx="360" cy="50" r="1.3" fill="#fff"/></g>
+      <g class="spin-slower" style="transform-box:fill-box; transform-origin:200px 125px;" fill="none" stroke="#9be8ff" stroke-width="2">
+        <ellipse cx="200" cy="125" rx="70" ry="26"/>
+        <ellipse cx="200" cy="125" rx="70" ry="26" transform="rotate(60 200 125)"/>
+        <ellipse cx="200" cy="125" rx="70" ry="26" transform="rotate(120 200 125)"/>
+      </g>
+      <circle cx="200" cy="125" r="16" fill="#4be3ff" class="pulse-soft"/>
+      <circle cx="270" cy="125" r="6" fill="#fff" class="drift"/>
+      <circle cx="200" cy="99" r="6" fill="#fff" class="drift"/>
+    </svg>`
+  },
+  {
+    file: "sun-surface.mp4",
+    title: "The Sun's Surface",
+    desc: "Get a close-up look at our nearest star — a seething, blazing ball of plasma and light.",
+    tag: "Our Star",
+    art: `<svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+      <defs><radialGradient id="su-bg" cx="50%" cy="50%" r="75%">
+        <stop offset="0%" stop-color="#3a1a05"/><stop offset="100%" stop-color="#06070a"/></radialGradient>
+        <radialGradient id="su-core" cx="42%" cy="40%" r="60%">
+          <stop offset="0%" stop-color="#fff6cf"/><stop offset="45%" stop-color="#ffd166"/>
+          <stop offset="80%" stop-color="#ff8a3d"/><stop offset="100%" stop-color="#ff5f3d"/>
+        </radialGradient></defs>
+      <rect width="400" height="250" fill="url(#su-bg)"/>
+      <g class="spin-slow" style="transform-box:fill-box; transform-origin:200px 125px;" opacity="0.5">
+        <path d="M200,125 C240,70 300,80 320,55" stroke="#ffb27a" stroke-width="3" fill="none"/>
+        <path d="M200,125 C170,185 110,175 85,205" stroke="#ffd166" stroke-width="3" fill="none"/>
+      </g>
+      <circle cx="200" cy="125" r="78" fill="url(#su-core)" class="pulse-soft"/>
+      <g opacity="0.3" fill="#8a3d10">
+        <circle cx="175" cy="105" r="5"/><circle cx="225" cy="140" r="4"/><circle cx="195" cy="150" r="3.5"/>
+        <circle cx="222" cy="100" r="3"/><circle cx="170" cy="140" r="3"/>
+      </g>
+    </svg>`
+  },
+  {
+    file: "how-was-water-created.mp4",
+    title: "How Was Water Created?",
+    desc: "Follow water's incredible journey from icy comets and ancient chemistry to life's essential ingredient.",
+    tag: "Origins of Water",
+    art: `<svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+      <defs><radialGradient id="wt-bg" cx="50%" cy="50%" r="75%">
+        <stop offset="0%" stop-color="#07213a"/><stop offset="100%" stop-color="#05060f"/></radialGradient>
+        <linearGradient id="wt-drop" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#bdeeff"/><stop offset="100%" stop-color="#2aa9e0"/>
+        </linearGradient></defs>
+      <rect width="400" height="250" fill="url(#wt-bg)"/>
+      <g class="twinkle"><circle cx="340" cy="45" r="1.3" fill="#fff"/><circle cx="60" cy="200" r="1.2" fill="#fff"/></g>
+      <g class="drift">
+        <circle cx="300" cy="80" r="22" fill="#cfe9ff" opacity="0.9"/>
+        <circle cx="288" cy="72" r="5" fill="#2aa9e0" opacity="0.6"/>
+        <circle cx="312" cy="90" r="4" fill="#2aa9e0" opacity="0.6"/>
+        <line x1="278" y1="60" x2="230" y2="25" stroke="#bdeeff" stroke-width="2" opacity="0.5"/>
+        <line x1="282" y1="68" x2="225" y2="48" stroke="#bdeeff" stroke-width="2" opacity="0.4"/>
+      </g>
+      <path d="M160,170 C160,145 190,115 190,115 C190,115 220,145 220,170 C220,192 202,207 190,207 C178,207 160,192 160,170 Z"
+        fill="url(#wt-drop)" class="pulse-soft"/>
+      <circle cx="175" cy="160" r="5" fill="#fff" opacity="0.6"/>
+    </svg>`
+  },
+  {
+    file: "reaching-planet-earth.mp4",
+    title: "Reaching Planet Earth",
+    desc: "Comets and asteroids carried water and building blocks of life across space — straight to Earth's door.",
+    tag: "Cosmic Delivery",
+    art: `<svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+      <defs><radialGradient id="re-bg" cx="50%" cy="50%" r="75%">
+        <stop offset="0%" stop-color="#101a3d"/><stop offset="100%" stop-color="#05060f"/></radialGradient>
+        <radialGradient id="re-earth" cx="38%" cy="35%" r="65%">
+          <stop offset="0%" stop-color="#8fe6c9"/><stop offset="45%" stop-color="#2aa9e0"/><stop offset="100%" stop-color="#0c2d55"/>
+        </radialGradient></defs>
+      <rect width="400" height="250" fill="url(#re-bg)"/>
+      <g class="twinkle"><circle cx="40" cy="40" r="1.2" fill="#fff"/><circle cx="80" cy="200" r="1.1" fill="#fff"/></g>
+      <circle cx="270" cy="155" r="62" fill="url(#re-earth)" class="pulse-soft"/>
+      <path d="M250,130 q20,-10 35,5 q-10,20 -30,15 q-15,-8 -5,-20 Z" fill="#2f9e6b" opacity="0.75"/>
+      <path d="M285,170 q15,2 18,15 q-12,10 -24,2 q-5,-10 6,-17 Z" fill="#2f9e6b" opacity="0.7"/>
+      <g>
+        <line x1="40" y1="30" x2="150" y2="95" stroke="#ffd166" stroke-width="3" opacity="0.7"/>
+        <line x1="55" y1="25" x2="150" y2="95" stroke="#ffb27a" stroke-width="6" opacity="0.25"/>
+        <circle cx="150" cy="95" r="7" fill="#fff6cf" class="pulse-soft"/>
+      </g>
+    </svg>`
+  },
+  {
+    file: "history-of-our-planet.mp4",
+    title: "History of Our Planet",
+    desc: "From a molten, hostile ball of rock to the lush blue planet we call home — Earth's epic story.",
+    tag: "Our Planet's Story",
+    art: `<svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+      <defs><radialGradient id="hi-bg" cx="50%" cy="50%" r="75%">
+        <stop offset="0%" stop-color="#2a1205"/><stop offset="100%" stop-color="#05060f"/></radialGradient>
+        <linearGradient id="hi-globe" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#ff7a30"/><stop offset="48%" stop-color="#ffb24d"/>
+          <stop offset="52%" stop-color="#2f9e6b"/><stop offset="100%" stop-color="#2aa9e0"/>
+        </linearGradient></defs>
+      <rect width="400" height="250" fill="url(#hi-bg)"/>
+      <g class="twinkle"><circle cx="350" cy="40" r="1.2" fill="#fff"/><circle cx="30" cy="210" r="1" fill="#fff"/></g>
+      <circle cx="200" cy="125" r="85" fill="url(#hi-globe)" class="spin-slower" style="transform-box:fill-box; transform-origin:200px 125px;"/>
+      <circle cx="200" cy="125" r="85" fill="none" stroke="#ffd166" stroke-opacity="0.4" stroke-width="2"/>
+      <g opacity="0.8">
+        <circle cx="150" cy="95" r="3" fill="#fff6cf" class="twinkle"/>
+        <circle cx="165" cy="150" r="2.4" fill="#fff6cf" class="twinkle"/>
+        <circle cx="135" cy="125" r="2" fill="#fff6cf" class="twinkle"/>
+      </g>
+    </svg>`
+  }
+];
+
+/* ============ RENDER VIDEO GRID ============ */
+const grid = document.getElementById('videoGrid');
+videos.forEach((v, i) => {
+  const card = document.createElement('div');
+  card.className = 'vcard';
+  card.innerHTML = `
+    <div class="thumb-wrap">
+      <span class="seq-badge">EP ${String(i+1).padStart(2,'0')}</span>
+      ${v.art}
+      <div class="play-btn"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+    </div>
+    <div class="vbody">
+      <span class="vtag">${v.tag}</span>
+      <h3 class="vtitle">${v.title}</h3>
+      <p class="vdesc">${v.desc}</p>
+    </div>
+  `;
+  card.addEventListener('click', () => openVideo(v));
+  grid.appendChild(card);
+});
+
+/* ============ OVERLAY LOGIC ============ */
+const overlay = document.getElementById('overlay');
+const player = document.getElementById('player');
+const ovTitle = document.getElementById('ovTitle');
+const closeBtn = document.getElementById('closeBtn');
+
+function openVideo(v){
+  ovTitle.textContent = v.title;
+  player.src = BASE + v.file;
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  player.play().catch(()=>{});
+}
+function closeVideo(){
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+  player.pause();
+  player.removeAttribute('src');
+  player.load();
+}
+closeBtn.addEventListener('click', closeVideo);
+overlay.addEventListener('click', (e) => { if(e.target === overlay) closeVideo(); });
+document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && overlay.classList.contains('open')) closeVideo(); });
+
+/* ============ STARFIELD CANVAS ============ */
+const canvas = document.getElementById('stars-canvas');
+const ctx = canvas.getContext('2d');
+let stars = [];
+function resize(){
+  canvas.width = window.innerWidth;
+  canvas.height = document.body.scrollHeight;
+  initStars();
+}
+function initStars(){
+  const count = Math.floor((canvas.width * canvas.height) / 9000);
+  stars = Array.from({length: count}, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    r: Math.random() * 1.4 + 0.3,
+    baseAlpha: Math.random() * 0.6 + 0.3,
+    tw: Math.random() * Math.PI * 2,
+    speed: Math.random() * 0.015 + 0.005
+  }));
+}
+function drawStars(t){
+  ctx.clearRect(0,0,canvas.width, canvas.height);
+  for(const s of stars){
+    const a = s.baseAlpha + Math.sin(t * s.speed + s.tw) * 0.3;
+    ctx.beginPath();
+    ctx.fillStyle = `rgba(255,255,255,${Math.max(0,Math.min(1,a))})`;
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.fill();
+  }
+  requestAnimationFrame(drawStars);
+}
+window.addEventListener('resize', resize);
+resize();
+requestAnimationFrame(drawStars);
+
+/* ============ SHOOTING STARS ============ */
+function spawnShootingStar(){
+  const star = document.createElement('div');
+  star.className = 'shooting-star';
+  const startX = Math.random() * window.innerWidth * 0.6 + window.innerWidth * 0.3;
+  const startY = Math.random() * window.innerHeight * 0.4;
+  star.style.left = startX + 'px';
+  star.style.top = startY + 'px';
+  star.style.animation = `shoot ${1.1 + Math.random()*0.6}s linear forwards`;
+  document.body.appendChild(star);
+  setTimeout(() => star.remove(), 2000);
+}
+setInterval(spawnShootingStar, 2600);
+setTimeout(spawnShootingStar, 600);
+</script>
+
+</body>
+</html>
