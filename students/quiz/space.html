@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Space Explorer Quiz 🚀</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg1:#05061a; --bg2:#0b1340; --bg3:#1a1060;
+  --ink:#eef1ff; --ink-dim:#9aa3d6;
+  --card:#141a46; --card-edge:rgba(255,255,255,.12);
+  --gold:#ffc65c; --gold-dark:#d99b1f;
+  --t10:#b5722f; --t10d:#8a5522;
+  --t25:#4aa8e0; --t25d:#2d7ab0;
+  --t50:#ffd85c; --t50d:#e0a92a; --t50ink:#2a1f00;
+  --t75:#a679e0; --t75d:#7c4fc4;
+  --t100:#ff5a7a; --t100d:#c23b50;
+  --ok:#4fc98a; --okd:#2c8f60; --bad:#ff5a5a; --badd:#c23b41;
+  --r-lg:28px; --r-md:18px; --r-sm:13px;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --font-d:'Baloo 2',sans-serif; --font-b:'Nunito',sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  min-height:100vh;font-family:var(--font-b);color:var(--ink);
+  background:radial-gradient(ellipse at 20% 0%,var(--bg3),var(--bg2) 45%,var(--bg1) 100%);
+  overflow-x:hidden;position:relative;
+}
+.stars,.stars2{position:fixed;inset:0;pointer-events:none;z-index:0;}
+.stars{background-image:radial-gradient(1.5px 1.5px at 20% 30%,#fff,transparent),radial-gradient(1.5px 1.5px at 70% 10%,#fff,transparent),radial-gradient(1px 1px at 40% 70%,#fff,transparent),radial-gradient(1.5px 1.5px at 85% 60%,#fff,transparent),radial-gradient(1px 1px at 10% 85%,#fff,transparent),radial-gradient(1.5px 1.5px at 55% 45%,#fff,transparent),radial-gradient(1px 1px at 90% 90%,#fff,transparent);background-size:100% 100%;animation:twinkle 3s ease-in-out infinite alternate;}
+@keyframes twinkle{from{opacity:.5;}to{opacity:1;}}
+.drift{position:fixed;font-size:30px;opacity:.5;animation:driftx linear infinite;z-index:0;}
+@keyframes driftx{from{transform:translateX(-10vw) rotate(0);}to{transform:translateX(110vw) rotate(25deg);}}
+.top-bar{position:relative;z-index:3;display:flex;align-items:center;justify-content:space-between;padding:16px 20px;flex-wrap:wrap;gap:10px;}
+.brand{font-family:var(--font-d);font-weight:800;font-size:clamp(20px,3.2vw,30px);display:flex;align-items:center;gap:10px;}
+.brand span{display:inline-block;animation:bob 2.4s ease-in-out infinite;}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-5deg);}50%{transform:translateY(-7px) rotate(5deg);}}
+.score-counter{display:flex;align-items:center;gap:8px;background:var(--card);border:3px solid var(--gold);border-radius:999px;padding:8px 16px;font-weight:800;font-size:17px;box-shadow:0 4px 0 rgba(0,0,0,.35);}
+.score-counter.bump{animation:bump .4s ease;} .score-counter.shake{animation:shk .4s ease;}
+@keyframes bump{40%{transform:scale(1.15);}} @keyframes shk{25%{transform:translateX(-6px);}75%{transform:translateX(6px);}}
+.icon-btn{width:46px;height:46px;border-radius:50%;border:3px solid var(--card);background:var(--card);font-size:20px;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.35);}
+.path-wrap{position:relative;z-index:2;margin:4px auto 6px;max-width:760px;overflow-x:auto;padding:8px 18px;}
+.path{display:flex;align-items:center;justify-content:center;gap:14px;min-width:max-content;}
+.stone{width:15px;height:15px;border-radius:50%;background:#2a2f66;border:3px solid var(--card);transition:background .25s ease;}
+.stone.done{background:var(--ok);} .stone.wrong{background:var(--bad);} .stone.skipped{background:var(--ink-dim);}
+.stage{position:relative;z-index:2;max-width:920px;margin:0 auto;padding:4px 18px 50px;}
+.stage-intro{text-align:center;margin:6px 0 24px;}
+.stage-intro h1{font-family:var(--font-d);font-weight:800;font-size:clamp(22px,4vw,32px);margin:0 0 6px;}
+.stage-intro p{margin:0;font-weight:600;color:var(--ink-dim);font-size:15px;}
+.stack-board{display:grid;grid-template-columns:repeat(5,1fr);gap:22px 42px;}
+@media (max-width:760px){.stack-board{grid-template-columns:repeat(2,1fr);row-gap:32px;}}
+.stack-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;}
+.stack-zone{position:relative;width:100%;aspect-ratio:3/4;}
+.stack-card{position:absolute;inset:0;border:none;padding:0;background:none;transition:transform .35s var(--ease);transform-origin:50% 85%;}
+.stack-card.is-behind{pointer-events:none;} .stack-card.is-top{cursor:pointer;}
+.card-face{position:absolute;inset:0;border-radius:var(--r-md);background:linear-gradient(155deg,var(--tbg),var(--tbgd));box-shadow:0 1px 0 rgba(255,255,255,.3) inset,0 6px 0 rgba(0,0,0,.3),0 12px 20px -8px rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.25);overflow:hidden;display:flex;align-items:center;justify-content:center;transition:transform .16s var(--ease);}
+.card-frame{position:absolute;inset:9px;border:2px dashed rgba(255,255,255,.35);border-radius:calc(var(--r-md) - 7px);}
+.card-core{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;color:#fff;text-align:center;}
+.card-icon{font-size:clamp(26px,5.6vw,38px);}
+.card-value{font-family:var(--font-d);font-weight:800;font-size:clamp(16px,3.2vw,22px);}
+.card-label{font-weight:700;font-size:10px;opacity:.85;}
+.stack-card.is-top:hover .card-face{transform:translateY(-5px);}
+.stack-card.is-top:active .card-face{transform:translateY(2px) scale(.97);}
+.stack-card.picking{animation:pick .5s var(--ease) forwards;z-index:999!important;pointer-events:none;}
+@keyframes pick{0%{transform:translate(0,0) rotate(0);}60%{transform:translate(6px,-46px) scale(1.08) rotate(6deg);}100%{transform:translate(0,-78px) scale(.8) rotate(0);opacity:0;}}
+.stack-empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:5px;border-radius:var(--r-md);border:3px dashed var(--card-edge);color:var(--ink-dim);}
+.stack-empty.show{display:flex;}
+.stack-label{font-weight:800;font-size:12px;background:var(--card);padding:5px 12px;border-radius:999px;white-space:nowrap;}
+.stack-collected{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;min-height:22px;}
+.badge{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;background:var(--card);border:2px solid var(--card-edge);}
+.overlay{position:fixed;inset:0;background:rgba(5,6,26,.7);display:none;align-items:center;justify-content:center;z-index:60;padding:16px;}
+.overlay.show{display:flex;}
+.qpanel{background:#10153c;border-radius:var(--r-lg);padding:26px 24px 22px;max-width:560px;width:100%;max-height:92vh;overflow-y:auto;border:1px solid var(--card-edge);box-shadow:0 14px 0 rgba(0,0,0,.4);animation:pop .35s cubic-bezier(.34,1.56,.64,1);}
+@keyframes pop{0%{transform:scale(.85);opacity:0;}100%{transform:scale(1);opacity:1;}}
+.qbadge{display:inline-flex;color:#fff;font-weight:800;font-family:var(--font-d);font-size:13px;padding:5px 14px;border-radius:999px;margin-bottom:12px;}
+.qtitle{font-family:var(--font-d);font-weight:700;font-size:clamp(19px,3.6vw,23px);margin:0 0 14px;line-height:1.35;}
+.qmedia{margin-bottom:16px;border-radius:var(--r-md);overflow:hidden;background:#0b0e2e;}
+.qmedia img{width:100%;display:block;}
+.media-reveal{padding:18px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;}
+.reveal-btn{font-family:var(--font-b);font-weight:800;font-size:15px;color:#0b0e2e;background:var(--gold);border:none;border-radius:999px;padding:13px 24px;cursor:pointer;box-shadow:0 4px 0 var(--gold-dark);}
+.reveal-btn.replay{background:var(--t25);box-shadow:0 4px 0 var(--t25d);}
+.media-content{width:100%;}
+.lifeline-label{font-family:var(--font-d);font-weight:700;font-size:12px;text-transform:uppercase;color:var(--ink-dim);margin:0 0 8px;}
+.lifeline-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+.lifeline-btn{display:flex;align-items:center;gap:7px;background:#1b2156;border:2px solid var(--card-edge);border-radius:999px;padding:8px 14px;font-weight:800;font-size:13px;color:var(--ink);cursor:pointer;}
+.lifeline-btn:disabled,.lifeline-btn.used{opacity:.4;cursor:not-allowed;}
+.hint-bubble{display:none;align-items:flex-start;gap:8px;background:rgba(255,198,92,.12);border:2px dashed var(--gold);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:14px;font-weight:700;font-size:14px;}
+.choices{display:flex;flex-direction:column;gap:10px;margin-bottom:14px;}
+.choice-btn{text-align:left;background:#1b2156;border:2px solid var(--card-edge);border-radius:var(--r-sm);padding:13px 16px;font-weight:700;font-size:15px;color:var(--ink);cursor:pointer;display:flex;align-items:center;gap:10px;}
+.choice-btn .letter{width:26px;height:26px;border-radius:50%;background:#0b0e2e;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex:0 0 auto;}
+.choice-btn:disabled{cursor:default;}
+.choice-btn.correct{background:rgba(79,201,138,.25);border-color:var(--okd);}
+.choice-btn.wrong{background:rgba(255,90,90,.22);border-color:var(--badd);}
+.choice-btn.dim{opacity:.5;}
+.choice-btn.removed{display:none;}
+.qfooter{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.skip-btn{font-weight:800;font-size:14px;color:var(--t25);background:rgba(74,168,224,.15);border:none;border-radius:999px;padding:10px 18px;cursor:pointer;}
+.skip-btn:disabled{opacity:.4;cursor:default;}
+.feedback{font-weight:800;font-size:15px;min-height:22px;flex:1 1 auto;text-align:right;}
+.feedback.ok{color:var(--ok);} .feedback.no{color:var(--bad);}
+.continue-btn{font-weight:800;font-size:15px;color:#0b0e2e;background:var(--gold);border:none;border-radius:999px;padding:11px 22px;cursor:pointer;box-shadow:0 4px 0 var(--gold-dark);display:none;}
+.continue-btn.show{display:inline-block;}
+.confetti-layer{position:fixed;inset:0;pointer-events:none;z-index:80;overflow:hidden;}
+.piece{position:absolute;top:-20px;border-radius:50%;animation:fall linear forwards;}
+@keyframes fall{0%{transform:translateY(0) rotate(0);opacity:1;}100%{transform:translateY(105vh) rotate(400deg);opacity:.9;}}
+.summary-card{background:#10153c;border-radius:var(--r-lg);padding:30px 26px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;border:8px solid var(--gold);box-shadow:0 14px 0 rgba(0,0,0,.4);animation:pop .4s cubic-bezier(.34,1.56,.64,1);text-align:center;}
+.summary-card .trophy{font-size:56px;}
+.summary-card h2{font-family:var(--font-d);font-weight:800;font-size:24px;margin:4px 0;}
+.final-score{font-family:var(--font-d);font-weight:800;font-size:38px;margin:6px 0 2px;color:var(--ok);}
+.rank-tag{font-weight:800;color:var(--gold);margin-bottom:16px;font-size:14px;}
+.summary-list{text-align:left;display:flex;flex-direction:column;gap:10px;margin-bottom:20px;}
+.summary-item{background:#1b2156;border-radius:var(--r-sm);padding:12px 14px;border-left:5px solid var(--ink-dim);}
+.summary-item.ok{border-left-color:var(--ok);} .summary-item.no{border-left-color:var(--bad);}
+.summary-item .sq{font-weight:700;font-size:14px;}
+.summary-item .sa{font-weight:600;font-size:13px;color:var(--ink-dim);}
+.btn-big{background:var(--gold);color:#0b0e2e;font-weight:800;font-size:17px;border:none;border-radius:999px;padding:14px 30px;box-shadow:0 5px 0 var(--gold-dark);cursor:pointer;}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important;}}
+</style>
+</head>
+<body>
+<div class="stars"></div>
+<div class="drift" style="top:10%;left:5%;animation-duration:30s;">🪐</div>
+<div class="drift" style="top:55%;left:80%;animation-duration:40s;animation-direction:reverse;">⭐</div>
+<div class="drift" style="top:75%;left:30%;animation-duration:50s;">☄️</div>
+
+<div class="top-bar">
+  <div class="brand"><span>🚀</span> Space Explorer Quiz</div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div class="score-counter" id="scoreCounter">⭐ <span id="scoreVal">0</span> stars</div>
+    <button class="icon-btn" id="muteBtn" title="Sound on/off">🔊</button>
+  </div>
+</div>
+
+<div class="path-wrap"><div class="path" id="pathTrack"></div></div>
+
+<main class="stage">
+  <div class="stage-intro">
+    <h1>Pick a space card and answer!</h1>
+    <p>Bigger, brighter cards hold trickier questions and more star points!</p>
+  </div>
+  <div class="stack-board" id="stackBoard"></div>
+</main>
+
+<div class="confetti-layer" id="confettiLayer"></div>
+
+<div class="overlay" id="qOverlay">
+  <div class="qpanel">
+    <div class="qbadge" id="qBadge">10 stars</div>
+    <h2 class="qtitle" id="qTitle"></h2>
+    <div class="lifeline-label">Helpers</div>
+    <div class="lifeline-bar" id="lifelineBar"></div>
+    <div class="hint-bubble" id="hintBubble"></div>
+    <div class="qmedia" id="qMedia" style="display:none;"></div>
+    <div class="choices" id="qChoices"></div>
+    <div class="qfooter">
+      <button class="skip-btn" id="skipBtn">Skip ⏭️</button>
+      <span class="feedback" id="feedbackLine"></span>
+      <button class="continue-btn" id="continueBtn">Continue ▶️</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="summaryOverlay">
+  <div class="summary-card">
+    <div class="trophy">🏆</div>
+    <h2>Mission Complete!</h2>
+    <div class="final-score" id="finalScore">0</div>
+    <div class="rank-tag" id="rankTag">Space Cadet</div>
+    <div class="summary-list" id="summaryList"></div>
+    <button class="btn-big" id="restartBtn">Blast Off Again 🔁</button>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+var QUESTIONS = [
+ {id:"q1",difficulty:10,text:"What made the whole universe begin with a giant BOOM?",media:null,
+  choices:["The Big Bang","The Big Splash","The Big Nap","The Big Sneeze"],correctIndex:0,
+  hint:"It's a huge, super loud 'bang' that started everything, even time!"},
+ {id:"q2",difficulty:25,text:"The universe is SO big, it has billions and billions of giant star-families called...?",media:null,
+  choices:["Galaxies","Puddles","Pencils","Staircases"],correctIndex:0,
+  hint:"Our own star-family is called the Milky Way!"},
+ {id:"q3",difficulty:50,text:"Look at the picture. What is this giant, super hot, glowing ball in our sky?",
+  media:{type:"css",shape:"sun"},
+  choices:["The Sun","The Moon","A Comet","A Cloud"],correctIndex:0,
+  hint:"It gives us all our light and warmth every day!"},
+ {id:"q4",difficulty:75,text:"The air we breathe, called oxygen, was first made a long time ago inside giant...?",media:null,
+  choices:["Stars","Clouds","Rocks","Rivers"],correctIndex:0,
+  hint:"These are the same twinkly things you see at night!"},
+ {id:"q5",difficulty:50,text:"When a giant star dies, it can explode in a huge blast called a...?",media:null,
+  choices:["Supernova","Super Sneeze","Super Nap","Super Splash"],correctIndex:0,
+  hint:"Super + Nova means a very bright new light in the sky!"},
+ {id:"q6",difficulty:75,text:"Long, long ago, water came to Earth riding on big icy space rocks called...?",media:null,
+  choices:["Comets","Balloons","Kites","Boats"],correctIndex:0,
+  hint:"They have long glowing tails and zoom through space!"},
+ {id:"q7",difficulty:25,text:"Icy comets and asteroids crashed into young Earth and brought us...?",media:null,
+  choices:["Water","Pizza","Toys","Shoes"],correctIndex:0,
+  hint:"Think about what you drink and swim in!"},
+ {id:"q8",difficulty:10,text:"A very, very long time ago, Earth was a giant ball of...?",media:null,
+  choices:["Hot melted rock","Ice cream","Cotton candy","Soft pillows"],correctIndex:0,
+  hint:"It was way too hot to stand on - everything was melted!"},
+ {id:"q9",difficulty:100,text:"The very first tiny living things on Earth began in the...?",media:null,
+  choices:["Ocean","Desert","Mountain top","Moon"],correctIndex:0,
+  hint:"It's full of water and fish!"},
+ {id:"q10",difficulty:50,text:"Our Moon was formed after a giant space rock...?",media:null,
+  choices:["Crashed into baby Earth","Fell asleep in the sky","Was painted silver","Grew from a seed"],correctIndex:0,
+  hint:"A big crash sent rock flying, and it became our Moon!"},
+ {id:"q11",difficulty:10,text:"Look at this picture of the Moon. What are those round dents called?",
+  media:{type:"image",url:"https://upload.wikimedia.org/wikipedia/commons/e/e1/FullMoon2010.jpg"},
+  choices:["Craters","Puddles","Volcanoes","Bubbles"],correctIndex:0,
+  hint:"Space rocks bumped into the Moon long ago and left these marks!"},
+ {id:"q12",difficulty:25,text:"Look at this picture. Which planet is famous for its beautiful rings?",
+  media:{type:"css",shape:"saturn"},
+  choices:["Saturn","Earth","Mars","Mercury"],correctIndex:0,
+  hint:"Its rings are made of ice and rock circling all the way around it!"}
+];
+
+function escapeHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+var TIER_ORDER=[10,25,50,75,100];
+var TIER_META={
+  10:{icon:"☄️",label:"Meteor",bg:"var(--t10)",bgd:"var(--t10d)"},
+  25:{icon:"🌙",label:"Moon",bg:"var(--t25)",bgd:"var(--t25d)"},
+  50:{icon:"⭐",label:"Star",bg:"var(--t50)",bgd:"var(--t50d)"},
+  75:{icon:"🪐",label:"Planet",bg:"var(--t75)",bgd:"var(--t75d)"},
+  100:{icon:"🌌",label:"Galaxy",bg:"var(--t100)",bgd:"var(--t100d)"}
+};
+var RANKS=[
+  {min:-Infinity,label:"Keep Exploring!"},
+  {min:1,label:"Space Cadet"},
+  {min:100,label:"Astronaut"},
+  {min:180,label:"Star Commander"},
+  {min:260,label:"Galaxy Champion"}
+];
+
+var state={score:0,muted:false,results:{},stacks:{},lifelines:{hint:false,fifty:false,second:false}};
+
+var el={
+  scoreCounter:document.getElementById('scoreCounter'),scoreVal:document.getElementById('scoreVal'),
+  muteBtn:document.getElementById('muteBtn'),pathTrack:document.getElementById('pathTrack'),
+  stackBoard:document.getElementById('stackBoard'),confettiLayer:document.getElementById('confettiLayer'),
+  qOverlay:document.getElementById('qOverlay'),qBadge:document.getElementById('qBadge'),
+  qTitle:document.getElementById('qTitle'),qMedia:document.getElementById('qMedia'),
+  qChoices:document.getElementById('qChoices'),skipBtn:document.getElementById('skipBtn'),
+  feedbackLine:document.getElementById('feedbackLine'),continueBtn:document.getElementById('continueBtn'),
+  summaryOverlay:document.getElementById('summaryOverlay'),finalScore:document.getElementById('finalScore'),
+  rankTag:document.getElementById('rankTag'),summaryList:document.getElementById('summaryList'),
+  restartBtn:document.getElementById('restartBtn'),lifelineBar:document.getElementById('lifelineBar'),
+  hintBubble:document.getElementById('hintBubble')
+};
+
+var activeQuestion=null, answered=false, pickingLock=false;
+
+/* -------- sound (simple beeps, no external files needed) -------- */
+var audioCtx=null;
+function ctx(){ if(!audioCtx){var C=window.AudioContext||window.webkitAudioContext; if(C) audioCtx=new C();} return audioCtx; }
+function beep(freq,dur,delay,vol){
+  if(state.muted) return; var c=ctx(); if(!c) return;
+  var t0=c.currentTime+(delay||0), osc=c.createOscillator(), g=c.createGain();
+  osc.type='sine'; osc.frequency.setValueAtTime(freq,t0);
+  g.gain.setValueAtTime(0,t0); g.gain.linearRampToValueAtTime(vol||.15,t0+.02); g.gain.exponentialRampToValueAtTime(.001,t0+dur);
+  osc.connect(g); g.connect(c.destination); osc.start(t0); osc.stop(t0+dur+.02);
+}
+function playDraw(){beep(460,.05,0,.07);beep(700,.07,.06,.06);beep(940,.06,.13,.045);}
+function playCorrect(){beep(520,.09,0,.09);beep(780,.12,.09,.08);beep(1040,.14,.19,.07);}
+function playWrong(){beep(220,.18,0,.09);beep(160,.22,.1,.08);}
+function playSkip(){beep(400,.1,0,.06);}
+
+function hashStr(s){var h=0;for(var i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0;} return Math.abs(h);}
+
+/* -------- CSS-drawn media: sun / saturn (no external image needed) -------- */
+function renderCssMedia(shape, container){
+  if(shape==='sun'){
+    container.innerHTML='<div style="width:100%;aspect-ratio:1;max-width:260px;margin:0 auto;border-radius:50%;'+
+      'background:radial-gradient(circle at 38% 35%,#fff6c8,#ffd85c 40%,#ff9f45 75%,#ff5a1a 100%);'+
+      'box-shadow:0 0 60px 20px rgba(255,159,69,.55);"></div>';
+  } else if(shape==='saturn'){
+    container.innerHTML='<div style="position:relative;width:100%;max-width:280px;aspect-ratio:1;margin:30px auto;">'+
+      '<div style="position:absolute;top:50%;left:50%;width:70%;height:70%;transform:translate(-50%,-55%);border-radius:50%;'+
+      'background:radial-gradient(circle at 35% 30%,#ffe9bf,#e0b27a 60%,#b5722f 100%);z-index:2;"></div>'+
+      '<div style="position:absolute;top:50%;left:50%;width:100%;height:28%;transform:translate(-50%,-50%) rotate(-12deg);'+
+      'border-radius:50%;border:10px solid rgba(220,190,140,.55);z-index:3;"></div></div>';
+  }
+}
+
+/* -------- lifelines -------- */
+var LIFELINES=[
+  {id:'hint',icon:'💡',label:'Star Hint',isAvail:function(){return true;},use:useHint},
+  {id:'fifty',icon:'➗',label:'50-50',isAvail:function(q){return q.choices.length>=4;},use:useFifty},
+  {id:'second',icon:'🔄',label:'Second Try',isAvail:function(){return true;},use:useSecond}
+];
+function renderLifelines(q){
+  el.lifelineBar.innerHTML=''; el.hintBubble.style.display='none'; el.hintBubble.innerHTML='';
+  LIFELINES.forEach(function(ll){
+    if(!ll.isAvail(q)) return;
+    var btn=document.createElement('button');
+    btn.type='button'; btn.className='lifeline-btn'; btn.id='ll-'+ll.id;
+    btn.innerHTML=ll.icon+' '+ll.label;
+    if(state.lifelines[ll.id]){ btn.classList.add('used'); btn.disabled=true; }
+    btn.addEventListener('click',function(){ if(state.lifelines[ll.id]||answered) return; ll.use(q,btn); });
+    el.lifelineBar.appendChild(btn);
+  });
+}
+function useHint(q,btn){
+  state.lifelines.hint=true; btn.classList.add('used'); btn.disabled=true;
+  el.hintBubble.innerHTML='💡 '+escapeHtml(q.hint); el.hintBubble.style.display='flex';
+  playCorrect();
+}
+function useFifty(q,btn){
+  state.lifelines.fifty=true; btn.classList.add('used'); btn.disabled=true;
+  var wrong=[]; q.choices.forEach(function(c,i){ if(i!==q.correctIndex) wrong.push(i); });
+  for(var i=wrong.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=wrong[i];wrong[i]=wrong[j];wrong[j]=t;}
+  var toRemove=wrong.slice(0,Math.floor(q.choices.length/2));
+  var allBtns=el.qChoices.querySelectorAll('.choice-btn');
+  toRemove.forEach(function(idx){ var b=allBtns[idx]; if(b){b.disabled=true; b.classList.add('removed');} });
+  playCorrect();
+}
+function useSecond(q,btn){
+  state.lifelines.second=true; state.secondChanceArmed=true; btn.classList.add('used'); btn.disabled=true;
+  el.hintBubble.innerHTML='🔄 Second Try armed — one wrong pick won\'t count!'; el.hintBubble.style.display='flex';
+  playCorrect();
+}
+
+function letterFor(i){ return String.fromCharCode(65+i); }
+
+function groupIntoStacks(){
+  var g={}; TIER_ORDER.forEach(function(t){g[t]=[];});
+  QUESTIONS.forEach(function(q){ g[q.difficulty].push(q); });
+  return g;
+}
+function depthTransform(qid,depth){
+  if(depth===0) return {dx:0,dy:0,angle:0};
+  var seed=hashStr(qid), angle=(seed%13)-6, side=(seed%2===0)?1:-1;
+  return {dx:(((seed>>3)%5)-2)+depth*3*side, dy:depth*6, angle:angle};
+}
+function applyCardTransform(cardEl,depth,total){
+  var qid=cardEl.id.replace('card-',''), t=depthTransform(qid,depth);
+  cardEl.style.transform='translate('+t.dx+'px,'+t.dy+'px) rotate('+t.angle+'deg)';
+  cardEl.style.zIndex=String(total-depth);
+  if(depth===0){ cardEl.classList.remove('is-behind'); cardEl.classList.add('is-top'); cardEl.disabled=false; cardEl.tabIndex=0; }
+  else{ cardEl.classList.remove('is-top'); cardEl.classList.add('is-behind'); cardEl.disabled=true; cardEl.tabIndex=-1; }
+}
+function buildCardEl(q,tier,meta){
+  var card=document.createElement('button');
+  card.type='button'; card.className='stack-card'; card.id='card-'+q.id;
+  card.style.setProperty('--tbg',meta.bg); card.style.setProperty('--tbgd',meta.bgd);
+  card.innerHTML='<div class="card-face"><div class="card-frame"></div><div class="card-core">'+
+    '<div class="card-icon">'+meta.icon+'</div><div class="card-value">'+tier+' stars</div>'+
+    '<div class="card-label">'+meta.label+' Card</div></div></div>';
+  card.addEventListener('click',function(){ if(card.classList.contains('is-top')) pickFromStack(tier); });
+  return card;
+}
+function buildStacks(){
+  state.stacks=groupIntoStacks(); el.stackBoard.innerHTML=''; el.pathTrack.innerHTML='';
+  TIER_ORDER.forEach(function(tier){
+    var meta=TIER_META[tier];
+    var wrap=document.createElement('div'); wrap.className='stack-wrap'; wrap.id='wrap-'+tier;
+    wrap.innerHTML='<div class="stack-zone" id="zone-'+tier+'"><div class="stack-pile" id="pile-'+tier+'" style="position:absolute;inset:0;"></div>'+
+      '<div class="stack-empty" id="empty-'+tier+'"><div style="font-size:24px;opacity:.5;">'+meta.icon+'</div><div style="font-weight:700;font-size:11px;">All picked up!</div></div></div>'+
+      '<div class="stack-label" id="label-'+tier+'"></div><div class="stack-collected" id="collected-'+tier+'"></div>';
+    el.stackBoard.appendChild(wrap);
+    var pile=wrap.querySelector('#pile-'+tier), arr=state.stacks[tier];
+    arr.forEach(function(q,depth){ var c=buildCardEl(q,tier,meta); pile.appendChild(c); applyCardTransform(c,depth,arr.length); });
+    updateStackLabel(tier);
+  });
+  QUESTIONS.forEach(function(q){ var s=document.createElement('div'); s.className='stone'; s.id='stone-'+q.id; el.pathTrack.appendChild(s); });
+}
+function updateStackLabel(tier){
+  var n=state.stacks[tier].length;
+  document.getElementById('label-'+tier).textContent = n===0?'No cards left':(n+(n===1?' card left':' cards left'));
+}
+function pickFromStack(tier){
+  if(activeQuestion||pickingLock) return;
+  var arr=state.stacks[tier]; if(!arr||arr.length===0) return;
+  var q=arr[0], cardEl=document.getElementById('card-'+q.id);
+  if(!cardEl||cardEl.disabled) return;
+  pickingLock=true; cardEl.classList.add('picking'); cardEl.disabled=true; playDraw();
+  setTimeout(function(){
+    arr.shift(); if(cardEl.parentNode) cardEl.parentNode.removeChild(cardEl);
+    var pile=document.getElementById('pile-'+tier);
+    var remaining=Array.prototype.slice.call(pile.querySelectorAll('.stack-card'));
+    remaining.forEach(function(e2,d){ applyCardTransform(e2,d,remaining.length); });
+    updateStackLabel(tier);
+    if(remaining.length===0){ document.getElementById('empty-'+tier).classList.add('show'); }
+    pickingLock=false; showQuestion(q);
+  },480);
+}
+function showQuestion(q){
+  activeQuestion=q; answered=false; state.secondChanceArmed=false;
+  var meta=TIER_META[q.difficulty];
+  el.qBadge.textContent=q.difficulty+' stars'; el.qBadge.style.background=meta.bg;
+  el.qTitle.textContent=q.text; el.feedbackLine.textContent=''; el.feedbackLine.className='feedback';
+  el.continueBtn.classList.remove('show'); el.skipBtn.disabled=false;
+  renderLifelines(q); renderMedia(q); renderChoices(q);
+  el.qOverlay.classList.add('show');
+}
+function renderMedia(q){
+  el.qMedia.innerHTML='';
+  if(!q.media){ el.qMedia.style.display='none'; return; }
+  el.qMedia.style.display='block';
+  var wrap=document.createElement('div'); wrap.className='media-reveal';
+  var btn=document.createElement('button'); btn.type='button'; btn.className='reveal-btn';
+  btn.textContent='🔭 Show Picture';
+  var content=document.createElement('div'); content.className='media-content'; content.style.display='none';
+  btn.addEventListener('click',function(){
+    if(content.style.display==='none'){
+      if(q.media.type==='image'){ content.innerHTML='<img src="'+q.media.url+'" alt="Question image">'; }
+      else if(q.media.type==='css'){ renderCssMedia(q.media.shape, content); }
+      content.style.display='block'; btn.textContent='🔁 Show Again'; btn.classList.add('replay');
+    } else { renderCssReplay(); }
+  });
+  function renderCssReplay(){
+    if(q.media.type==='image'){ content.innerHTML='<img src="'+q.media.url+'" alt="Question image">'; }
+    else if(q.media.type==='css'){ renderCssMedia(q.media.shape, content); }
+  }
+  wrap.appendChild(btn); wrap.appendChild(content); el.qMedia.appendChild(wrap);
+}
+function renderChoices(q){
+  el.qChoices.innerHTML='';
+  q.choices.forEach(function(c,i){
+    var b=document.createElement('button'); b.className='choice-btn';
+    b.innerHTML='<span class="letter">'+letterFor(i)+'</span><span>'+c+'</span>';
+    b.addEventListener('click',function(){ selectAnswer(q,i,b); });
+    el.qChoices.appendChild(b);
+  });
+}
+function selectAnswer(q,chosenIndex,btnEl){
+  if(answered) return;
+  var correct=chosenIndex===q.correctIndex;
+  if(!correct && state.secondChanceArmed){
+    state.secondChanceArmed=false;
+    var wb=el.qChoices.querySelectorAll('.choice-btn')[chosenIndex];
+    wb.disabled=true; wb.classList.add('wrong');
+    el.feedbackLine.textContent='Not quite — but Second Try saved you. Pick again!';
+    el.feedbackLine.className='feedback no';
+    return;
+  }
+  answered=true; el.skipBtn.disabled=true;
+  var allBtns=el.qChoices.querySelectorAll('.choice-btn');
+  allBtns.forEach(function(b,i){
+    b.disabled=true;
+    if(i===q.correctIndex) b.classList.add('correct');
+    if(i===chosenIndex && !correct) b.classList.add('wrong');
+    if(i!==chosenIndex && i!==q.correctIndex) b.classList.add('dim');
+  });
+  var points = correct ? q.difficulty : 0;
+  state.score+=points;
+  state.results[q.id]={status:correct?'correct':'wrong',chosenIndex:chosenIndex,points:points};
+  if(correct){ playCorrect(); burstConfetti(24); el.feedbackLine.textContent='Correct! +'+q.difficulty+' stars 🌟'; el.feedbackLine.className='feedback ok'; }
+  else{ playWrong(); el.feedbackLine.textContent='Not quite — the right answer was "'+q.choices[q.correctIndex]+'".'; el.feedbackLine.className='feedback no'; }
+  updateScoreDisplay(correct);
+  el.continueBtn.classList.add('show');
+}
+el.skipBtn.addEventListener('click',function(){
+  if(answered||!activeQuestion) return;
+  answered=true; playSkip();
+  var q=activeQuestion;
+  el.qChoices.querySelectorAll('.choice-btn').forEach(function(b,i){
+    b.disabled=true; if(i===q.correctIndex) b.classList.add('correct'); else b.classList.add('dim');
+  });
+  state.results[q.id]={status:'skipped',chosenIndex:null,points:0};
+  el.feedbackLine.textContent='Skipped — the answer was "'+q.choices[q.correctIndex]+'".';
+  el.feedbackLine.className='feedback'; el.skipBtn.disabled=true; el.continueBtn.classList.add('show');
+});
+el.continueBtn.addEventListener('click',function(){
+  if(!activeQuestion) return;
+  var q=activeQuestion; el.qOverlay.classList.remove('show'); addCollectedBadge(q); activeQuestion=null;
+  if(Object.keys(state.results).length===QUESTIONS.length){ setTimeout(showSummary,500); }
+});
+function addCollectedBadge(q){
+  var r=state.results[q.id], collected=document.getElementById('collected-'+q.difficulty);
+  var badge=document.createElement('div'); badge.className='badge';
+  badge.textContent = r.status==='correct'?'✅':(r.status==='wrong'?'❌':'⏭️');
+  badge.title=q.text; collected.appendChild(badge);
+  document.getElementById('stone-'+q.id).classList.add(r.status==='correct'?'done':(r.status==='wrong'?'wrong':'skipped'));
+}
+function updateScoreDisplay(correct){
+  el.scoreVal.textContent=state.score;
+  el.scoreCounter.classList.remove('bump','shake'); void el.scoreCounter.offsetWidth;
+  el.scoreCounter.classList.add(correct?'bump':'shake');
+}
+function getRank(score){ var r=RANKS[0]; RANKS.forEach(function(x){ if(score>=x.min) r=x; }); return r.label; }
+function showSummary(){
+  el.finalScore.textContent=state.score+' stars'; el.rankTag.textContent=getRank(state.score);
+  el.summaryList.innerHTML='';
+  QUESTIONS.forEach(function(q){
+    var r=state.results[q.id];
+    var item=document.createElement('div'); item.className='summary-item '+(r.status==='correct'?'ok':(r.status==='wrong'?'no':''));
+    var chosenText = r.status==='skipped' ? 'Skipped' : q.choices[r.chosenIndex];
+    item.innerHTML='<div class="sq">'+q.text+'</div><div class="sa">Your answer: '+chosenText+' · Correct: '+q.choices[q.correctIndex]+'</div>';
+    el.summaryList.appendChild(item);
+  });
+  el.summaryOverlay.classList.add('show'); burstConfetti(state.score>0?60:20);
+}
+el.restartBtn.addEventListener('click',function(){
+  state.score=0; state.results={}; state.lifelines={hint:false,fifty:false,second:false};
+  el.scoreVal.textContent='0'; el.summaryOverlay.classList.remove('show'); buildStacks();
+});
+var confettiColors=['#ffd85c','#4fc98a','#4aa8e0','#a679e0','#ff5a7a','#fff'];
+function burstConfetti(count){
+  count=count||30;
+  for(var i=0;i<count;i++){
+    var p=document.createElement('div'); p.className='piece';
+    var size=4+Math.random()*6;
+    p.style.width=size+'px'; p.style.height=size+'px';
+    p.style.left=(Math.random()*100)+'vw';
+    p.style.background=confettiColors[Math.floor(Math.random()*confettiColors.length)];
+    var dur=2.2+Math.random()*1.6;
+    p.style.animationDuration=dur+'s'; p.style.animationDelay=(Math.random()*0.3)+'s';
+    el.confettiLayer.appendChild(p);
+    (function(node,life){ setTimeout(function(){ if(node.parentNode) node.parentNode.removeChild(node); },(life+0.5)*1000); })(p,dur);
+  }
+}
+el.muteBtn.addEventListener('click',function(){
+  state.muted=!state.muted; el.muteBtn.textContent=state.muted?'🔇':'🔊';
+});
+
+buildStacks();
+})();
+</script>
+</body>
+</html>
