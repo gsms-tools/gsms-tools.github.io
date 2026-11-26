@@ -273,6 +273,16 @@
     overflow:hidden;
   }
   .overlay .video-js video{ max-height:82vh; }
+  /* Fallback inline player container (used for a handful of titles behind the scenes) */
+  .overlay .alt-wrap{
+    display:none;
+    width:100%; aspect-ratio:16/9; max-height:82vh; border-radius:14px; background:#000;
+    box-shadow: 0 30px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08);
+    overflow:hidden;
+  }
+  .overlay .alt-wrap #altPlayer, .overlay .alt-wrap iframe{
+    width:100%; height:100%; display:block; border:0;
+  }
   /* Tie Video.js' big play button and control-bar accents to the page palette */
   .video-js .vjs-big-play-button{
     background: rgba(155,107,255,0.25);
@@ -370,7 +380,7 @@
       just as stars, but as a story billions of years in the making.
     </p>
     <div class="about-grid">
-      <div class="fact"><span class="emoji">🌌</span><span class="num">11</span><span class="lbl">Short Films</span></div>
+      <div class="fact"><span class="emoji">🌌</span><span class="num">12</span><span class="lbl">Short Films</span></div>
       <div class="fact"><span class="emoji">🔭</span><span class="num">13.8B</span><span class="lbl">Years of History</span></div>
       <div class="fact"><span class="emoji">🪐</span><span class="num">1</span><span class="lbl">Amazing Home Planet</span></div>
     </div>
@@ -400,6 +410,7 @@
     <div class="close-btn" id="closeBtn" title="Close">✕</div>
     <!-- Video.js takes over this <video> tag: universal controls + robust fallback/error handling across browsers & devices -->
     <video id="player" class="video-js vjs-big-play-centered" controls playsinline preload="auto"></video>
+    <div class="alt-wrap" id="altWrap"><div id="altPlayer"></div></div>
     <div class="ov-title" id="ovTitle"></div>
   </div>
 </div>
@@ -417,6 +428,7 @@ const videos = [
     title: "The Beginning of the Universe",
     desc: "Travel back 13.8 billion years to the Big Bang — the fiery moment everything began.",
     tag: "Cosmic Origins",
+    alt: { id: "QTQVZuBV9oA", start: 251 },
     art: `<svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <radialGradient id="bb-bg" cx="50%" cy="50%" r="75%">
@@ -443,6 +455,7 @@ const videos = [
     title: "How Big is the Universe?",
     desc: "A mind-bending journey through scale — from our tiny Earth to galaxies beyond count.",
     tag: "Scale of Space",
+    alt: { id: "pSHVbLPWA28", start: 57 },
     art: `<svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
       <defs><radialGradient id="sc-bg" cx="50%" cy="50%" r="75%">
         <stop offset="0%" stop-color="#101a3d"/><stop offset="100%" stop-color="#050611"/></radialGradient></defs>
@@ -558,6 +571,7 @@ const videos = [
     title: "Reaching Planet Earth",
     desc: "Comets and asteroids carried water and building blocks of life across space — straight to Earth's door.",
     tag: "Cosmic Delivery",
+    alt: { id: "zZ0yxOQyKF0", start: 3 },
     art: `<svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
       <defs><radialGradient id="re-bg" cx="50%" cy="50%" r="75%">
         <stop offset="0%" stop-color="#101a3d"/><stop offset="100%" stop-color="#05060f"/></radialGradient>
@@ -684,6 +698,36 @@ const videos = [
       </g>
     </svg>`
   },
+  {
+    file: "saturn.mp4",
+    title: "Saturn and Its Rings",
+    desc: "Meet the jewel of the solar system — a giant world wrapped in thousands of icy, glittering rings.",
+    tag: "Ringed Giant",
+    art: `<svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="sa-bg" cx="50%" cy="50%" r="75%">
+          <stop offset="0%" stop-color="#241a3d"/><stop offset="100%" stop-color="#05060f"/>
+        </radialGradient>
+        <radialGradient id="sa-globe" cx="35%" cy="32%" r="70%">
+          <stop offset="0%" stop-color="#fff2d6"/><stop offset="45%" stop-color="#e8c98a"/>
+          <stop offset="100%" stop-color="#b3833f"/>
+        </radialGradient>
+      </defs>
+      <rect width="400" height="250" fill="url(#sa-bg)"/>
+      <g class="twinkle"><circle cx="45" cy="35" r="1.2" fill="#fff"/><circle cx="355" cy="55" r="1" fill="#fff"/>
+      <circle cx="365" cy="205" r="1.3" fill="#fff"/><circle cx="35" cy="205" r="1.1" fill="#fff"/></g>
+      <g class="spin-slower" style="transform-box:fill-box; transform-origin:200px 125px;">
+        <ellipse cx="200" cy="125" rx="150" ry="26" fill="none" stroke="#e8c98a" stroke-opacity="0.55" stroke-width="3"/>
+        <ellipse cx="200" cy="125" rx="150" ry="26" fill="none" stroke="#9b6bff" stroke-opacity="0.25" stroke-width="10"/>
+        <ellipse cx="200" cy="125" rx="118" ry="20" fill="none" stroke="#fff6cf" stroke-opacity="0.35" stroke-width="2"/>
+      </g>
+      <circle cx="200" cy="125" r="52" fill="url(#sa-globe)" class="pulse-soft"/>
+      <g opacity="0.25" fill="#6b4a1a">
+        <ellipse cx="185" cy="108" rx="30" ry="5"/>
+        <ellipse cx="210" cy="140" rx="26" ry="4"/>
+      </g>
+    </svg>`
+  },
   /*{
     file: "ancient-earth.mp4",
     title: "Ancient Earth",
@@ -738,6 +782,51 @@ videos.forEach((v, i) => {
 const overlay = document.getElementById('overlay');
 const ovTitle = document.getElementById('ovTitle');
 const closeBtn = document.getElementById('closeBtn');
+const altWrap = document.getElementById('altWrap');
+
+// A handful of titles are streamed from an alternate inline source instead of
+// the R2 bucket (same embedded look & feel, controls included).
+let altPlayer = null;
+let altApiPromise = null;
+function loadAltPlayerAPI(){
+  if (altApiPromise) return altApiPromise;
+  altApiPromise = new Promise((resolve) => {
+    if (window.YT && window.YT.Player) { resolve(); return; }
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+    window.onYouTubeIframeAPIReady = () => resolve();
+  });
+  return altApiPromise;
+}
+function playAlt(id, start){
+  loadAltPlayerAPI().then(() => {
+    const vars = {
+      start: start || 0,
+      autoplay: 1,
+      controls: 1,
+      rel: 0,
+      modestbranding: 1,
+      playsinline: 1,
+      iv_load_policy: 3,
+      fs: 1
+    };
+    if (altPlayer) {
+      altPlayer.loadVideoById({ videoId: id, startSeconds: start || 0 });
+    } else {
+      altPlayer = new YT.Player('altPlayer', {
+        videoId: id,
+        playerVars: vars,
+        events: { onReady: (e) => { e.target.playVideo(); } }
+      });
+    }
+  });
+}
+function stopAlt(){
+  if (altPlayer && typeof altPlayer.stopVideo === 'function') {
+    try { altPlayer.stopVideo(); } catch(e){}
+  }
+}
 
 // Initialize the Video.js player once. Video.js gives us a consistent UI,
 // inline playback on mobile, and much better error/fallback handling than
@@ -757,15 +846,26 @@ const vjsPlayer = videojs('player', {
 
 function openVideo(v){
   ovTitle.textContent = v.title;
-  vjsPlayer.src({ src: BASE + v.file, type: 'video/mp4' });
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
-  vjsPlayer.play().catch(()=>{});
+  if (v.alt) {
+    vjsPlayer.pause();
+    vjsPlayer.el().style.display = 'none';
+    altWrap.style.display = 'block';
+    playAlt(v.alt.id, v.alt.start);
+  } else {
+    stopAlt();
+    altWrap.style.display = 'none';
+    vjsPlayer.el().style.display = '';
+    vjsPlayer.src({ src: BASE + v.file, type: 'video/mp4' });
+    vjsPlayer.play().catch(()=>{});
+  }
 }
 function closeVideo(){
   overlay.classList.remove('open');
   document.body.style.overflow = '';
   vjsPlayer.pause();
+  stopAlt();
   // reset() clears the source/current time so the next video starts fresh
   if (typeof vjsPlayer.reset === 'function') {
     vjsPlayer.reset();
