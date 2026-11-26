@@ -344,7 +344,7 @@
       just as stars, but as a story billions of years in the making.
     </p>
     <div class="about-grid">
-      <div class="fact"><span class="emoji">🌌</span><span class="num">8</span><span class="lbl">Short Films</span></div>
+      <div class="fact"><span class="emoji">🌌</span><span class="num">11</span><span class="lbl">Short Films</span></div>
       <div class="fact"><span class="emoji">🔭</span><span class="num">13.8B</span><span class="lbl">Years of History</span></div>
       <div class="fact"><span class="emoji">🪐</span><span class="num">1</span><span class="lbl">Amazing Home Planet</span></div>
     </div>
@@ -622,6 +622,33 @@ const videos = [
       <g opacity="0.5">
         <line x1="60" y1="60" x2="110" y2="95" stroke="#ffb27a" stroke-width="2"/>
         <line x1="70" y1="50" x2="110" y2="95" stroke="#ffb27a" stroke-width="5" opacity="0.3"/>
+      </g>
+    </svg>`
+  },
+  {
+    file: "ancient-earth.mp4",
+    title: "Ancient Earth",
+    desc: "Before oceans and life, Earth was a scorched, volcanic world bathed in an alien orange sky.",
+    tag: "Primordial Earth",
+    art: `<svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+      <defs><radialGradient id="ae-bg" cx="50%" cy="30%" r="85%">
+        <stop offset="0%" stop-color="#5a2208"/><stop offset="55%" stop-color="#2a0f08"/><stop offset="100%" stop-color="#05060f"/></radialGradient>
+        <linearGradient id="ae-lava" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ffb24d"/><stop offset="100%" stop-color="#ff4d1f"/>
+        </linearGradient></defs>
+      <rect width="400" height="250" fill="url(#ae-bg)"/>
+      <g class="twinkle" opacity="0.6"><circle cx="60" cy="35" r="1.1" fill="#ffd9b3"/><circle cx="330" cy="50" r="1" fill="#ffd9b3"/></g>
+      <path d="M0,190 L40,165 L85,185 L130,150 L175,180 L220,160 L265,188 L310,155 L355,182 L400,168 L400,250 L0,250 Z" fill="#120603"/>
+      <g class="pulse-soft" style="transform-box:fill-box; transform-origin:130px 150px;">
+        <path d="M100,150 Q130,100 160,150 Z" fill="url(#ae-lava)" opacity="0.85"/>
+      </g>
+      <g class="drift" opacity="0.8">
+        <path d="M60,180 q15,-6 28,0" stroke="#ff7a30" stroke-width="3" fill="none"/>
+        <path d="M250,186 q15,-6 28,0" stroke="#ff7a30" stroke-width="3" fill="none"/>
+      </g>
+      <g class="drift" opacity="0.5">
+        <ellipse cx="140" cy="90" rx="50" ry="10" fill="#3a1505"/>
+        <ellipse cx="270" cy="60" rx="60" ry="12" fill="#3a1505"/>
       </g>
     </svg>`
   }
