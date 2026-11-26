@@ -655,6 +655,35 @@ const videos = [
       </g>
     </svg>`
   },
+  {
+    file: "tour-of-the-moon.mp4",
+    title: "Tour of The Moon",
+    desc: "From a dusty, cratered world to the silent guardian of our nights — the Moon's surface.",
+    tag: "Moon and its suraface",
+    art: `<svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+      <defs><radialGradient id="mn-bg" cx="50%" cy="50%" r="75%">
+        <stop offset="0%" stop-color="#171b35"/><stop offset="100%" stop-color="#05060f"/></radialGradient>
+        <radialGradient id="mn-earth" cx="38%" cy="35%" r="65%">
+          <stop offset="0%" stop-color="#8fe6c9"/><stop offset="45%" stop-color="#2aa9e0"/><stop offset="100%" stop-color="#0c2d55"/>
+        </radialGradient>
+        <radialGradient id="mn-moon" cx="38%" cy="35%" r="65%">
+          <stop offset="0%" stop-color="#eeeeee"/><stop offset="100%" stop-color="#9aa0b0"/>
+        </radialGradient></defs>
+      <rect width="400" height="250" fill="url(#mn-bg)"/>
+      <g class="twinkle"><circle cx="40" cy="40" r="1.2" fill="#fff"/><circle cx="360" cy="200" r="1.1" fill="#fff"/></g>
+      <circle cx="160" cy="135" r="58" fill="url(#mn-earth)" class="pulse-soft"/>
+      <path d="M140,110 q18,-8 32,5 q-8,18 -28,13 q-13,-7 -4,-18 Z" fill="#2f9e6b" opacity="0.75"/>
+      <g class="spin-slower" style="transform-box:fill-box; transform-origin:160px 135px;">
+        <circle cx="285" cy="100" r="20" fill="url(#mn-moon)"/>
+        <circle cx="278" cy="93" r="3" fill="#777" opacity="0.5"/>
+        <circle cx="292" cy="108" r="2.4" fill="#777" opacity="0.5"/>
+      </g>
+      <g opacity="0.5">
+        <line x1="60" y1="60" x2="110" y2="95" stroke="#ffb27a" stroke-width="2"/>
+        <line x1="70" y1="50" x2="110" y2="95" stroke="#ffb27a" stroke-width="5" opacity="0.3"/>
+      </g>
+    </svg>`
+  },
   /*{
     file: "ancient-earth.mp4",
     title: "Ancient Earth",
