@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How Do Search Engines Work?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cream:#FFF8EC; --ink:#1B2A4A; --sky:#4A90D9; --sky-dark:#2F6FB5;
+  --sun:#FFC845; --coral:#FF6B6B; --mint:#4ECDC4; --purple:#8E7CC3;
+  --card:#ffffff; --line:#E3D9C6; --shadow:rgba(27,42,74,.12);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --cream:#121826; --ink:#F2EFE6; --card:#1B2436; --line:#2E3A52; --shadow:rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  --cream:#121826; --ink:#F2EFE6; --card:#1B2436; --line:#2E3A52; --shadow:rgba(0,0,0,.4);
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth; scroll-padding-top:env(safe-area-inset-top,0px);}
+body{
+  margin:0; background:var(--cream); color:var(--ink);
+  font-family:'Nunito',sans-serif; line-height:1.5; overflow-x:hidden;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+h1,h2,h3{font-family:'Baloo 2',sans-serif; margin:0; line-height:1.15;}
+section{max-width:860px; margin:0 auto; padding:64px 24px; position:relative;}
+.hero{text-align:center; padding-top:72px;}
+.hero h1{font-size:clamp(32px,6vw,54px); color:var(--sky-dark);}
+.hero p{font-size:clamp(16px,2.6vw,20px); max-width:520px; margin:16px auto 0; font-weight:600;}
+.badge{display:inline-block; background:var(--sun); color:var(--ink); font-weight:800; padding:6px 18px; border-radius:999px; font-family:'Baloo 2',sans-serif; font-size:14px; margin-bottom:18px;}
+.section-title{font-size:clamp(24px,4vw,34px); text-align:center; margin-bottom:8px;}
+.section-sub{text-align:center; max-width:560px; margin:0 auto 36px; font-weight:600; opacity:.85;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:24px; padding:28px; box-shadow:0 10px 30px var(--shadow);}
+svg{display:block; width:100%; height:auto; overflow:visible;}
+.reveal{opacity:0; transform:translateY(24px); transition:opacity .7s ease, transform .7s ease;}
+.reveal.in{opacity:1; transform:translateY(0);}
+footer{text-align:center; padding:40px 24px 60px; font-weight:700; opacity:.6;}
+
+/* Hero robot */
+.bot-float{animation:float 3s ease-in-out infinite;}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.eye-blink{animation:blink 4s infinite;}
+@keyframes blink{0%,94%,100%{transform:scaleY(1)}96%{transform:scaleY(0.1)}}
+
+/* Library section */
+.shelf-row{display:flex; gap:28px; align-items:center; flex-wrap:wrap; justify-content:center;}
+.shelf-text{flex:1; min-width:240px;}
+.shelf-visual{flex:1; min-width:260px;}
+.book{transition:transform .25s;}
+.shelf-visual:hover .book{transform:translateY(-4px);}
+
+/* crawl path */
+.crawl-dot{animation:crawl 6s linear infinite;}
+@keyframes crawl{
+  0%{offset-distance:0%}
+  100%{offset-distance:100%}
+}
+.spider-bot{offset-path:path('M 40 160 C 120 40, 220 280, 300 160 S 480 40, 560 160');
+  animation:crawl 7s ease-in-out infinite;}
+.pulse{animation:pulse 1.8s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+.site-pop{animation:popIn 2s ease-in-out infinite;}
+@keyframes popIn{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+
+/* index drawer */
+.drawer-card{animation:fileIn 3s ease-in-out infinite;}
+@keyframes fileIn{
+  0%{transform:translateY(-40px); opacity:0}
+  15%{transform:translateY(0); opacity:1}
+  85%{transform:translateY(0); opacity:1}
+  100%{transform:translateY(40px); opacity:0}
+}
+
+/* ranking */
+.factor-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:16px; margin-top:28px;}
+.factor{background:var(--card); border:1px solid var(--line); border-radius:18px; padding:18px; text-align:center; box-shadow:0 8px 20px var(--shadow);}
+.factor .ic{font-size:30px; display:block; margin-bottom:8px;}
+.factor h4{font-family:'Baloo 2',sans-serif; margin:0 0 4px; font-size:16px;}
+.factor p{margin:0; font-size:13px; font-weight:600; opacity:.8;}
+
+/* search sim */
+.search-box{display:flex; gap:10px; max-width:460px; margin:0 auto 28px; background:var(--card); border:2px solid var(--sky); border-radius:999px; padding:10px 18px; box-shadow:0 8px 20px var(--shadow); align-items:center;}
+.search-box input{border:none; outline:none; background:transparent; font:600 16px 'Nunito'; color:var(--ink); flex:1; min-width:0;}
+.search-box button{background:var(--sky); color:#fff; border:none; border-radius:999px; padding:9px 18px; font-family:'Baloo 2'; font-weight:700; font-size:14px; cursor:pointer;}
+.result{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 18px; margin-bottom:12px; opacity:0; transform:translateX(-16px); transition:all .5s ease; box-shadow:0 6px 16px var(--shadow);}
+.result.show{opacity:1; transform:translateX(0);}
+.result .rt{font-weight:800; color:var(--sky-dark); font-family:'Baloo 2';}
+.result .rs{font-size:13px; opacity:.75; font-weight:600;}
+.result .stars{color:var(--sun); font-weight:800; font-size:13px; margin-top:4px;}
+@media (max-width:600px){ section{padding:48px 16px;} }
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:0.001s !important; transition-duration:0.001s !important;}
+}
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="badge">🔍 A Search Engine Adventure</div>
+  <h1>How does a search engine<br>find anything... instantly?</h1>
+  <p>Meet Pixel, a friendly search robot who will show you how the internet gets organized, searched, and sorted — all in a few blinks of an eye!</p>
+  <svg viewBox="0 0 300 220" width="220" style="margin:28px auto 0;">
+    <ellipse cx="150" cy="205" rx="70" ry="10" fill="#000" opacity="0.08"/>
+    <g class="bot-float">
+      <rect x="95" y="60" width="110" height="90" rx="26" fill="var(--sky)"/>
+      <circle cx="150" cy="40" r="30" fill="var(--sky)"/>
+      <g class="eye-blink" style="transform-origin:150px 38px;">
+        <circle cx="138" cy="38" r="7" fill="white"/>
+        <circle cx="162" cy="38" r="7" fill="white"/>
+        <circle cx="138" cy="38" r="3.4" fill="var(--ink)"/>
+        <circle cx="162" cy="38" r="3.4" fill="var(--ink)"/>
+      </g>
+      <rect x="140" y="56" width="20" height="10" fill="var(--sky-dark)"/>
+      <circle cx="150" cy="12" r="6" fill="var(--coral)"/>
+      <rect x="148" y="12" width="4" height="16" fill="var(--sky-dark)"/>
+      <rect x="110" y="90" width="80" height="40" rx="10" fill="white" opacity="0.25"/>
+      <circle cx="130" cy="110" r="9" fill="var(--sun)"/>
+      <circle cx="170" cy="110" r="9" fill="var(--coral)"/>
+      <rect x="60" y="80" width="26" height="14" rx="7" fill="var(--sky-dark)"/>
+      <rect x="214" y="80" width="26" height="14" rx="7" fill="var(--sky-dark)"/>
+      <rect x="120" y="150" width="20" height="26" rx="6" fill="var(--sky-dark)"/>
+      <rect x="160" y="150" width="20" height="26" rx="6" fill="var(--sky-dark)"/>
+    </g>
+  </svg>
+</section>
+
+<section class="reveal">
+  <h2 class="section-title">What IS a search engine, anyway?</h2>
+  <p class="section-sub">Think of the whole internet as a GIGANTIC library with billions of books — but with no librarian and no order at all!</p>
+  <div class="card shelf-row">
+    <div class="shelf-text">
+      <p><strong>A search engine is like a super-fast librarian.</strong> It already knows where every single book (website) is, what's written inside each one, and which books answer your question best — so when you ask it something, it hands you the right books in under a second!</p>
+    </div>
+    <div class="shelf-visual">
+      <svg viewBox="0 0 300 180">
+        <rect x="10" y="20" width="280" height="140" rx="14" fill="var(--sun)" opacity="0.18"/>
+        <g>
+          <rect x="30" y="40" width="22" height="100" rx="4" class="book" fill="var(--coral)"/>
+          <rect x="58" y="30" width="22" height="110" rx="4" class="book" fill="var(--mint)"/>
+          <rect x="86" y="50" width="22" height="90" rx="4" class="book" fill="var(--sky)"/>
+          <rect x="114" y="25" width="22" height="115" rx="4" class="book" fill="var(--sun)"/>
+          <rect x="142" y="45" width="22" height="95" rx="4" class="book" fill="var(--purple)"/>
+          <rect x="170" y="35" width="22" height="105" rx="4" class="book" fill="var(--coral)"/>
+          <rect x="198" y="55" width="22" height="85" rx="4" class="book" fill="var(--mint)"/>
+          <rect x="226" y="40" width="22" height="100" rx="4" class="book" fill="var(--sky)"/>
+        </g>
+        <rect x="10" y="150" width="280" height="10" fill="#00000022"/>
+        <circle cx="255" cy="90" r="24" fill="var(--sky-dark)"/>
+        <text x="255" y="98" font-size="26" text-anchor="middle">🔎</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<section class="reveal">
+  <h2 class="section-title">Step 1 — Crawling: Pixel explores the web</h2>
+  <p class="section-sub">Tiny robot helpers called <strong>"crawlers"</strong> zoom from website to website, following links like stepping stones, peeking inside every page they find.</p>
+  <div class="card">
+    <svg viewBox="0 0 600 260">
+      <path d="M 40 160 C 120 40, 220 280, 300 160 S 480 40, 560 160" fill="none" stroke="var(--line)" stroke-width="4" stroke-dasharray="2 10" stroke-linecap="round"/>
+      <g class="site-pop"><rect x="15" y="135" width="55" height="55" rx="10" fill="var(--mint)"/><text x="42" y="168" font-size="24" text-anchor="middle">🌐</text></g>
+      <g class="site-pop" style="animation-delay:.4s"><rect x="245" y="135" width="55" height="55" rx="10" fill="var(--sun)"/><text x="272" y="168" font-size="24" text-anchor="middle">📰</text></g>
+      <g class="site-pop" style="animation-delay:.8s"><rect x="505" y="135" width="55" height="55" rx="10" fill="var(--coral)"/><text x="532" y="168" font-size="24" text-anchor="middle">🎨</text></g>
+      <g class="spider-bot">
+        <circle r="18" fill="var(--sky-dark)"/>
+        <circle cx="-6" cy="-3" r="3" fill="white"/><circle cx="6" cy="-3" r="3" fill="white"/>
+        <path d="M -14 10 L -22 18 M 14 10 L 22 18 M -14 -10 L -22 -18 M 14 -10 L 22 -18" stroke="var(--sky-dark)" stroke-width="3" stroke-linecap="round"/>
+      </g>
+      <text x="300" y="230" text-anchor="middle" font-family="Baloo 2" font-size="15" fill="var(--ink)" opacity="0.7">Pixel's crawler hops along links, reading each page as it goes 🕸️</text>
+    </svg>
+  </div>
+</section>
+
+<section class="reveal">
+  <h2 class="section-title">Step 2 — Indexing: filing it all away</h2>
+  <p class="section-sub">Every page Pixel reads gets turned into a neat little index card and dropped into a giant, organized filing cabinet called the <strong>index</strong>.</p>
+  <div class="card">
+    <svg viewBox="0 0 560 220">
+      <rect x="40" y="60" width="200" height="140" rx="12" fill="var(--sky-dark)"/>
+      <rect x="55" y="48" width="170" height="26" rx="6" fill="var(--sky)"/>
+      <rect x="55" y="84" width="170" height="26" rx="6" fill="var(--sky)"/>
+      <rect x="55" y="120" width="170" height="26" rx="6" fill="var(--sky)"/>
+      <rect x="55" y="156" width="170" height="26" rx="6" fill="var(--sky)"/>
+      <text x="140" y="30" text-anchor="middle" font-family="Baloo 2" font-size="15" fill="var(--ink)">The Index (giant filing cabinet)</text>
+      <g class="drawer-card">
+        <rect x="320" y="30" width="200" height="70" rx="10" fill="white" stroke="var(--line)" stroke-width="2"/>
+        <text x="335" y="52" font-size="13" font-weight="700" fill="var(--ink)">🐾 "Cute Puppy Facts"</text>
+        <text x="335" y="70" font-size="11" fill="var(--ink)" opacity="0.7">topic: animals, pets</text>
+        <text x="335" y="86" font-size="11" fill="var(--ink)" opacity="0.7">words: puppy, dog, facts...</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<section class="reveal">
+  <h2 class="section-title">Step 3 — Ranking: who goes first?</h2>
+  <p class="section-sub">When thousands of pages match your question, Pixel scores each one to decide who deserves the top spot.</p>
+  <div class="factor-grid">
+    <div class="factor"><span class="ic">🎯</span><h4>Matches your words</h4><p>Does the page actually talk about what you asked?</p></div>
+    <div class="factor"><span class="ic">⭐</span><h4>Trusted & liked</h4><p>Do lots of other good sites link to it?</p></div>
+    <div class="factor"><span class="ic">📚</span><h4>Helpful content</h4><p>Is it clear, accurate, and actually useful?</p></div>
+    <div class="factor"><span class="ic">⚡</span><h4>Loads fast</h4><p>Does the page open quickly without crashing?</p></div>
+    <div class="factor"><span class="ic">📱</span><h4>Works everywhere</h4><p>Does it look good on phones and tablets too?</p></div>
+    <div class="factor"><span class="ic">🆕</span><h4>Fresh info</h4><p>Is it up to date, not old and outdated?</p></div>
+  </div>
+</section>
+
+<section class="reveal">
+  <h2 class="section-title">Try it yourself!</h2>
+  <p class="section-sub">Type a question and watch Pixel search the index and rank the best answers.</p>
+  <div class="search-box">
+    <span>🔎</span>
+    <input id="q" type="text" placeholder="why is the sky blue?" />
+    <button onclick="runSearch()">Search</button>
+  </div>
+  <div id="results"></div>
+</section>
+
+<footer>Made with 💙 to help curious minds understand the web.</footer>
+
+<script>
+const data = [
+  {t:"Why Is The Sky Blue? — Kid Science", s:"kidscience.example · explains sunlight scattering simply", stars:"★★★★★"},
+  {t:"Sky Color Facts for Curious Kids", s:"funfacts.example · short, clear answer with pictures", stars:"★★★★☆"},
+  {t:"Old Forum Post from 2009", s:"oldforum.example · outdated, barely matches your question", stars:"★★☆☆☆"}
+];
+function runSearch(){
+  const box = document.getElementById('results');
+  box.innerHTML = '';
+  data.forEach((d,i)=>{
+    setTimeout(()=>{
+      const el = document.createElement('div');
+      el.className = 'result';
+      el.innerHTML = `<div class="rt">${d.t}</div><div class="rs">${d.s}</div><div class="stars">${d.stars}</div>`;
+      box.appendChild(el);
+      requestAnimationFrame(()=> requestAnimationFrame(()=> el.classList.add('show')));
+    }, i*350);
+  });
+}
+document.getElementById('q').addEventListener('keydown', e=>{ if(e.key==='Enter') runSearch(); });
+
+const io = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('in'); });
+},{threshold:0.15});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>
