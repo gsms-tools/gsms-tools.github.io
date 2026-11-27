@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mini Search Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EAF4FB; --panel:#FFFFFF; --panel-2:#F3F9FD; --ink:#15233A; --ink-soft:#4A5C76;
+  --line:#D7E6F2; --sun:#FFC857; --coral:#FF6B6B; --leaf:#4CC9A0; --sky:#3E8FE0;
+  --shadow:0 8px 22px rgba(21,35,58,.08);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1726; --panel:#17233A; --panel-2:#1E2C47; --ink:#EAF4FB; --ink-soft:#9FB3CC;
+    --line:#2A3B59; --sun:#FFC857; --coral:#FF7E7E; --leaf:#5FDFB6; --sky:#6FB2F5;
+    --shadow:0 8px 22px rgba(0,0,0,.35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1726; --panel:#17233A; --panel-2:#1E2C47; --ink:#EAF4FB; --ink-soft:#9FB3CC;
+  --line:#2A3B59; --sun:#FFC857; --coral:#FF7E7E; --leaf:#5FDFB6; --sky:#6FB2F5;
+  --shadow:0 8px 22px rgba(0,0,0,.35);
+  color-scheme: dark;
+}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:'Inter',system-ui,sans-serif;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+h1,h2,h3,.display{font-family:'Baloo 2',system-ui,sans-serif;}
+.app{max-width:1000px;margin:0 auto;padding:18px 16px 60px;}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:env(safe-area-inset-top,0px) 0 14px;}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand .mark{font-size:30px;}
+.brand h1{font-size:22px;margin:0;line-height:1.1;}
+.brand p{margin:0;font-size:12.5px;color:var(--ink-soft);}
+#themeBtn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:8px 14px;font-size:14px;cursor:pointer;font-weight:600;}
+nav.tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px;}
+nav.tabs button{
+  flex:0 0 auto;border:1px solid var(--line);background:var(--panel);color:var(--ink-soft);
+  padding:10px 16px;border-radius:14px;font-weight:700;font-size:14.5px;cursor:pointer;font-family:'Baloo 2';
+  transition:transform .15s ease;
+}
+nav.tabs button.active{background:var(--sky);color:#fff;border-color:transparent;}
+nav.tabs button:active{transform:scale(.96);}
+.panel{display:none;}
+.panel.active{display:block;animation:fade .25s ease;}
+@keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow);}
+.grid2{display:grid;grid-template-columns:1.1fr 1fr;gap:16px;}
+@media (max-width:760px){.grid2{grid-template-columns:1fr;}}
+label{font-size:13px;font-weight:600;color:var(--ink-soft);display:block;margin:10px 0 5px;}
+input[type=text],textarea{
+  width:100%;border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;font-size:14px;
+  background:var(--panel-2);color:var(--ink);font-family:'Inter';
+}
+textarea{font-family:ui-monospace,Menlo,Consolas,monospace;min-height:160px;resize:vertical;line-height:1.45;}
+input:focus,textarea:focus{outline:2px solid var(--sky);outline-offset:1px;}
+.btn{border:none;border-radius:12px;padding:11px 18px;font-weight:700;font-size:14.5px;cursor:pointer;font-family:'Baloo 2';color:#fff;background:var(--sky);transition:transform .12s ease;}
+.btn:active{transform:scale(.96);}
+.btn.coral{background:var(--coral);}
+.btn.leaf{background:var(--leaf);}
+.btn.ghost{background:transparent;color:var(--sky);border:1.5px solid var(--sky);}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+.pagelist{margin-top:16px;display:flex;flex-direction:column;gap:10px;max-height:420px;overflow:auto;padding-right:4px;}
+.pageitem{background:var(--panel-2);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.pageitem .name{font-weight:700;font-family:'Baloo 2';font-size:15px;}
+.pageitem .mini{font-size:12px;color:var(--ink-soft);}
+.iconbtn{background:none;border:none;cursor:pointer;font-size:17px;padding:4px 6px;border-radius:8px;}
+.iconbtn:hover{background:var(--line);}
+.crawlrow{position:relative;display:flex;gap:18px;padding:30px 10px 10px;overflow-x:auto;}
+.site{width:76px;text-align:center;font-size:30px;flex:0 0 auto;transition:transform .3s ease, filter .3s ease;filter:grayscale(1) opacity(.55);}
+.site.visited{filter:none;transform:translateY(-6px) scale(1.08);}
+.site small{display:block;font-size:10.5px;color:var(--ink-soft);margin-top:3px;max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.crawler{position:absolute;top:-4px;font-size:28px;transition:left .5s ease;left:0;}
+.log{margin-top:16px;border-collapse:collapse;width:100%;font-size:13px;}
+.log th,.log td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;}
+.log th{color:var(--ink-soft);font-weight:600;font-size:12px;}
+.slider-row{margin-bottom:18px;}
+.slider-row .top{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-family:'Baloo 2';font-size:15px;}
+.slider-row .top span.val{color:var(--sky);font-size:14px;}
+input[type=range]{width:100%;accent-color:var(--sky);height:22px;}
+.sharebar{height:14px;border-radius:7px;background:var(--panel-2);overflow:hidden;display:flex;margin-top:14px;border:1px solid var(--line);}
+.sharebar div{height:100%;}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:12.5px;color:var(--ink-soft);}
+.legend span{display:inline-flex;align-items:center;gap:5px;}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
+.searchbox{display:flex;gap:8px;}
+.searchbox input{font-size:16px;padding:13px 16px;border-radius:14px;}
+.result{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-top:12px;}
+.result .rtitle{color:var(--sky);font-weight:700;font-size:16.5px;cursor:pointer;font-family:'Baloo 2';}
+.result .rurl{font-size:12px;color:var(--leaf);margin:2px 0 6px;}
+.result .rdesc{font-size:13.5px;color:var(--ink-soft);line-height:1.5;}
+details{margin-top:8px;}
+summary{font-size:12.5px;color:var(--sky);cursor:pointer;font-weight:600;}
+.breakdown{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;}
+.bk{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:70px;}
+.bk .barbg{width:100%;height:8px;background:var(--panel-2);border-radius:4px;overflow:hidden;}
+.bk .barbg i{display:block;height:100%;background:var(--sun);}
+.bk small{font-size:10.5px;color:var(--ink-soft);}
+.empty{text-align:center;padding:30px 10px;color:var(--ink-soft);font-size:14px;}
+.tip{background:var(--panel-2);border:1px dashed var(--sky);border-radius:12px;padding:10px 14px;font-size:13px;color:var(--ink-soft);margin-bottom:14px;}
+.modal-wrap{position:fixed;inset:0;background:rgba(10,16,28,.55);display:none;align-items:center;justify-content:center;padding:20px;z-index:50;}
+.modal-wrap.open{display:flex;}
+.modal{background:var(--panel);border-radius:16px;max-width:720px;width:100%;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--shadow);}
+.modal header2{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);}
+.modal iframe{flex:1;border:none;width:100%;background:#fff;min-height:400px;}
+.badge{display:inline-block;background:var(--sun);color:#3a2a00;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px;}
+footer.note{text-align:center;color:var(--ink-soft);font-size:11.5px;margin-top:30px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="mark">🔍</div>
+      <div><h1>Mini Search Lab</h1><p>Build pages, crawl the web, and see how search ranking works!</p></div>
+    </div>
+    <button id="themeBtn" onclick="toggleTheme()">🌙 Dark</button>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="build" class="active">🧱 Build Pages</button>
+    <button data-tab="crawl">🤖 Crawl</button>
+    <button data-tab="weights">⚖️ Ranking Rules</button>
+    <button data-tab="search">🔎 Search</button>
+  </nav>
+
+  <section id="panel-build" class="panel active">
+    <div class="tip">Make your own tiny websites! Give each one a name and some HTML code, then save it. Try changing the words inside &lt;title&gt;, &lt;h1&gt;, and &lt;p&gt; tags.</div>
+    <div class="grid2">
+      <div class="card">
+        <h3 id="formTitle" style="margin-top:0;">Create a page</h3>
+        <label>Page name</label>
+        <input type="text" id="pageName" placeholder="e.g. My Pet Blog">
+        <label>HTML code</label>
+        <textarea id="pageHtml" spellcheck="false"></textarea>
+        <div class="row">
+          <button class="btn" onclick="savePage()">💾 Save page</button>
+          <button class="btn ghost" onclick="clearForm()">✨ New page</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0;">Your mini websites</h3>
+        <div class="pagelist" id="pageList"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="panel-crawl" class="panel">
+    <div class="tip">A search engine can't magically know what's on a page — it has to visit it first! Click the button and watch the crawler robot check every page you saved.</div>
+    <div class="card">
+      <button class="btn leaf" onclick="runCrawl()">🤖 Start crawling!</button>
+      <div class="crawlrow" id="crawlRow"></div>
+      <table class="log" id="crawlLog" style="display:none;">
+        <thead><tr><th>Page</th><th>Title found</th><th>Description found</th><th>Heading words</th><th>Paragraph words</th></tr></thead>
+        <tbody id="crawlLogBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="panel-weights" class="panel">
+    <div class="tip">Not every part of a page matters equally. Decide how much the <b>title</b>, <b>description</b>, <b>headings</b>, and <b>paragraphs</b> count when ranking results — then go test it in Search!</div>
+    <div class="card">
+      <div class="slider-row">
+        <div class="top">📰 Title <span class="val" id="valTitle">40</span></div>
+        <input type="range" id="wTitle" min="0" max="100" value="40" oninput="onWeight()">
+      </div>
+      <div class="slider-row">
+        <div class="top">📝 Description <span class="val" id="valMeta">20</span></div>
+        <input type="range" id="wMeta" min="0" max="100" value="20" oninput="onWeight()">
+      </div>
+      <div class="slider-row">
+        <div class="top">📣 Headings <span class="val" id="valHead">20</span></div>
+        <input type="range" id="wHead" min="0" max="100" value="20" oninput="onWeight()">
+      </div>
+      <div class="slider-row">
+        <div class="top">📄 Paragraphs <span class="val" id="valPara">20</span></div>
+        <input type="range" id="wPara" min="0" max="100" value="20" oninput="onWeight()">
+      </div>
+      <div class="sharebar" id="shareBar"></div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--sky)"></i>Title</span>
+        <span><i class="dot" style="background:var(--leaf)"></i>Description</span>
+        <span><i class="dot" style="background:var(--sun)"></i>Headings</span>
+        <span><i class="dot" style="background:var(--coral)"></i>Paragraphs</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="panel-search" class="panel">
+    <div class="tip">Search for a word like <b>cats</b>. Then go change the sliders in Ranking Rules and search again — watch the order change! That's SEO in action.</div>
+    <div class="card">
+      <div class="searchbox">
+        <input type="text" id="searchInput" placeholder="Search your mini web..." onkeydown="if(event.key==='Enter')doSearch()">
+        <button class="btn" onclick="doSearch()">Search</button>
+      </div>
+      <div id="searchResults"></div>
+    </div>
+  </section>
+
+  <footer class="note">Everything is saved right in your browser — nothing leaves your computer.</footer>
+</div>
+
+<div class="modal-wrap" id="modalWrap">
+  <div class="modal">
+    <header2><strong id="modalTitle">Preview</strong><button class="iconbtn" onclick="closeModal()">✖️</button></header2>
+    <iframe id="modalFrame" sandbox=""></iframe>
+  </div>
+</div>
+
+<script>
+const STORE_PAGES='msl_pages', STORE_INDEX='msl_index', STORE_WEIGHTS='msl_weights', STORE_THEME='msl_theme';
+let editingId=null;
+
+function seed(){
+  if(localStorage.getItem(STORE_PAGES)) return;
+  const pages=[
+    {id:crypto.randomUUID(), name:'Cat Lovers Blog', html:`<html><head><title>Why Cats Are the Best Pets</title><meta name="description" content="Learn why cats make wonderful, independent pets for any family."></head><body><h1>Cats Are Smart</h1><h2>Cats Are Clean</h2><p>Pets bring joy to a home. Many families choose a furry friend to love.</p><p>A good pet listens, plays, and keeps you company every day.</p></body></html>`},
+    {id:crypto.randomUUID(), name:'Dog Adventures', html:`<html><head><title>Dog Adventures and Fun</title><meta name="description" content="A fun blog all about dogs, walks, and playtime."></head><body><h1>Dog Breeds</h1><h2>Dog Training Tips</h2><p>Dogs love to run, fetch, and explore the outdoors with their owners.</p><p>Training a dog takes patience, treats, and plenty of praise.</p></body></html>`},
+    {id:crypto.randomUUID(), name:'All About Pets', html:`<html><head><title>All About Pets</title><meta name="description" content="A general guide to choosing a pet for your family."></head><body><h1>Choosing a Pet</h1><p>Cats are wonderful companions. Many people love cats because cats are quiet, cats are soft, and cats nap in sunny windows. Our neighbors have three cats and they say cats are the easiest pet to care for. Cats, cats, cats - that is all our readers talk about!</p></body></html>`}
+  ];
+  localStorage.setItem(STORE_PAGES, JSON.stringify(pages));
+}
+function getPages(){return JSON.parse(localStorage.getItem(STORE_PAGES)||'[]');}
+function setPages(p){localStorage.setItem(STORE_PAGES, JSON.stringify(p));}
+function getIndex(){return JSON.parse(localStorage.getItem(STORE_INDEX)||'null');}
+function getWeights(){return JSON.parse(localStorage.getItem(STORE_WEIGHTS)||'{"title":40,"meta":20,"head":20,"para":20}');}
+function setWeights(w){localStorage.setItem(STORE_WEIGHTS, JSON.stringify(w));}
+
+function toggleTheme(){
+  const html=document.documentElement;
+  const cur=html.getAttribute('data-theme')|| (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+  const next= cur==='dark' ? 'light':'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem(STORE_THEME, next);
+  document.getElementById('themeBtn').textContent = next==='dark' ? '☀️ Light' : '🌙 Dark';
+}
+(function initTheme(){
+  const saved=localStorage.getItem(STORE_THEME);
+  if(saved){document.documentElement.setAttribute('data-theme', saved); document.getElementById('themeBtn').textContent= saved==='dark'?'☀️ Light':'🌙 Dark';}
+})();
+
+document.querySelectorAll('nav.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
+    if(btn.dataset.tab==='crawl') renderCrawlRow();
+  });
+});
+
+function renderPageList(){
+  const list=document.getElementById('pageList');
+  const pages=getPages();
+  if(!pages.length){list.innerHTML='<div class="empty">No pages yet. Create your first one! 🚀</div>'; return;}
+  list.innerHTML=pages.map(p=>`
+    <div class="pageitem">
+      <div><div class="name">${escapeHtml(p.name)}</div><div class="mini">${p.html.length} characters of HTML</div></div>
+      <div>
+        <button class="iconbtn" title="Preview" onclick="previewPage('${p.id}')">👁️</button>
+        <button class="iconbtn" title="Edit" onclick="editPage('${p.id}')">✏️</button>
+        <button class="iconbtn" title="Delete" onclick="deletePage('${p.id}')">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+function escapeHtml(s){return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function savePage(){
+  const name=document.getElementById('pageName').value.trim();
+  const html=document.getElementById('pageHtml').value;
+  if(!name || !html.trim()){ alert('Please give your page a name and some HTML code!'); return; }
+  let pages=getPages();
+  if(editingId){
+    pages=pages.map(p=> p.id===editingId ? {...p,name,html} : p);
+  } else {
+    pages.push({id:crypto.randomUUID(), name, html});
+  }
+  setPages(pages);
+  clearForm();
+  renderPageList();
+}
+function clearForm(){editingId=null; document.getElementById('pageName').value=''; document.getElementById('pageHtml').value=''; document.getElementById('formTitle').textContent='Create a page';}
+function editPage(id){
+  const p=getPages().find(x=>x.id===id); if(!p) return;
+  editingId=id; document.getElementById('pageName').value=p.name; document.getElementById('pageHtml').value=p.html;
+  document.getElementById('formTitle').textContent='Edit page';
+}
+function deletePage(id){
+  if(!confirm('Delete this page?')) return;
+  setPages(getPages().filter(p=>p.id!==id));
+  renderPageList();
+}
+function previewPage(id){
+  const p=getPages().find(x=>x.id===id); if(!p) return;
+  document.getElementById('modalTitle').textContent=p.name;
+  document.getElementById('modalFrame').srcdoc=p.html;
+  document.getElementById('modalWrap').classList.add('open');
+}
+function closeModal(){document.getElementById('modalWrap').classList.remove('open'); document.getElementById('modalFrame').srcdoc='';}
+
+function renderCrawlRow(){
+  const row=document.getElementById('crawlRow');
+  const pages=getPages();
+  if(!pages.length){row.innerHTML='<div class="empty">Add some pages first in the Build tab!</div>'; return;}
+  row.innerHTML='<div class="crawler" id="crawlerBot">🤖</div>' + pages.map(p=>`<div class="site" data-id="${p.id}">🌐<small>${escapeHtml(p.name)}</small></div>`).join('');
+}
+function countWord(text, word){
+  if(!text) return 0;
+  const re=new RegExp('\\b'+word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','gi');
+  const m=text.match(re); return m?m.length:0;
+}
+function extractPage(p){
+  const doc=new DOMParser().parseFromString(p.html,'text/html');
+  const title = (doc.querySelector('title')?.textContent || doc.querySelector('h1')?.textContent || p.name).trim();
+  const meta = (doc.querySelector('meta[name="description"]')?.getAttribute('content') || '').trim();
+  const headings = Array.from(doc.querySelectorAll('h1,h2,h3,h4,h5,h6')).map(h=>h.textContent).join(' ').trim();
+  const paragraphs = Array.from(doc.querySelectorAll('p')).map(h=>h.textContent).join(' ').trim();
+  const wc = s => (s.trim().match(/\S+/g)||[]).length;
+  return {id:p.id, name:p.name, title, meta, headings, paragraphs,
+    counts:{title:wc(title), meta:wc(meta), headings:wc(headings), paragraphs:wc(paragraphs)}};
+}
+function runCrawl(){
+  const pages=getPages();
+  if(!pages.length){ alert('Add at least one page first!'); return; }
+  renderCrawlRow();
+  const sites=document.querySelectorAll('.site');
+  const bot=document.getElementById('crawlerBot');
+  const results=[];
+  sites.forEach((el,i)=>{
+    setTimeout(()=>{
+      bot.style.left=(el.offsetLeft+22)+'px';
+      el.classList.add('visited');
+      const data=extractPage(pages[i]);
+      results.push(data);
+      if(i===sites.length-1){
+        localStorage.setItem(STORE_INDEX, JSON.stringify(results));
+        showCrawlLog(results);
+      }
+    }, i*650);
+  });
+}
+function showCrawlLog(results){
+  const tbl=document.getElementById('crawlLog'); const body=document.getElementById('crawlLogBody');
+  body.innerHTML=results.map(r=>`<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.title)}</td><td>${escapeHtml(r.meta||'—')}</td><td>${r.counts.headings} words</td><td>${r.counts.paragraphs} words</td></tr>`).join('');
+  tbl.style.display='table';
+}
+
+function onWeight(){
+  const t=+document.getElementById('wTitle').value, m=+document.getElementById('wMeta').value,
+        h=+document.getElementById('wHead').value, p=+document.getElementById('wPara').value;
+  document.getElementById('valTitle').textContent=t;
+  document.getElementById('valMeta').textContent=m;
+  document.getElementById('valHead').textContent=h;
+  document.getElementById('valPara').textContent=p;
+  setWeights({title:t,meta:m,head:h,para:p});
+  renderShareBar(t,m,h,p);
+}
+function renderShareBar(t,m,h,p){
+  const total=t+m+h+p || 1;
+  const bar=document.getElementById('shareBar');
+  bar.innerHTML = `<div style="width:${t/total*100}%;background:var(--sky)"></div><div style="width:${m/total*100}%;background:var(--leaf)"></div><div style="width:${h/total*100}%;background:var(--sun)"></div><div style="width:${p/total*100}%;background:var(--coral)"></div>`;
+}
+(function initWeights(){
+  const w=getWeights();
+  document.getElementById('wTitle').value=w.title; document.getElementById('wMeta').value=w.meta;
+  document.getElementById('wHead').value=w.head; document.getElementById('wPara').value=w.para;
+  onWeight();
+})();
+
+function tokenize(q){return q.toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(Boolean);}
+function doSearch(){
+  const q=document.getElementById('searchInput').value.trim();
+  const box=document.getElementById('searchResults');
+  const idx=getIndex();
+  if(!idx){ box.innerHTML='<div class="empty">Crawl your pages first in the 🤖 Crawl tab!</div>'; return; }
+  if(!q){ box.innerHTML=''; return; }
+  const tokens=tokenize(q);
+  const w=getWeights();
+  const total=(w.title+w.meta+w.head+w.para)||1;
+  const nw={title:w.title/total, meta:w.meta/total, head:w.head/total, para:w.para/total};
+  const scored=idx.map(p=>{
+    const b={title:0,meta:0,headings:0,paragraphs:0};
+    tokens.forEach(tok=>{
+      b.title+=countWord(p.title,tok); b.meta+=countWord(p.meta,tok);
+      b.headings+=countWord(p.headings,tok); b.paragraphs+=countWord(p.paragraphs,tok);
+    });
+    const contrib={title:b.title*nw.title, meta:b.meta*nw.meta, headings:b.headings*nw.head, paragraphs:b.paragraphs*nw.para};
+    const score=contrib.title+contrib.meta+contrib.headings+contrib.paragraphs;
+    return {p,b,contrib,score};
+  }).filter(r=>r.score>0).sort((a,b)=>b.score-a.score);
+
+  if(!scored.length){ box.innerHTML='<div class="empty">No pages matched "'+escapeHtml(q)+'". Try another word, or add more content!</div>'; return; }
+  box.innerHTML=scored.map(r=>{
+    const maxC=Math.max(r.contrib.title,r.contrib.meta,r.contrib.headings,r.contrib.paragraphs,0.0001);
+    const bk=(label,val,color)=>`<div class="bk"><div class="barbg"><i style="width:${(val/maxC*100)}%;background:${color}"></i></div><small>${label}</small></div>`;
+    return `<div class="result">
+      <div class="rtitle" onclick="previewPage('${r.p.id}')">${escapeHtml(r.p.title)}</div>
+      <div class="rurl">my-web/${escapeHtml(r.p.name.toLowerCase().replace(/\s+/g,'-'))}</div>
+      <div class="rdesc">${escapeHtml(r.p.meta || r.p.paragraphs.slice(0,140)+'…')}</div>
+      <details><summary>Why did this rank here? 🤔</summary>
+        <div class="breakdown">
+          ${bk('Title',r.contrib.title,'var(--sky)')}
+          ${bk('Description',r.contrib.meta,'var(--leaf)')}
+          ${bk('Headings',r.contrib.headings,'var(--sun)')}
+          ${bk('Paragraphs',r.contrib.paragraphs,'var(--coral)')}
+        </div>
+      </details>
+    </div>`;
+  }).join('');
+}
+
+seed();
+renderPageList();
+</script>
+</body>
+</html>
